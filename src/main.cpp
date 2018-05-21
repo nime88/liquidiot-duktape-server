@@ -14,51 +14,35 @@ extern "C" {
 }
 #endif
 
-#include "file_ops.h"
+#include <iostream>
+#include <vector>
+#include <string>
 
-// static duk_ret_t native_print(duk_context *ctx) {
-//         duk_push_string(ctx, " ");
-//         duk_insert(ctx, 0);
-//         duk_join(ctx, duk_get_top(ctx) - 1);
-//         printf("%s\n", duk_safe_to_string(ctx, -1));
-//         return 0;
-// }
-//
-// static duk_ret_t native_adder(duk_context *ctx) {
-//         int i;
-//         int n = duk_get_top(ctx);  /* #args */
-//         double res = 0.0;
-//
-//         for (i = 0; i < n; i++) {
-//                 res += duk_to_number(ctx, i);
-//         }
-//
-//         duk_push_number(ctx, res);
-//         return 1;  /* one return value */
-// }
+using namespace std;
+
+#include "duk_manager.h"
+#include "applications_manager.h"
 
 int main(int argc, char *argv[]) {
-  duk_context *ctx;
+  DukManager *duk_manager;
 
-  ctx = duk_create_heap_default();
-  if (!ctx) {
+  try {
+    duk_manager = new DukManager();
+  } catch(...) {
     return 1;
   }
 
-  // initializing prints to help debugging (probably will not bee needed when all is done)
-  duk_print_alert_init(ctx, 0 /*flags*/);
-
   (void) argc; (void) argv;  /* suppress warning */
 
-  int sourceLen;
-  char* sourceCode = load_js_file("main.js", sourceLen);
+  duk_manager->executeFile("applications/test/main.js");
 
-  duk_push_string(ctx, sourceCode);
-  duk_eval(ctx);
-  duk_pop(ctx);
+  AppManager *app_manager = new AppManager();
 
+  unsigned int num_apps = app_manager->getApps().size();
 
-  duk_destroy_heap(ctx);
+  for(unsigned int i = 0; i < num_apps; ++i) {
+    duk_manager->executeSource(app_manager->getApps().at(i)->getJSSource());
+  }
 
   return 0;
 }

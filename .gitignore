@@ -1,4 +1,6 @@
 build/
+test/
 liquid-server
 *.o
 *.js
+*.gch
