@@ -24,6 +24,11 @@ class JSApplication {
     JSApplication(const char* path);
 
     ~JSApplication() {
+      duk_get_global_string(duk_context_, "terminate");
+
+      if(duk_pcall(duk_context_, 0) != 0) {
+        printf("Script error: %s\n", duk_safe_to_string(duk_context_, -1));
+      }
       duk_destroy_heap(duk_context_);
       duk_context_ = 0;
     }

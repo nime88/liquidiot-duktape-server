@@ -39,6 +39,21 @@ void JSApplication::run() {
   if(duk_pcall(duk_context_, 0) != 0) {
     printf("Script error: %s\n", duk_safe_to_string(duk_context_, -1));
   }
+
+  if(!JSApplication::repeat_) {
+    duk_get_global_string(duk_context_, "task");
+
+    if(duk_pcall(duk_context_, 0) != 0) {
+      printf("Script error: %s\n", duk_safe_to_string(duk_context_, -1));
+    }
+  } else {
+    duk_get_global_string(duk_context_, "setInterval");
+    duk_push_string(duk_context_, "task()");
+    duk_push_int(duk_context_, JSApplication::interval_);
+    if(duk_pcall(duk_context_, 2) != 0) {
+      printf("Script error: %s\n", duk_safe_to_string(duk_context_, -1));
+    }
+  }
 }
 
 duk_ret_t JSApplication::setTaskInterval(duk_context* ctx) {
@@ -52,6 +67,6 @@ duk_ret_t JSApplication::setTaskInterval(duk_context* ctx) {
 
   // TODO Clean up later
   cout << "Task Interval set to " << repeat << " and " << interval << endl;
-  
+
   return 0;
 }

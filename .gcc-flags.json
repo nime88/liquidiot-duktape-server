@@ -1,5 +1,5 @@
 {
-  "execPath": "/usr/bin/g++",
+  "execPath": "/usr/bin/gcc",
   "gccDefaultCFlags": "-c -Wall -Wextra -lm",
   "gccDefaultCppFlags": "-c -Wall -Wextra -lm -lstdc++",
   "gccErrorLimit": 15,

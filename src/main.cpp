@@ -20,17 +20,9 @@ extern "C" {
 
 using namespace std;
 
-#include "duk_manager.h"
 #include "applications_manager.h"
 
 int main(int argc, char *argv[]) {
-  DukManager *duk_manager;
-
-  try {
-    duk_manager = new DukManager();
-  } catch(...) {
-    return 1;
-  }
 
   (void) argc; (void) argv;  /* suppress warning */
 
@@ -46,6 +38,8 @@ int main(int argc, char *argv[]) {
     app_manager->getApps().at(i)->run();
     // duk_manager->executeSource(app_manager->getApps().at(i)->getJSSource());
   }
+
+  app_manager->stopApps();
 
   return 0;
 }

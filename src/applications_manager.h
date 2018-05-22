@@ -21,10 +21,21 @@ class AppManager {
     // loads the applications to usable "executables"
     void loadApplications();
 
+    // TODO: In practice only one app works properly with intervals
+    // as they are static atm
     void addApp(JSApplication* app);
 
     vector<JSApplication*> getApps() {
       return apps_;
+    }
+
+    void stopApps() {
+      unsigned int num_apps = apps_.size();
+
+      for(unsigned int i = 0; i < num_apps; ++i) {
+        delete apps_.at(i);
+        apps_.at(i) = 0;
+      }
     }
 
   private:
