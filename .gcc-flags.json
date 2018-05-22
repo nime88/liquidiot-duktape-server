@@ -1,0 +1,8 @@
+{
+  "execPath": "/usr/bin/g++",
+  "gccDefaultCFlags": "-c -Wall -Wextra -lm",
+  "gccDefaultCppFlags": "-c -Wall -Wextra -lm -lstdc++",
+  "gccErrorLimit": 15,
+  "gccIncludePaths": "../duktape-2.2.1/extras/print-alert,../duktape-2.2.1/src,./src",
+  "gccSuppressWarnings": true
+}

@@ -48,6 +48,9 @@ void AppManager::loadApplications() {
     JSApplication* temp_app = new JSApplication(path.c_str());
     if(temp_app) {
       addApp(temp_app);
+      std::cout << "Loading app " << app_names_.at(i) << " SUCCEEDED." << std::endl;
+    } else {
+      std::cout << "Loading app " << app_names_.at(i) << " FAILED." << std::endl;
     }
   }
 

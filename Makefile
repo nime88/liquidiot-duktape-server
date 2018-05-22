@@ -11,13 +11,15 @@ BUILD_DIR=build
 
 _OBJ = duktape.o duk_print_alert.o duk_manager.o file_ops.o application.o applications_manager.o main.o
 OBJ = $(patsubst %,$(BUILD_DIR)/%,$(_OBJ))
-MAIN_DEPS = $(DUKTAPE_DIR)/src/duktape.h $(DUKTAPE_EXTRAS)/print-alert/duk_print_alert.h
+
+_DEPS = duk_manager.h file_ops.h application.h applications_manager.h
+DEPS = $(patsubst %,$(SOURCE_DIR)/%,$(_DEPS))
 
 CPPVER = -lstdc++ 
 
 # build targets for local source
-$(BUILD_DIR)/%.o: $(SOURCE_DIR)/%.cpp
-	$(CC) -c $^ -o $@ $(INCLUDE) $(CFLAGS) $(CPPVER)
+$(BUILD_DIR)/%.o: $(SOURCE_DIR)/%.cpp $(DEPS)
+	$(CC) -c $< -o $@ $(INCLUDE) $(CFLAGS) $(CPPVER)
 
 # full linking
 all: $(OBJ)
@@ -36,3 +38,4 @@ $(BUILD_DIR)/duk_print_alert.o: $(DUKTAPE_EXTRAS)/print-alert/duk_print_alert.c
 clean:
 	rm -f $(BUILD_DIR)/*.o
 	rm -f liquid-server
+	rm -f $(SOURCE_DIR)/*.gch
