@@ -28,6 +28,8 @@ JSApplication::JSApplication(const char* path){
   app_paths_.push_back(string(path));
   string file = string(path) + string("/main.js");
 
+  duk_module_node_peval_main(duk_context_, file.c_str());
+
   source_code_ = load_js_file(file.c_str(),source_len);
 
   // creating the setTaskInterval function for the app to use
@@ -84,44 +86,53 @@ duk_ret_t JSApplication::setTaskInterval(duk_context* ctx) {
 }
 
 duk_ret_t JSApplication::cb_resolve_module(duk_context *ctx) {
-    /*
-     *  Entry stack: [ requested_id parent_id ]
-     */
+  const char *requested_id;
+  const char *parent_id;
+  const char *app_path;
 
-    const char *requested_id = duk_get_string(ctx, 0);
-    string requested_id_str = "";
-    const char *parent_id = duk_get_string(ctx, 1);  /* calling module */
-    (void) duk_get_prop_string(ctx, -1,"app_path");
-    const char *app_path = app_paths_.at(app_paths_.size()-1).c_str();
-    const char *resolved_id;
+  requested_id = duk_require_string(ctx, 0);
+  parent_id = duk_require_string(ctx, 1);
 
-    cout << "App path: " << app_path << endl;
+  // getting the known application/module path
+  app_path = app_paths_.at(app_paths_.size()-1).c_str();
 
-    /* Arrive at the canonical module ID somehow. */
-    cout << "Req id: " << requested_id << endl;
-    cout << "Parent id: " << parent_id << endl;
-    string temp_req_id = string(requested_id);
+  string requested_id_str = string(app_path) + "/%s";
 
-    cout << "Substr:" <<  temp_req_id.substr(temp_req_id.size()-3,temp_req_id.size()-1) << endl;
-    if(temp_req_id.size() > 3 && temp_req_id.substr(temp_req_id.size()-3,temp_req_id.size()-1) == ".js") {
-      cout << "Comb str: " << string(app_path) + "/" + temp_req_id << endl;
-      requested_id_str = string(app_path) + "/" + temp_req_id;
-    } else {
-      resolved_id = "./main.js";
-    }
+  // duk_push_sprintf(ctx, requested_id_str.c_str(), requested_id);
 
-    cout << "Resolved id 1: " << requested_id_str << endl;
+  cout << "App path: " << app_path << endl;
 
-    duk_push_string(ctx, requested_id_str.c_str());
-    return 1;  /*nrets*/
+  cout << "Req id: " << requested_id << endl;
+  cout << "Parent id: " << parent_id << endl;
+
+  string temp_req_id = string(requested_id);
+
+  cout << "Substr:" <<  temp_req_id.substr(temp_req_id.size()-3,temp_req_id.size()-1) << endl;
+  if(temp_req_id.size() > 3 && temp_req_id.substr(temp_req_id.size()-3,temp_req_id.size()-1) == ".js") {
+    cout << "Comb str: " << string(app_path) + "/" + temp_req_id << endl;
+    requested_id_str = string(app_path) + "/" + temp_req_id;
+  } else {
+  }
+
+  cout << "Resolved id 1: " << requested_id_str << endl;
+
+  duk_push_string(ctx, requested_id_str.c_str());
+  return 1;  /*nrets*/
 }
 
 duk_ret_t JSApplication::cb_load_module(duk_context *ctx) {
     /*
      *  Entry stack: [ resolved_id exports module ]
      */
+    const char *filename;
 
-    const char *resolved_id = duk_get_string(ctx, 0);
+    const char *resolved_id = duk_require_string(ctx, 0);
+
+    duk_get_prop_string(ctx, 2, "filename");
+    filename = duk_require_string(ctx, -1);
+
+    printf("load_cb: id:'%s', filename:'%s'\n", resolved_id, filename);
+
     // TODO atm there are no exports or modules at this phase
     // const char *exports = duk_get_string(ctx, 1);
     // const char *module = duk_get_string(ctx, 2);
