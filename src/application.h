@@ -10,6 +10,7 @@ extern "C" {
   #include <stdio.h>
   #include "duktape.h"
   #include "duk_print_alert.h"
+  #include "duk_module_node.h"
 
 #if defined (__cplusplus)
 }
@@ -17,6 +18,7 @@ extern "C" {
 
 #include <iostream>
 #include <string>
+#include <vector>
 using namespace std;
 
 class JSApplication {
@@ -40,6 +42,8 @@ class JSApplication {
     void run();
 
     static duk_ret_t setTaskInterval(duk_context *ctx);
+    static duk_ret_t cb_resolve_module(duk_context *ctx);
+    static duk_ret_t cb_load_module(duk_context *ctx);
 
   private:
     string name_;
@@ -47,6 +51,7 @@ class JSApplication {
     char* source_code_;
     static unsigned int interval_;
     static bool repeat_;
+    static vector<string> app_paths_;
 
     duk_idx_t set_task_interval_idx_;
 };
