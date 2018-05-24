@@ -2,5 +2,5 @@ build/
 test/
 liquid-server
 *.o
-*.js
+applications/*.js
 *.gch

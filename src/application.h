@@ -41,7 +41,7 @@ class JSApplication {
 
     void run();
 
-    static duk_ret_t setTaskInterval(duk_context *ctx);
+    static duk_ret_t setInterval(duk_context *ctx);
     static duk_ret_t cb_resolve_module(duk_context *ctx);
     static duk_ret_t cb_load_module(duk_context *ctx);
 

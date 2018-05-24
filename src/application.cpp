@@ -28,49 +28,58 @@ JSApplication::JSApplication(const char* path){
   app_paths_.push_back(string(path));
   string file = string(path) + string("/main.js");
 
+  // source_code_ = load_js_file(file.c_str(),source_len);
+
+  int source_len2;
+  string temp_source = string(load_js_file("./application_header.js",source_len2)) + string(load_js_file(file.c_str(),source_len)) + "\ninitialize();";
+  // executing initialize code
+  source_code_ = new char[temp_source.length()+1];
+  strcpy(source_code_,temp_source.c_str());
+
+  // creating the setInterval function for the app to use
+  set_task_interval_idx_ = duk_push_c_function(duk_context_, setInterval, 2 /*nargs*/);
+  duk_put_global_string(duk_context_, "setInterval");
+
+  // pushing this as main module
+  duk_push_string(duk_context_, source_code_);
   duk_module_node_peval_main(duk_context_, file.c_str());
-
-  source_code_ = load_js_file(file.c_str(),source_len);
-
-  // creating the setTaskInterval function for the app to use
-  set_task_interval_idx_ = duk_push_c_function(duk_context_, setTaskInterval, 2 /*nargs*/);
-  duk_put_global_string(duk_context_, "setTaskInterval");
-
 
 }
 
 void JSApplication::run() {
 
-  // evaluating the source code
-  duk_push_string(duk_context_, source_code_);
-  if (duk_peval(duk_context_) != 0) {
-      printf("Script error 45: %s\n", duk_safe_to_string(duk_context_, -1));
-  }
+  // // evaluating the source code
+  // duk_push_string(duk_context_, source_code_);
+  // if (duk_peval(duk_context_) != 0) {
+  //     printf("Script error 45: %s\n", duk_safe_to_string(duk_context_, -1));
+  // }
+  //
+  // duk_pop(duk_context_);
+  // duk_get_global_string(duk_context_, "initialize");
 
-  duk_pop(duk_context_);
-  duk_get_global_string(duk_context_, "initialize");
+  // duk_push_string(duk_context_, "exports.initialize();");
+  // if(duk_peval(duk_context_) != 0) {
+  //   printf("Script error 52: %s\n", duk_safe_to_string(duk_context_, -1));
+  // }
 
-  if(duk_pcall(duk_context_, 0) != 0) {
-    printf("Script error 52: %s\n", duk_safe_to_string(duk_context_, -1));
-  }
-
-  if(!JSApplication::repeat_) {
-    duk_get_global_string(duk_context_, "task");
-
-    if(duk_pcall(duk_context_, 0) != 0) {
-      printf("Script error 59: %s\n", duk_safe_to_string(duk_context_, -1));
-    }
-  } else {
-    duk_get_global_string(duk_context_, "setInterval");
-    duk_push_string(duk_context_, "task()");
-    duk_push_int(duk_context_, JSApplication::interval_);
-    if(duk_pcall(duk_context_, 2) != 0) {
-      printf("Script error 66: %s\n", duk_safe_to_string(duk_context_, -1));
-    }
-  }
+  // if(!JSApplication::repeat_) {
+  //   duk_get_global_string(duk_context_, "task");
+  //
+  //   if(duk_pcall(duk_context_, 0) != 0) {
+  //     printf("Script error 59: %s\n", duk_safe_to_string(duk_context_, -1));
+  //   }
+  // }
+  // else {
+  //   duk_get_global_string(duk_context_, "setInterval");
+  //   duk_push_string(duk_context_, "task()");
+  //   duk_push_int(duk_context_, JSApplication::interval_);
+  //   if(duk_pcall(duk_context_, 2) != 0) {
+  //     printf("Script error 66: %s\n", duk_safe_to_string(duk_context_, -1));
+  //   }
+  // }
 }
 
-duk_ret_t JSApplication::setTaskInterval(duk_context* ctx) {
+duk_ret_t JSApplication::setInterval(duk_context* ctx) {
   unsigned int interval = duk_get_int(ctx,-1);
   duk_pop(ctx);
   unsigned int repeat = duk_get_boolean(ctx,-1);
@@ -81,6 +90,13 @@ duk_ret_t JSApplication::setTaskInterval(duk_context* ctx) {
 
   // TODO Clean up later
   cout << "Task Interval set to " << repeat << " and " << interval << endl;
+
+  // if (duk_peval_string(ctx, "var exports = require('main.js');print(JSON.stringify(exports));exports.task();") != 0) {
+  //   printf("eval failed: %s\n", duk_safe_to_string(ctx, -1));
+  // } else {
+  //   printf("result is: %s\n", duk_get_string(ctx, -1));
+  // }
+  // duk_pop(ctx);
 
   return 0;
 }
@@ -133,17 +149,20 @@ duk_ret_t JSApplication::cb_load_module(duk_context *ctx) {
 
     printf("load_cb: id:'%s', filename:'%s'\n", resolved_id, filename);
 
-    // TODO atm there are no exports or modules at this phase
+    // TODO atm there are no exports or modules at this phase for some reason
     // const char *exports = duk_get_string(ctx, 1);
     // const char *module = duk_get_string(ctx, 2);
+
+    // cout << "Exports: " << exports << endl;
+    // cout << "Module: " << module << endl;
 
     int sourceLen;
     char *module_source = load_js_file(resolved_id, sourceLen);
 
     duk_push_string(ctx, module_source);
-    if (duk_peval(ctx) != 0) {
-        printf("Script error 134: %s\n", duk_safe_to_string(ctx, -1));
-    }
+    // if (duk_peval(ctx) != 0) {
+    //     printf("Script error 134: %s\n", duk_safe_to_string(ctx, -1));
+    // }
 
     return 1;  /*nrets*/
 }
