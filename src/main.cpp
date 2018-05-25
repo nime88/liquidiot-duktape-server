@@ -17,10 +17,12 @@ extern "C" {
 #include <iostream>
 #include <vector>
 #include <string>
+#include <map>
 
 using namespace std;
 
 #include "applications_manager.h"
+#include "file_ops.h"
 
 int main(int argc, char *argv[]) {
 
@@ -40,6 +42,10 @@ int main(int argc, char *argv[]) {
   }
 
   app_manager->stopApps();
+
+  // map<string,string> options = load_config("./config.cfg");
+
+  // cout << options << endl;
 
   return 0;
 }

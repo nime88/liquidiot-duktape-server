@@ -2,6 +2,7 @@
 #define APPLICATION__H_INCLUDED
 
 #include "file_ops.h"
+#include "node_module_search.h"
 
 #if defined (__cplusplus)
 extern "C" {
@@ -12,6 +13,9 @@ extern "C" {
   #include "duk_print_alert.h"
   #include "duk_module_node.h"
 
+  extern void eventloop_register(duk_context *ctx);
+  extern duk_ret_t eventloop_run(duk_context *ctx, void *udata);
+
 #if defined (__cplusplus)
 }
 #endif
@@ -19,6 +23,7 @@ extern "C" {
 #include <iostream>
 #include <string>
 #include <vector>
+#include <regex>
 using namespace std;
 
 class JSApplication {

@@ -3,10 +3,21 @@ stuff */
 
 // interface between the application and main program
 var setTaskInterval = function(repeat, interval) {
+  var interval;
+
   if(!repeat) {
+    // only execute task() once if not on repeat
+    print("Executing task once...");
     task();
   } else  {
     print("Setting interval in header...");
-    setInterval(task, interval);
+    try {
+      interval = setInterval(task, interval);
+      print("Set the interval " + interval);
+    } catch(e) {
+      print("Setting the interval failed. " + e);
+    }
   }
+
+  return interval;
 };

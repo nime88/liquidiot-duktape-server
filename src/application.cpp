@@ -22,6 +22,20 @@ JSApplication::JSApplication(const char* path){
   duk_put_prop_string(duk_context_, -2, "load");
   duk_module_node_init(duk_context_);
 
+  // registering the eventloop
+  eventloop_register(duk_context_);
+
+  // loading the event loop javascript functions (setTimeout ect.)
+  int evlLen;
+  char* evlSource = load_js_file("./c_eventloop.js",evlLen);
+  duk_push_string(duk_context_, evlSource);
+  if (duk_peval(duk_context_) != 0) {
+    printf("Script error 1: %s\n", duk_safe_to_string(duk_context_, -1));
+  } else {
+    printf("result is: %s\n", duk_safe_to_string(duk_context_, -1));
+  }
+  duk_pop(duk_context_);
+
   // reding the source code (main.js) for the app
   int source_len;
   // adding app_path to global app paths
@@ -37,8 +51,8 @@ JSApplication::JSApplication(const char* path){
   strcpy(source_code_,temp_source.c_str());
 
   // creating the setInterval function for the app to use
-  set_task_interval_idx_ = duk_push_c_function(duk_context_, setInterval, 2 /*nargs*/);
-  duk_put_global_string(duk_context_, "setInterval");
+  // set_task_interval_idx_ = duk_push_c_function(duk_context_, setInterval, 2 /*nargs*/);
+  // duk_put_global_string(duk_context_, "setInterval");
 
   // pushing this as main module
   duk_push_string(duk_context_, source_code_);
@@ -47,6 +61,13 @@ JSApplication::JSApplication(const char* path){
 }
 
 void JSApplication::run() {
+
+  int rc = duk_safe_call(duk_context_, eventloop_run, NULL, 0 /*nargs*/, 1 /*nrets*/);
+  if (rc != 0) {
+    fprintf(stderr, "eventloop_run() failed: %s\n", duk_to_string(duk_context_, -1));
+    fflush(stderr);
+  }
+  duk_pop(duk_context_);
 
   // // evaluating the source code
   // duk_push_string(duk_context_, source_code_);
@@ -80,16 +101,20 @@ void JSApplication::run() {
 }
 
 duk_ret_t JSApplication::setInterval(duk_context* ctx) {
-  unsigned int interval = duk_get_int(ctx,-1);
+  duk_require_function(ctx,-1);
+  if (duk_pcall(ctx,-1) != 0) {
+    printf("Script error 1: %s\n", duk_safe_to_string(ctx, -1));
+  }
+
   duk_pop(ctx);
-  unsigned int repeat = duk_get_boolean(ctx,-1);
+  unsigned int interval = duk_get_boolean(ctx,-1);
   duk_pop(ctx);
 
   JSApplication::interval_ = interval;
-  JSApplication::repeat_ = repeat;
+  // JSApplication::repeat_ = repeat;
 
   // TODO Clean up later
-  cout << "Task Interval set to " << repeat << " and " << interval << endl;
+  cout << "Task Interval set to " << interval << endl;
 
   // if (duk_peval_string(ctx, "var exports = require('main.js');print(JSON.stringify(exports));exports.task();") != 0) {
   //   printf("eval failed: %s\n", duk_safe_to_string(ctx, -1));
@@ -102,10 +127,15 @@ duk_ret_t JSApplication::setInterval(duk_context* ctx) {
 }
 
 duk_ret_t JSApplication::cb_resolve_module(duk_context *ctx) {
+  /*
+   *  Entry stack: [ requested_id parent_id ]
+   */
+
   const char *requested_id;
   const char *parent_id;
   const char *app_path;
 
+  // TODO if require string fails we have no way of knowing
   requested_id = duk_require_string(ctx, 0);
   parent_id = duk_require_string(ctx, 1);
 
@@ -115,8 +145,6 @@ duk_ret_t JSApplication::cb_resolve_module(duk_context *ctx) {
   string requested_id_str = string(app_path) + "/%s";
 
   // duk_push_sprintf(ctx, requested_id_str.c_str(), requested_id);
-
-  cout << "App path: " << app_path << endl;
 
   cout << "Req id: " << requested_id << endl;
   cout << "Parent id: " << parent_id << endl;
@@ -144,6 +172,14 @@ duk_ret_t JSApplication::cb_load_module(duk_context *ctx) {
 
     const char *resolved_id = duk_require_string(ctx, 0);
 
+
+    // const char *exports = duk_get_prop(ctx, 1);
+    if( duk_is_object(ctx, 1) /* exports != NULL */) {
+      cout << "Exports: " /* << exports */ << endl;
+    } else {
+      printf("Script error no exports: %s\n", duk_safe_to_string(ctx, 1));
+    }
+
     duk_get_prop_string(ctx, 2, "filename");
     filename = duk_require_string(ctx, -1);
 
@@ -153,12 +189,12 @@ duk_ret_t JSApplication::cb_load_module(duk_context *ctx) {
     // const char *exports = duk_get_string(ctx, 1);
     // const char *module = duk_get_string(ctx, 2);
 
-    // cout << "Exports: " << exports << endl;
     // cout << "Module: " << module << endl;
 
     int sourceLen;
     char *module_source = load_js_file(resolved_id, sourceLen);
 
+    // duk_pop(ctx);
     duk_push_string(ctx, module_source);
     // if (duk_peval(ctx) != 0) {
     //     printf("Script error 134: %s\n", duk_safe_to_string(ctx, -1));
