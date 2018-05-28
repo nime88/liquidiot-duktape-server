@@ -1,6 +1,11 @@
 /* This is the application header for the application including some convenience
 stuff */
 
+process = {};
+require("./process.js");
+
+global = {};
+
 // interface between the application and main program
 var setTaskInterval = function(repeat, interval) {
   var interval;

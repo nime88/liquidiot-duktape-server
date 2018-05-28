@@ -2,11 +2,18 @@
  * This is some implementation for the nodejs module search described in
  * https://nodejs.org/api/modules.html
  */
-#if !defined(NODE_MODULE_SEARCH_H_INCLUDED)
-#define NODE_MODULE_SEARCH__H_INCLUDED
+#ifndef NODE_MODULE_SEARCH_H_INCLUDED
+#define NODE_MODULE_SEARCH_H_INCLUDED
+
+#include <string>
+using std::string;
 
 namespace node {
-  void resolve_path();
+  bool is_core_module(string path);
+
+  string get_core_module(string path);
+
+  void resolve_path(string path);
 
   void load_as_file();
 

@@ -1,8 +1,12 @@
 #include "application.h"
 
+#include <algorithm>
+#include "node_module_search.h"
+
 unsigned int JSApplication::interval_ = 0;
 bool JSApplication::repeat_ = false;
 vector<string> JSApplication::app_paths_;
+map<string,string> JSApplication::options_ = load_config("config.cfg");
 
 JSApplication::JSApplication(const char* path){
 
@@ -13,6 +17,13 @@ JSApplication::JSApplication(const char* path){
 
   // initializing print alerts
   duk_print_alert_init(duk_context_, 0 /*flags*/);
+
+  // console
+  duk_console_init(duk_context_, DUK_CONSOLE_PROXY_WRAPPER /*flags*/);
+
+  // setting default assert handling
+  duk_push_c_function(duk_context_, handle_assert, 2);
+  duk_put_global_string(duk_context_, "assert");
 
   // initializing node.js require
   duk_push_object(duk_context_);
@@ -35,6 +46,14 @@ JSApplication::JSApplication(const char* path){
     printf("result is: %s\n", duk_safe_to_string(duk_context_, -1));
   }
   duk_pop(duk_context_);
+
+  // setting some globals
+  // duk_push_string(duk_context_, "arguments = [];\n");
+  // if (duk_peval(duk_context_) != 0) {
+  //   printf("Script error 2: %s\n", duk_safe_to_string(duk_context_, -1));
+  // } else {
+  //   printf("result is: %s\n", duk_safe_to_string(duk_context_, -1));
+  // }
 
   // reding the source code (main.js) for the app
   int source_len;
@@ -139,10 +158,37 @@ duk_ret_t JSApplication::cb_resolve_module(duk_context *ctx) {
   requested_id = duk_require_string(ctx, 0);
   parent_id = duk_require_string(ctx, 1);
 
+  string requested_id_str = "";
+
+  // if buffer is requested just use native implemented buffer
+  if(string(requested_id) == "buffer") {
+    duk_push_string(ctx, requested_id);
+    return 1;  /*nrets*/
+  } else if(string(requested_id) == "process") {
+    duk_push_string(ctx, requested_id);
+    return 1;  /*nrets*/
+  }
+
+  // First checking nodes core modules
+  if (options_.find("node_core_lib_path") != options_.end()) {
+    string node_core_lib_path = options_.at("node_core_lib_path");
+    if(node_core_lib_path.size() > 0) {
+      if (node::is_core_module(node_core_lib_path + "/" + string(requested_id))) {
+        cout << "Core Module found" << endl;
+        requested_id_str = node::get_core_module(node_core_lib_path + "/" + string(requested_id));
+      }
+    }
+  }
+
+  if(requested_id_str.size() > 0) {
+    duk_push_string(ctx, requested_id_str.c_str());
+    return 1;
+  }
+
   // getting the known application/module path
   app_path = app_paths_.at(app_paths_.size()-1).c_str();
 
-  string requested_id_str = string(app_path) + "/%s";
+  requested_id_str = string(app_path) + "/%s";
 
   // duk_push_sprintf(ctx, requested_id_str.c_str(), requested_id);
 
@@ -172,8 +218,25 @@ duk_ret_t JSApplication::cb_load_module(duk_context *ctx) {
 
     const char *resolved_id = duk_require_string(ctx, 0);
 
+    string resolved_id_str = "";
+
+    if (string(resolved_id) == "buffer") {
+      duk_push_string(ctx,"module.exports.Buffer = Buffer");
+      return 1;
+    } else if(string(resolved_id) == "process") {
+      if (options_.find("node_core_lib_path") != options_.end()) {
+        string node_core_lib_path = options_.at("node_core_lib_path");
+        if(node_core_lib_path.size() > 0) {
+          if (node::is_core_module(node_core_lib_path + "/internal/" + string(resolved_id))) {
+            cout << "Core Module found" << endl;
+            resolved_id_str = node::get_core_module(node_core_lib_path + "/internal/" + string(resolved_id));
+          }
+        }
+      }
+    }
 
     // const char *exports = duk_get_prop(ctx, 1);
+
     if( duk_is_object(ctx, 1) /* exports != NULL */) {
       cout << "Exports: " /* << exports */ << endl;
     } else {
@@ -190,15 +253,30 @@ duk_ret_t JSApplication::cb_load_module(duk_context *ctx) {
     // const char *module = duk_get_string(ctx, 2);
 
     // cout << "Module: " << module << endl;
-
     int sourceLen;
-    char *module_source = load_js_file(resolved_id, sourceLen);
+    char *module_source;
+    if(resolved_id_str.size() >  0) {
+      module_source = load_js_file(resolved_id_str.c_str(), sourceLen);
+    } else {
+      module_source = load_js_file(resolved_id, sourceLen);
+    }
 
-    // duk_pop(ctx);
-    duk_push_string(ctx, module_source);
+    string source = module_source;
+    // replace(source.begin(),source.end(),'`','\'');
+
+    duk_push_string(ctx, source.c_str());
     // if (duk_peval(ctx) != 0) {
     //     printf("Script error 134: %s\n", duk_safe_to_string(ctx, -1));
     // }
 
     return 1;  /*nrets*/
+}
+
+duk_ret_t JSApplication::handle_assert(duk_context *ctx) {
+  cout << "MUAA" << endl;
+	if (duk_to_boolean(ctx, 0)) {
+		return 0;
+	}
+	(void) duk_generic_error(ctx, "assertion failed: %s", duk_safe_to_string(ctx, 1));
+	return 0;
 }

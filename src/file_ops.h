@@ -1,12 +1,18 @@
-#if !defined(FILE_OPS_H_INCLUDED)
-#define FILE_OPS__H_INCLUDED
+#ifndef FILE_OPS_H
+#define FILE_OPS_H
 
-// #include <map>
-// #include <string>
+#include <map>
+#include <string>
 
-char* load_js_file(const char* filename, int & sourceLen);
+enum FILE_TYPE {
+  PATH_TO_DIR,PATH_TO_FILE,OTHER,NOT_EXIST
+};
+
+extern char* load_js_file(const char* filename, int & sourceLen);
 
 // Loads file as config
-// map<std::string, std::string> load_config(const char* filename);
+std::map<std::string, std::string> load_config(const char* filename);
+
+FILE_TYPE is_file(const char* path);
 
 #endif
