@@ -1,6 +1,7 @@
 #include "node_module_search.h"
 
 #include <iostream>
+#include <regex>
 
 #include "file_ops.h"
 
@@ -26,16 +27,39 @@ void node::resolve_path(string path) {
   std::cout << "Resolve core module: " << path << std::endl;
 }
 
-void node::load_as_file() {
+char* node::load_as_file(const char* file) {
+  string path = string(file);
 
-}
+  // checking if actual javascript file (accepts no .js end but nothing else)
+  std::smatch m_1;
+  std::regex e_1("(^(\\w|./|/)+((.js){1}|(?!(.\\w)))$)");
+  std::regex_match(path,m_1,e_1);
 
-void node::load_index() {
+  if(m_1.size() > 0) {
+    int sourceLen;
+    char* c_source = load_js_file(file, sourceLen);
+    return c_source;
+  }
 
-}
+  // checking json object only
+  std::smatch m_2;
+  std::regex e_2("(^(\\w|./|/)+((.json){1})$)");
+  std::regex_match(path,m_2,e_2);
 
-void node::load_as_directory() {
+  if(m_1.size() > 0) {
+    int sourceLen;
+    string source = string(load_js_file(file, sourceLen));
+    source = "exports="+source;
 
+    // converting c++ string to char* source code for return
+    sourceLen = source.length() + 1;
+    char* c_source = new char [sourceLen];
+    // updating the source code length
+    strcpy(c_source, source.c_str());
+    return c_source;
+  }
+
+  return 0;
 }
 
 void node::load_node_modules() {

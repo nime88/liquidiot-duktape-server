@@ -33,11 +33,9 @@ class JSApplication {
     JSApplication(const char* path);
 
     ~JSApplication() {
-      printf("Script error no exports: %s\n", duk_safe_to_string(duk_context_, 1));
 
-      duk_get_global_string(duk_context_, "terminate");
-
-      if(duk_pcall(duk_context_, 0) != 0) {
+      duk_push_string(duk_context_, "terminate();");
+      if(duk_peval(duk_context_) != 0) {
         printf("Script error: %s\n", duk_safe_to_string(duk_context_, -1));
       }
       duk_destroy_heap(duk_context_);
@@ -50,10 +48,8 @@ class JSApplication {
 
     void run();
 
-    static duk_ret_t setInterval(duk_context *ctx);
     static duk_ret_t cb_resolve_module(duk_context *ctx);
     static duk_ret_t cb_load_module(duk_context *ctx);
-    static duk_ret_t handle_assert(duk_context *ctx);
 
   private:
 

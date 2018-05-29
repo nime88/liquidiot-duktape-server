@@ -1,10 +1,22 @@
 /* This is the application header for the application including some convenience
 stuff */
 
-process = {};
-require("./process.js");
+// defining some better error messages to locate some of the errors
+Duktape.errThrow = function (e) {
+    if (!(e instanceof Error)) {
+        return e;  // only touch errors
+    }
 
-global = {};
+    if ('timestamp' in e) {
+      return e;  // only touch once
+    }
+
+    e.timestamp = new Date();
+
+    print(e.stack);
+
+    return e;
+}
 
 // interface between the application and main program
 var setTaskInterval = function(repeat, interval) {

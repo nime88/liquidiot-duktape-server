@@ -1,5 +1,5 @@
 /*
- * This is some implementation for the nodejs module search described in
+ * This is some implementation for the nodejs module functions described in
  * https://nodejs.org/api/modules.html
  */
 #ifndef NODE_MODULE_SEARCH_H_INCLUDED
@@ -15,11 +15,7 @@ namespace node {
 
   void resolve_path(string path);
 
-  void load_as_file();
-
-  void load_index();
-
-  void load_as_directory();
+  char* load_as_file(const char* file);
 
   void load_node_modules();
 
