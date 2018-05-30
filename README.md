@@ -4,7 +4,7 @@ Requirements
 
 - duktape 2.2.1
 
-- node.js core libraries from v8.x
+- libwebsockets version 3.0 stable
 
 Duktape Configure
 

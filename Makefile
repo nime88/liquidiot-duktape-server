@@ -4,12 +4,13 @@ SOURCE_DIR=src
 DUKTAPE_DIR=../duktape-2.2.1
 DUKTAPE_EXTRAS=$(DUKTAPE_DIR)/extras
 
+LIBS = -lwebsockets
 CFLAGS=-Wall -Wextra -lm
 INCLUDE=-I$(SOURCE_DIR) -I$(SOURCE_DIR)/nodejs -I$(DUKTAPE_DIR)/src -I$(DUKTAPE_EXTRAS)/print-alert -I$(DUKTAPE_EXTRAS)/console -I$(DUKTAPE_EXTRAS)/module-node
 # TODO: Currently build directory is not automatically generated
 BUILD_DIR=build
 
-_OBJ = duktape.o duk_print_alert.o duk_console.o duk_module_node.o c_eventloop.o node_module_search.o file_ops.o application.o applications_manager.o main.o
+_OBJ = duktape.o duk_print_alert.o duk_console.o duk_module_node.o c_eventloop.o http_server.o node_module_search.o file_ops.o application.o applications_manager.o main.o
 OBJ = $(patsubst %,$(BUILD_DIR)/%,$(_OBJ))
 
 _DEPS = file_ops.h application.h applications_manager.h
@@ -23,7 +24,7 @@ $(BUILD_DIR)/%.o: $(SOURCE_DIR)/%.cpp $(DEPS)
 
 # full linking
 all: $(OBJ)
-	$(CC) -o liquid-server $^ $(CFLAGS) $(CPPVER)
+	$(CC) -o liquid-server $^ $(CFLAGS) $(CPPVER) $(LIBS)
 
 # internal but mostly separate libs
 $(BUILD_DIR)/c_eventloop.o: $(SOURCE_DIR)/eventloop/c_eventloop.c

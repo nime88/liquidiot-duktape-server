@@ -23,6 +23,7 @@ using namespace std;
 
 #include "applications_manager.h"
 #include "file_ops.h"
+#include "http_server.h"
 
 int main(int argc, char *argv[]) {
 
@@ -42,6 +43,10 @@ int main(int argc, char *argv[]) {
   }
 
   app_manager->stopApps();
+
+  // Testing http server
+  HttpServer *server = new HttpServer();
+  server->run();
 
   // map<string,string> options = load_config("./config.cfg");
 
