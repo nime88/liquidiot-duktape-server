@@ -10,7 +10,7 @@ INCLUDE=-I$(SOURCE_DIR) -I$(SOURCE_DIR)/nodejs -I$(DUKTAPE_DIR)/src -I$(DUKTAPE_
 # TODO: Currently build directory is not automatically generated
 BUILD_DIR=build
 
-_OBJ = duktape.o duk_print_alert.o duk_console.o duk_module_node.o c_eventloop.o http_server.o node_module_search.o file_ops.o application.o applications_manager.o main.o
+_OBJ = duktape.o duk_print_alert.o duk_console.o duk_module_node.o c_eventloop.o http_server.o response.o node_module_search.o file_ops.o application.o applications_manager.o main.o
 OBJ = $(patsubst %,$(BUILD_DIR)/%,$(_OBJ))
 
 _DEPS = file_ops.h application.h applications_manager.h
