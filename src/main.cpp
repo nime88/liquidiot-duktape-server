@@ -18,6 +18,7 @@ extern "C" {
 #include <vector>
 #include <string>
 #include <map>
+#include <thread>
 
 using namespace std;
 
@@ -36,17 +37,26 @@ int main(int argc, char *argv[]) {
 
   unsigned int num_apps = app_manager->getApps().size();
 
+  vector<thread*> threads;
+
   // executing all the applications source code
   for(unsigned int i = 0; i < num_apps; ++i) {
-    app_manager->getApps().at(i)->run();
+    thread *t = new thread(&JSApplication::run,app_manager->getApps().at(i));
+    threads.push_back(t);
     // duk_manager->executeSource(app_manager->getApps().at(i)->getJSSource());
   }
 
-  app_manager->stopApps();
-
   // Testing http server
   HttpServer *server = new HttpServer();
-  server->run();
+  thread *servert = new thread(&HttpServer::run, server);
+  threads.push_back(servert);
+
+  // joining the threads to main thread
+  for(unsigned int i = 0; threads.size(); ++i) {
+    threads.at(i)->join();
+  }
+
+  app_manager->stopApps();
 
   // map<string,string> options = load_config("./config.cfg");
 

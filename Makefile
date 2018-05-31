@@ -5,7 +5,7 @@ DUKTAPE_DIR=../duktape-2.2.1
 DUKTAPE_EXTRAS=$(DUKTAPE_DIR)/extras
 
 LIBS = -lwebsockets
-CFLAGS=-Wall -Wextra -lm
+CFLAGS=-Wall -Wextra -lm -pthread
 INCLUDE=-I$(SOURCE_DIR) -I$(SOURCE_DIR)/nodejs -I$(DUKTAPE_DIR)/src -I$(DUKTAPE_EXTRAS)/print-alert -I$(DUKTAPE_EXTRAS)/console -I$(DUKTAPE_EXTRAS)/module-node
 # TODO: Currently build directory is not automatically generated
 BUILD_DIR=build

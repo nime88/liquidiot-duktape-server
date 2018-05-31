@@ -79,6 +79,7 @@ void JSApplication::run() {
     fflush(stderr);
   }
   duk_pop(duk_context_);
+
 }
 
 duk_ret_t JSApplication::cb_resolve_module(duk_context *ctx) {
