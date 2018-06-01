@@ -72,7 +72,6 @@ JSApplication::JSApplication(const char* path){
 }
 
 void JSApplication::run() {
-
   int rc = duk_safe_call(duk_context_, eventloop_run, NULL, 0 /*nargs*/, 1 /*nrets*/);
   if (rc != 0) {
     fprintf(stderr, "eventloop_run() failed: %s\n", duk_to_string(duk_context_, -1));

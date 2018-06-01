@@ -16,6 +16,8 @@
 #include "duktape.h"
 #include "c_eventloop.h"
 
+#include "../globals.h"
+
 #if !defined(DUKTAPE_EVENTLOOP_DEBUG)
 #define DUKTAPE_EVENTLOOP_DEBUG 0       /* set to 1 to debug with printf */
 #endif
@@ -285,6 +287,11 @@ duk_ret_t eventloop_run(duk_context *ctx, void *udata) {
 		/*
 		 *  Expire timers.
 		 */
+
+		// handling sigint event
+		signal(SIGINT, sigint_handler);
+		if(interrupted)
+			exit_requested = 1;
 
 		expire_timers(ctx);
 

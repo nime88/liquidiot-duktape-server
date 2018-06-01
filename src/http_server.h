@@ -70,13 +70,6 @@
      /* ._unused */ {} /* Extra to suppress warnings */
    };
 
-    static int interrupted_;
-
-    static void sigint_handler(int sig) {
-      cout << "SIG: " << sig << endl;
-  	  interrupted_ = 1;
-    }
-
     static int rest_api_callback(struct lws *wsi, enum lws_callback_reasons reason,
       void *user, void *in, size_t len);
 

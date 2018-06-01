@@ -19,6 +19,7 @@ extern "C" {
 #include <string>
 #include <map>
 #include <thread>
+#include <stdexcept>
 
 using namespace std;
 
@@ -39,21 +40,27 @@ int main(int argc, char *argv[]) {
 
   vector<thread*> threads;
 
-  // executing all the applications source code
+  // Loading all the applications to separate threads
   for(unsigned int i = 0; i < num_apps; ++i) {
     thread *t = new thread(&JSApplication::run,app_manager->getApps().at(i));
     threads.push_back(t);
     // duk_manager->executeSource(app_manager->getApps().at(i)->getJSSource());
   }
 
-  // Testing http server
+  // Http server
   HttpServer *server = new HttpServer();
   thread *servert = new thread(&HttpServer::run, server);
   threads.push_back(servert);
 
   // joining the threads to main thread
   for(unsigned int i = 0; threads.size(); ++i) {
-    threads.at(i)->join();
+    try {
+      threads.at(i)->join();
+    } catch (const std::out_of_range& oor) {
+      cerr << "Out of Range error: " << oor.what() << endl;
+      cerr << "Probably because of signal interruption." << endl;
+      break;
+    }
   }
 
   app_manager->stopApps();

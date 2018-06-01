@@ -1,5 +1,15 @@
 #include "http_server.h"
 
+#if defined (__cplusplus)
+extern "C" {
+#endif
+
+  #include "globals.h"
+
+#if defined (__cplusplus)
+}
+#endif
+
 #include <iostream>
 using namespace std;
 
@@ -8,8 +18,6 @@ struct lws_protocols HttpServer::protocols[] = {
   { "http", rest_api_callback, 8096, 256, 1, new struct user_buffer_data, 256},
   { NULL, NULL, 0, 0, 0, NULL, 0 } /* terminator */
 };
-
-int HttpServer::interrupted_;
 
 int HttpServer::run() {
   // const char *p;
@@ -42,7 +50,7 @@ int HttpServer::run() {
     return 1;
   }
 
-  while (n >= 0 && !interrupted_)
+  while (n >= 0 && !interrupted)
 		n = lws_service(context_, 1000);
 
   lws_context_destroy(context_);
