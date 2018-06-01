@@ -15,7 +15,7 @@ using namespace std;
 
 struct lws_protocols HttpServer::protocols[] = {
   /* name, callback, per_session_data_size, rx_buffer_size, id, user, tx_packet_size */
-  { "http", rest_api_callback, 8096, 256, 1, new struct user_buffer_data, 256},
+  { "http", rest_api_callback, sizeof(struct user_buffer_data), 8096, 1, new struct user_buffer_data, 8096},
   { NULL, NULL, 0, 0, 0, NULL, 0 } /* terminator */
 };
 
@@ -109,6 +109,44 @@ int HttpServer::rest_api_callback(struct lws *wsi, enum lws_callback_reasons rea
   			return -1;
 
   		return 0;
+    }
+
+    // handling reading of the body
+    case LWS_CALLBACK_HTTP_BODY: {
+
+      if (lws_hdr_total_length(wsi, WSI_TOKEN_POST_URI)) {
+        cout << "READING POST FORM" << endl;
+        /* POST request */
+        int post_form = handle_http_POST_form(wsi, user, in, len);
+
+        if(post_form)
+          return post_form;
+      }
+
+      break;
+    }
+
+    // finishing up the form reading
+    case LWS_CALLBACK_HTTP_BODY_COMPLETION: {
+      cout << "BODY COMPLETION" << endl;
+      if (lws_hdr_total_length(wsi, WSI_TOKEN_POST_URI)) {
+        cout << "COMPLETING POST FORM" << endl;
+        /* POST request */
+        int post_form = handle_http_POST_form_complete(wsi, user, in, len);
+        cout << "Handled post form" << endl;
+        return 0;
+      }
+
+      break;
+    }
+
+    case LWS_CALLBACK_HTTP_DROP_PROTOCOL: {
+      /* called when our wsi user_space is going to be destroyed */
+      if (dest_buffer->spa) {
+        lws_spa_destroy(dest_buffer->spa);
+        dest_buffer->spa = NULL;
+      }
+      break;
     }
 
 	default:

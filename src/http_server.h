@@ -24,6 +24,10 @@
     struct user_buffer_data {
       char str[256];
       int len;
+      struct lws_spa *spa;		/* lws helper decodes multipart form */
+      char filename[128];		/* the filename of the uploaded file */
+      unsigned long long file_length; /* the amount of bytes uploaded */
+      int fd;				/* fd on file being saved */
     };
 
     static struct lws_protocols protocols[];

@@ -43,14 +43,6 @@ JSApplication::JSApplication(const char* path){
   }
   duk_pop(duk_context_);
 
-  // setting some globals
-  // duk_push_string(duk_context_, "arguments = [];\n");
-  // if (duk_peval(duk_context_) != 0) {
-  //   printf("Script error 2: %s\n", duk_safe_to_string(duk_context_, -1));
-  // } else {
-  //   printf("result is: %s\n", duk_safe_to_string(duk_context_, -1));
-  // }
-
   // reding the source code (main.js) for the app
   int source_len;
   // adding app_path to global app paths
