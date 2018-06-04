@@ -3,6 +3,7 @@
 
 #include "file_ops.h"
 #include "node_module_search.h"
+#include "eventloop/custom_eventloop.h"
 
 #if defined (__cplusplus)
 extern "C" {
@@ -14,8 +15,8 @@ extern "C" {
   #include "duk_console.h"
   #include "duk_module_node.h"
 
-  extern void eventloop_register(duk_context *ctx);
-  extern duk_ret_t eventloop_run(duk_context *ctx, void *udata);
+  // extern void eventloop_register(duk_context *ctx);
+  // extern duk_ret_t eventloop_run(duk_context *ctx, void *udata);
 
 #if defined (__cplusplus)
 }
@@ -26,6 +27,7 @@ extern "C" {
 #include <vector>
 #include <regex>
 #include <map>
+#include <thread>
 using namespace std;
 
 class JSApplication {
@@ -46,21 +48,26 @@ class JSApplication {
       return source_code_;
     }
 
+    duk_context* getContext() { return duk_context_;}
+
+    int getId() { return id_; }
+
     void run();
 
     static duk_ret_t cb_resolve_module(duk_context *ctx);
     static duk_ret_t cb_load_module(duk_context *ctx);
 
   private:
-
+    thread *ev_thread_;
+    EventLoop *eventloop_;
     string name_;
     duk_context *duk_context_;
     char* source_code_;
 
+    int id_;
+    static int next_id_;
     static map<string,string> options_;
-    static unsigned int interval_;
-    static bool repeat_;
-    static vector<string> app_paths_;
+    static map<int,string> app_paths_;
 
     duk_idx_t set_task_interval_idx_;
 };

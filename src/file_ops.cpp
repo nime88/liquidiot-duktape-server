@@ -7,6 +7,8 @@
 #include <sstream>
 #include <map>
 #include <sys/stat.h>
+#include <archive.h>
+#include <archive_entry.h>
 
 using namespace std;
 
@@ -80,4 +82,117 @@ FILE_TYPE is_file(const char* path) {
   }
 
   return FILE_TYPE::NOT_EXIST;
+}
+
+int extract_file(const char* file_path, const char* extract_path) {
+  int compress, flags, mode, opt, verbose;
+
+  flags = ARCHIVE_EXTRACT_TIME;
+
+  extract(file_path, 1, flags);
+
+  return 0;
+}
+
+void extract(const char *filename, int do_extract, int flags)
+{
+	struct archive *a;
+	struct archive *ext;
+	struct archive_entry *entry;
+	int r;
+
+	a = archive_read_new();
+	ext = archive_write_disk_new();
+	archive_write_disk_set_options(ext, flags);
+
+	/*
+	 * Note: archive_write_disk_set_standard_lookup() is useful
+	 * here, but it requires library routines that can add 500k or
+	 * more to a static executable.
+	 */
+  archive_read_support_compression_gzip(a);
+	archive_read_support_format_tar(a);
+	/*
+	 * On my system, enabling other archive formats adds 20k-30k
+	 * each.  Enabling gzip decompression adds about 20k.
+	 * Enabling bzip2 is more expensive because the libbz2 library
+	 * isn't very well factored.
+	 */
+	if (filename != NULL && strcmp(filename, "-") == 0)
+		filename = NULL;
+	if ((r = archive_read_open_filename(a, filename, 10240))) {
+    std::cout << "archive_read_open_filename()" << std::endl;
+    std::cout << archive_error_string(a) << std::endl;
+		return;
+  }
+	for (;;) {
+		r = archive_read_next_header(a, &entry);
+
+		if (r == ARCHIVE_EOF)
+			break;
+
+		if (r != ARCHIVE_OK) {
+      std::cout << "archive_read_next_header()" << std::endl;
+      std::cout << archive_error_string(a) << std::endl;
+      return;
+    }
+
+		if (do_extract)
+      write(1, "x ", strlen("x "));
+
+		if (do_extract) {
+      // setting extract path
+      const char* currentFile = archive_entry_pathname(entry);
+      const std::string fullOutputPath = "applications/" + string(currentFile);
+      archive_entry_set_pathname(entry, fullOutputPath.c_str());
+
+			r = archive_write_header(ext, entry);
+
+			if (r != ARCHIVE_OK) {
+        std::cout << "archive_write_header()" << std::endl;
+        std::cout << archive_error_string(ext) << std::endl;
+        return;
+      } else {
+				copy_data(a, ext);
+				r = archive_write_finish_entry(ext);
+				if (r != ARCHIVE_OK) {
+          std::cout << "archive_write_finish_entry()" << std::endl;
+          std::cout << archive_error_string(ext) << std::endl;
+          return;
+        }
+			}
+		}
+	}
+	archive_read_close(a);
+	archive_read_free(a);
+
+	archive_write_close(ext);
+  archive_write_free(ext);
+
+  return;
+}
+
+int copy_data(struct archive *ar, struct archive *aw) {
+	int r;
+	const void *buff;
+	size_t size;
+#if ARCHIVE_VERSION_NUMBER >= 3000000
+	int64_t offset;
+#else
+	off_t offset;
+#endif
+
+	for (;;) {
+		r = archive_read_data_block(ar, &buff, &size, &offset);
+		if (r == ARCHIVE_EOF)
+			return (ARCHIVE_OK);
+		if (r != ARCHIVE_OK)
+			return (r);
+		r = archive_write_data_block(aw, buff, size, offset);
+		if (r != ARCHIVE_OK) {
+      std::cout << "archive_write_data_block()" << std::endl;
+      std::cout << archive_error_string(aw) << std::endl;
+			return (r);
+		}
+	}
 }

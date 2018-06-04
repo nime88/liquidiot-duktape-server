@@ -3,9 +3,8 @@
 #include <algorithm>
 #include "node_module_search.h"
 
-unsigned int JSApplication::interval_ = 0;
-bool JSApplication::repeat_ = false;
-vector<string> JSApplication::app_paths_;
+int JSApplication::next_id_ = 0;
+map<int,string> JSApplication::app_paths_;
 map<string,string> JSApplication::options_ = load_config("config.cfg");
 
 JSApplication::JSApplication(const char* path){
@@ -14,6 +13,10 @@ JSApplication::JSApplication(const char* path){
   if (!duk_context_) {
     throw "Duk context could not be created.";
   }
+
+  // setting id for the application
+  id_ = next_id_;
+  next_id_++;
 
   // initializing print alerts
   duk_print_alert_init(duk_context_, 0 /*flags*/);
@@ -30,11 +33,11 @@ JSApplication::JSApplication(const char* path){
   duk_module_node_init(duk_context_);
 
   // registering the eventloop
-  eventloop_register(duk_context_);
+  eventloop_ = new EventLoop(duk_context_);
 
   // loading the event loop javascript functions (setTimeout ect.)
   int evlLen;
-  char* evlSource = load_js_file("./c_eventloop.js",evlLen);
+  char* evlSource = load_js_file("./custom_eventloop.js",evlLen);
   duk_push_string(duk_context_, evlSource);
   if (duk_peval(duk_context_) != 0) {
     printf("Script error 1: %s\n", duk_safe_to_string(duk_context_, -1));
@@ -43,10 +46,13 @@ JSApplication::JSApplication(const char* path){
   }
   duk_pop(duk_context_);
 
+  duk_push_int(duk_context_, id_);
+  duk_put_global_string(duk_context_, "id");
+
   // reding the source code (main.js) for the app
   int source_len;
   // adding app_path to global app paths
-  app_paths_.push_back(string(path));
+  app_paths_.insert(pair<int,string>(id_,string(path)));
   string file = string(path) + string("/main.js");
 
   // source_code_ = load_js_file(file.c_str(),source_len);
@@ -61,10 +67,17 @@ JSApplication::JSApplication(const char* path){
   duk_push_string(duk_context_, source_code_);
   duk_module_node_peval_main(duk_context_, file.c_str());
 
+  duk_push_global_object(duk_context_);
+  duk_del_prop_string(duk_context_, -2, "id");
+  duk_pop(duk_context_);
 }
 
 void JSApplication::run() {
-  int rc = duk_safe_call(duk_context_, eventloop_run, NULL, 0 /*nargs*/, 1 /*nrets*/);
+  fprintf(stderr, "calling eventloop_run()\n");
+  fflush(stderr);
+  fprintf(stderr, "context is %d\n", duk_context_);
+  fflush(stderr);
+  int rc = duk_safe_call(duk_context_, EventLoop::eventloop_run, NULL, 0 /*nargs*/, 1 /*nrets*/);
   if (rc != 0) {
     fprintf(stderr, "eventloop_run() failed: %s\n", duk_to_string(duk_context_, -1));
     fflush(stderr);
@@ -86,8 +99,12 @@ duk_ret_t JSApplication::cb_resolve_module(duk_context *ctx) {
   parent_id = duk_require_string(ctx, 1);
 
   string requested_id_str = string(requested_id);
+
   // getting the known application/module path
-  string path = app_paths_.at(app_paths_.size()-1) + "/";
+  (void)duk_get_global_string(ctx, "id");
+  int app_id = duk_to_int(ctx, -1);
+  duk_pop(ctx);
+  string path = app_paths_.at(app_id) + "/";
 
   // if buffer is requested just use native duktape implemented buffer
   if(requested_id_str == "buffer") {

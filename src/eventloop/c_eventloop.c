@@ -19,7 +19,7 @@
 #include "../globals.h"
 
 #if !defined(DUKTAPE_EVENTLOOP_DEBUG)
-#define DUKTAPE_EVENTLOOP_DEBUG 0       /* set to 1 to debug with printf */
+#define DUKTAPE_EVENTLOOP_DEBUG 1       /* set to 1 to debug with printf */
 #endif
 
 #define  TIMERS_SLOT_NAME       "eventTimers"
@@ -181,9 +181,13 @@ static void expire_timers(duk_context *ctx) {
 		fflush(stderr);
 #endif
 
+		printf("L1\n");
 		duk_push_number(ctx, (double) t->id);
+		printf("L2\n");
 		duk_get_prop(ctx, -2);  /* -> [ ... stash eventTimers func ] */
+		printf("L3\n");
 		rc = duk_pcall(ctx, 0 /*nargs*/);  /* -> [ ... stash eventTimers retval ] */
+		printf("L4\n");
 		if (rc != 0) {
 #if DUKTAPE_EVENTLOOP_DEBUG > 0
 			fprintf(stderr, "timer callback failed for timer %d: %s\n", (int) t->id, duk_to_string(ctx, -1));
@@ -263,6 +267,7 @@ static void compact_poll_list(void) {
 }
 
 duk_ret_t eventloop_run(duk_context *ctx, void *udata) {
+
 	ev_timer *t;
 	double now;
 	double diff;
@@ -283,13 +288,14 @@ duk_ret_t eventloop_run(duk_context *ctx, void *udata) {
 	idx_fd_handler = duk_get_top_index(ctx);
 	idx_eventloop = idx_fd_handler - 1;
 
+	// handling sigint event
+	signal(SIGINT, sigint_handler);
+
 	for (;;) {
 		/*
 		 *  Expire timers.
 		 */
 
-		// handling sigint event
-		signal(SIGINT, sigint_handler);
 		if(interrupted)
 			exit_requested = 1;
 
@@ -434,8 +440,14 @@ static int create_timer(duk_context *ctx) {
 	if (timer_count >= MAX_TIMERS) {
 		(void) duk_error(ctx, DUK_ERR_RANGE_ERROR, "out of timer slots");
 	}
-	idx = timer_count++;
-	timer_id = timer_next_id++;
+
+	// TODO check this part
+	idx = timer_count;
+	timer_count++;
+	timer_id = idx;
+	timer_next_id++;
+	fprintf(stderr, "idx: %d and timer_id: %d\n", (int) idx, (int) timer_id);
+	fflush(stderr);
 	t = timer_list + idx;
 
 	memset((void *) t, 0, sizeof(ev_timer));

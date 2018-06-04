@@ -13,7 +13,11 @@ Duktape.errThrow = function (e) {
 
     e.timestamp = new Date();
 
+    print(e);
     print(e.stack);
+    print(e.timestamp);
+
+    EventLoop.requestExit();
 
     return e;
 }
@@ -25,7 +29,7 @@ var setTaskInterval = function(repeat, interval) {
   if(!repeat) {
     // only execute task() once if not on repeat
     print("Executing task once...");
-    task();
+    setTimeout(task,interval);
   } else  {
     print("Setting interval in header...");
     try {

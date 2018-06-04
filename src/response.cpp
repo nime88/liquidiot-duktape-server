@@ -4,6 +4,8 @@
 #include <sys/fcntl.h>
 #include <errno.h>
 
+#include "file_ops.h"
+
 int handle_404_response(struct lws *wsi, void* buffer_data, uint8_t *start, uint8_t *p, uint8_t *end) {
   struct user_buffer_data *dest_buffer = (struct user_buffer_data*)buffer_data;
 
@@ -159,7 +161,12 @@ int handle_http_POST_form_filecb(void *data, const char *name, const char *filen
 			  dest_buffer->file_length, dest_buffer->filename);
 
 		close(dest_buffer->fd);
-		dest_buffer->fd = LWS_INVALID_FILE;
+    dest_buffer->fd = LWS_INVALID_FILE;
+
+    // we have the file in file system now so we can just extract it
+    extract_file(std::string("tmp/" + std::string(dest_buffer->filename)).c_str(), "tmp/test");
+
+
 		break;
 	}
 
