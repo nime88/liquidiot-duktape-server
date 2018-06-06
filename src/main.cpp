@@ -24,6 +24,7 @@ extern "C" {
 using namespace std;
 
 #include "applications_manager.h"
+#include "application.h"
 #include "file_ops.h"
 #include "http_server.h"
 
@@ -36,32 +37,12 @@ int main(int argc, char *argv[]) {
 
   AppManager *app_manager = new AppManager();
 
-  unsigned int num_apps = app_manager->getApps().size();
-
-  vector<thread*> threads;
-
-  // Loading all the applications to separate threads
-  for(unsigned int i = 0; i < num_apps; ++i) {
-    thread *t = new thread(&JSApplication::run,app_manager->getApps().at(i));
-    threads.push_back(t);
-    // duk_manager->executeSource(app_manager->getApps().at(i)->getJSSource());
-  }
-
   // Http server
   HttpServer *server = new HttpServer();
   thread *servert = new thread(&HttpServer::run, server);
-  threads.push_back(servert);
 
-  // joining the threads to main thread
-  for(unsigned int i = 0; threads.size(); ++i) {
-    try {
-      threads.at(i)->join();
-    } catch (const std::out_of_range& oor) {
-      cerr << "Out of Range error: " << oor.what() << endl;
-      cerr << "Probably because of signal interruption." << endl;
-      break;
-    }
-  }
+  JSApplication::getJoinThreads();
+  servert->join();
 
   app_manager->stopApps();
 

@@ -5,6 +5,8 @@
 #include <poll.h>
 #include <cmath>
 
+#include "../application.h"
+
 // #define NDEBUG
 
 #ifdef NDEBUG
@@ -16,7 +18,7 @@
 #define  TIMERS_SLOT_NAME       "eventTimers"
 #define  MIN_DELAY              1.0
 #define  MIN_WAIT               1.0
-#define  MAX_WAIT               60000.0
+#define  MAX_WAIT               1000.0
 #define  MAX_EXPIRIES           10
 
 #define  MAX_TIMERS             4096     /* this is quite excessive for embedded use, but good for testing */
@@ -64,6 +66,7 @@ int EventLoop::eventloop_run(duk_context *ctx, void *udata) {
   DBOUT( "eventloop_run(): Starting");
   EventLoop *eventloop = EventLoop::all_eventloops_.at(ctx);
   map<int,TimerStruct> *timers = EventLoop::all_timers_.at(ctx);
+  JSApplication *app = JSApplication::getApplications().at(ctx);
   double now;
   double diff;
   int timeout;
@@ -78,13 +81,19 @@ int EventLoop::eventloop_run(duk_context *ctx, void *udata) {
   DBOUT( "eventloop_run(): Got EventLoop property");
 
   for(;;) {
-    if(interrupted)
-      request_exit(ctx);
+    JSApplication::getMutex()->lock();
+
+    if(interrupted || app->getAppState() != JSApplication::APP_STATES::RUNNING) {
+      DBOUT( "eventloop_run(): Asked for termination");
+      JSApplication::getMutex()->unlock();
+      break;
+    }
 
     DBOUT( "eventloop_run(): Expiring timers");
     expire_timers(ctx);
 
     if (eventloop->exit_requested_) {
+      JSApplication::getMutex()->unlock();
       break;
     }
 
@@ -110,12 +119,16 @@ int EventLoop::eventloop_run(duk_context *ctx, void *udata) {
     }
 
     timeout = floor(diff / 2) < MIN_WAIT ? MIN_WAIT : floor(diff / 2);
+    // updating current timeout
+    eventloop->setCurrentTimeout(timeout);
 
     // handling sigint event
     signal(SIGINT, sigint_handler);
 
     DBOUT( "eventloop_run(): Timers, diff " << diff);
     DBOUT( "eventloop_run(): Starting poll() wait for " << timeout << " millis");
+
+    JSApplication::getMutex()->unlock();
     poll(NULL,NULL,timeout);
 
   }
@@ -126,20 +139,23 @@ int EventLoop::eventloop_run(duk_context *ctx, void *udata) {
 }
 
 int EventLoop::expire_timers(duk_context *ctx) {
-  // DBOUT( "expire_timers(): Starting expire timers");
+  if(!ctx) return 0;
+
+  DBOUT( "expire_timers(): Starting expire timers");
   int sanity = MAX_EXPIRIES;
   double now = get_now();
   int rc;
   EventLoop *eventloop = EventLoop::all_eventloops_.at(ctx);
   map<int,TimerStruct> *timers = EventLoop::all_timers_.at(ctx);
 
-  // DBOUT( "expire_timers(): Successfully initialized variables");
+  DBOUT( "expire_timers(): Successfully initialized variables");
+  DBOUT( "expire_timers(): " << ctx << " - " << timers->size());
 
   duk_push_global_stash(ctx);
   duk_get_prop_string(ctx, -1, TIMERS_SLOT_NAME);
   /* [ ... stash eventTimers ] */
 
-  // DBOUT( "expire_timers(): Reading timers form heap slot successful");
+  DBOUT( "expire_timers(): Reading timers form heap slot successful");
 
   for(;sanity > 0 && (MAX_EXPIRIES-sanity) < timers->size(); --sanity) {
     // exit has been requested...

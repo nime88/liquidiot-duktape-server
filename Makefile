@@ -10,7 +10,7 @@ INCLUDE=-I$(SOURCE_DIR) -I$(SOURCE_DIR)/nodejs -I$(DUKTAPE_DIR)/src -I$(DUKTAPE_
 # TODO: Currently build directory is not automatically generated
 BUILD_DIR=build
 
-_OBJ = duktape.o duk_print_alert.o duk_console.o duk_module_node.o custom_eventloop.o http_server.o globals.o response.o node_module_search.o file_ops.o application.o applications_manager.o main.o
+_OBJ = duktape.o duk_print_alert.o duk_console.o duk_module_node.o custom_eventloop.o http_server.o globals.o util.o response.o node_module_search.o file_ops.o application.o applications_manager.o main.o
 OBJ = $(patsubst %,$(BUILD_DIR)/%,$(_OBJ))
 
 _DEPS = file_ops.h application.h applications_manager.h
@@ -30,8 +30,8 @@ all: $(OBJ)
 	$(CC) -o liquid-server $^ $(CFLAGS) $(CPPVER) $(LIBS)
 
 # internal but mostly separate libs
-$(BUILD_DIR)/custom_eventloop.o: $(SOURCE_DIR)/eventloop/custom_eventloop.cpp
-	$(CC) -c $(SOURCE_DIR)/eventloop/custom_eventloop.cpp -o $(BUILD_DIR)/custom_eventloop.o -I$(DUKTAPE_DIR)/src $(CFLAGS) $(CPPVER)
+$(BUILD_DIR)/custom_eventloop.o: $(SOURCE_DIR)/eventloop/custom_eventloop.cpp $(SOURCE_DIR)/application.h
+	$(CC) -c $(SOURCE_DIR)/eventloop/custom_eventloop.cpp -o $(BUILD_DIR)/custom_eventloop.o -I$(DUKTAPE_DIR)/src $(CFLAGS) $(CPPVER) $(INCLUDE)
 
 $(BUILD_DIR)/node_module_search.o: $(SOURCE_DIR)/nodejs/node_module_search.cpp
 	$(CC) -c $< -o $@ $(CFLAGS) $(CPPVER) $(INCLUDE)

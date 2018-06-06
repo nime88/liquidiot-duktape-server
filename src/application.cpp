@@ -1,38 +1,72 @@
 #include "application.h"
 
 #include <algorithm>
+
 #include "node_module_search.h"
+#include "util.h"
+
+// #define NDEBUG
+
+#ifdef NDEBUG
+    #define DBOUT( x ) cout << x  << "\n"
+#else
+    #define DBOUT( x )
+#endif
 
 int JSApplication::next_id_ = 0;
-map<int,string> JSApplication::app_paths_;
 map<string,string> JSApplication::options_ = load_config("config.cfg");
+map<duk_context*, JSApplication*> JSApplication::applications_;
+map<duk_context*, thread*> JSApplication::app_threads_;
+mutex *JSApplication::mtx = new mutex();
 
 JSApplication::JSApplication(const char* path){
-
-  duk_context_ = duk_create_heap_default();
-  if (!duk_context_) {
-    throw "Duk context could not be created.";
-  }
+  // adding app_path to global app paths
+  app_path_ = string(path);
 
   // setting id for the application
   id_ = next_id_;
   next_id_++;
 
-  // initializing print alerts
+  init();
+}
+
+void JSApplication::init() {
+  mtx->lock();
+  // setting app state to initializing
+  app_state_ = APP_STATES::INITIALIZING;
+
+  // creating new duk heap for the js application
+  duk_context_ = duk_create_heap_default();
+  if (!duk_context_) {
+    throw "Duk context could not be created.";
+  }
+
+  DBOUT ("Inserting application");
+  // adding this application to static apps
+  applications_.insert(pair<duk_context*, JSApplication*>(duk_context_,this));
+
+  DBOUT ("Duktape initializations");
+  DBOUT ("Duktape initializations: print alert");
+  // initializing print alerts (enables print and alert functions in js)
   duk_print_alert_init(duk_context_, 0 /*flags*/);
 
-  // console
+  DBOUT ("Duktape initializations: console");
+  // initializing console (enables console in js)
   duk_console_init(duk_context_, DUK_CONSOLE_PROXY_WRAPPER /*flags*/);
 
+  DBOUT ("Duktape initializations: pushin object");
   // initializing node.js require
   duk_push_object(duk_context_);
+  DBOUT ("Pushing resolve module");
   duk_push_c_function(duk_context_, cb_resolve_module, DUK_VARARGS);
   duk_put_prop_string(duk_context_, -2, "resolve");
+  DBOUT ("Pushing load module");
   duk_push_c_function(duk_context_, cb_load_module, DUK_VARARGS);
   duk_put_prop_string(duk_context_, -2, "load");
   duk_module_node_init(duk_context_);
 
-  // registering the eventloop
+  DBOUT ("Creating new eventloop");
+  // registering/creating the eventloop
   eventloop_ = new EventLoop(duk_context_);
 
   // loading the event loop javascript functions (setTimeout ect.)
@@ -40,50 +74,118 @@ JSApplication::JSApplication(const char* path){
   char* evlSource = load_js_file("./custom_eventloop.js",evlLen);
   duk_push_string(duk_context_, evlSource);
   if (duk_peval(duk_context_) != 0) {
-    printf("Script error 1: %s\n", duk_safe_to_string(duk_context_, -1));
-  } else {
-    printf("result is: %s\n", duk_safe_to_string(duk_context_, -1));
+    printf("Failed to evaluate custom_eventloop.js: %s\n", duk_safe_to_string(duk_context_, -1));
   }
   duk_pop(duk_context_);
 
-  duk_push_int(duk_context_, id_);
-  duk_put_global_string(duk_context_, "id");
+  /** reding the source code (main.js) for the app **/
 
-  // reding the source code (main.js) for the app
   int source_len;
-  // adding app_path to global app paths
-  app_paths_.insert(pair<int,string>(id_,string(path)));
-  string file = string(path) + string("/main.js");
 
-  // source_code_ = load_js_file(file.c_str(),source_len);
+  DBOUT ("JSApplication(): Loading package file");
+  // reading the package.json file to memory
+  string package_file = app_path_ + string("/package.json");
+  package_js_ = load_js_file(package_file.c_str(),source_len);
 
+  DBOUT ("JSApplication(): Reading package to attr");
+  map<string,string> json_attr = read_json_file(duk_context_, package_js_);
+
+  string main_file = app_path_ + "/" + json_attr.at("main");
+
+  DBOUT ("JSApplication(): Creating full source code");
   int source_len2;
-  string temp_source = string(load_js_file("./application_header.js",source_len2)) + string(load_js_file(file.c_str(),source_len)) + "\ninitialize();";
+  string temp_source = string(load_js_file("./application_header.js",source_len2)) + string(load_js_file(main_file.c_str(),source_len)) + "\ninitialize();";
+
   // executing initialize code
   source_code_ = new char[temp_source.length()+1];
   strcpy(source_code_,temp_source.c_str());
 
+  DBOUT ("JSApplication(): Making it main node module");
   // pushing this as main module
   duk_push_string(duk_context_, source_code_);
-  duk_module_node_peval_main(duk_context_, file.c_str());
+  duk_module_node_peval_main(duk_context_, json_attr.at("main").c_str());
 
-  duk_push_global_object(duk_context_);
-  duk_del_prop_string(duk_context_, -2, "id");
-  duk_pop(duk_context_);
+  DBOUT ("Inserting application thread");
+  // initializing the thread, this must be the last initialization
+  ev_thread_ = new thread(&JSApplication::run,this);
+  app_threads_.insert(pair<duk_context*, thread*>(duk_context_,ev_thread_));
+
+  mtx->unlock();
 }
 
+void JSApplication::clean() {
+  mtx->lock();
+    DBOUT ( "clean()" );
+  // if the application is running we need to stop the thread
+  app_state_ = APP_STATES::PAUSED;
+  eventloop_->setRequestExit(true);
+  // waiting for thread to stop the execution (come back from poll)
+  DBOUT ("clean(): waiting for thread over" );
+  try {
+    // ev_thread_->detach(); // detaching a not-a-thread
+    while (ev_thread_->joinable()) {
+      mtx->unlock();
+      // waiting eventloop poll to finish
+      poll(NULL,NULL,eventloop_->getCurrentTimeout());
+      if(ev_thread_->joinable())
+        ev_thread_->join();
+      mtx->lock();
+    }
+    // ev_thread_->detach();
+  } catch (const std::system_error& e) {
+    std::cout << "Caught a system_error\n";
+    if(e.code() == std::errc::invalid_argument)
+      std::cout << "The error condition is std::errc::invalid_argument\n";
+      std::cout << "the error description is " << e.what() << '\n';
+  }
+
+  cout << "clean(): killing thread was successful" << endl;
+  delete ev_thread_;
+  ev_thread_ = 0;
+  app_threads_.erase(duk_context_);
+
+  delete eventloop_;
+  eventloop_ = 0;
+
+  cout << "clean(): thread waiting over and calling terminate" << endl;
+
+  duk_push_string(duk_context_, "terminate();");
+  if(duk_peval(duk_context_) != 0) {
+    printf("Script error: %s\n", duk_safe_to_string(duk_context_, -1));
+  }
+
+  cout << "clean(): destoying duk heap" << endl;
+  duk_destroy_heap(duk_context_);
+
+  cout << "clean(): cleaning the app out" << duk_context_ << endl;
+
+  applications_.erase(duk_context_);
+  duk_context_ = 0;
+  mtx->unlock();
+}
+
+
 void JSApplication::run() {
-  fprintf(stderr, "calling eventloop_run()\n");
-  fflush(stderr);
-  fprintf(stderr, "context is %d\n", duk_context_);
-  fflush(stderr);
+  app_state_ = APP_STATES::RUNNING;
   int rc = duk_safe_call(duk_context_, EventLoop::eventloop_run, NULL, 0 /*nargs*/, 1 /*nrets*/);
   if (rc != 0) {
+    app_state_ = APP_STATES::CRASHED;
     fprintf(stderr, "eventloop_run() failed: %s\n", duk_to_string(duk_context_, -1));
     fflush(stderr);
   }
   duk_pop(duk_context_);
 
+}
+
+void JSApplication::reload() {
+  if(app_state_ == APP_STATES::RUNNING) {
+    cout << "Cleaning app" << endl;
+    // clearing application of all previous states and executions
+    clean();
+    cout << "Initializing app" << endl;
+    // initialize app
+    init();
+  }
 }
 
 duk_ret_t JSApplication::cb_resolve_module(duk_context *ctx) {
@@ -101,10 +203,9 @@ duk_ret_t JSApplication::cb_resolve_module(duk_context *ctx) {
   string requested_id_str = string(requested_id);
 
   // getting the known application/module path
-  (void)duk_get_global_string(ctx, "id");
-  int app_id = duk_to_int(ctx, -1);
-  duk_pop(ctx);
-  string path = app_paths_.at(app_id) + "/";
+  JSApplication *app = JSApplication::applications_.at(ctx);
+  int app_id = app->getId();
+  string path = app->getAppPath() + "/";
 
   // if buffer is requested just use native duktape implemented buffer
   if(requested_id_str == "buffer") {
@@ -190,15 +291,10 @@ duk_ret_t JSApplication::cb_load_module(duk_context *ctx) {
         int sourceLen;
         char* package_js = load_js_file(path.c_str(),sourceLen);
 
-        // reading the main field from package.json
-        duk_push_string(ctx, package_js);
-        duk_json_decode(ctx, -1);
-        duk_get_prop_string(ctx, -1, "main");
-        const char* main_js = duk_to_string(ctx, -1);
-        duk_pop_2(ctx);
+        map<string,string> json_attr = read_json_file(ctx, package_js);
 
         // loading main file to source
-        path = string(resolved_id) + string(main_js);
+        path = string(resolved_id) + json_attr.at("main");
         module_source = node::load_as_file(path.c_str());
         if(!module_source) {
           (void) duk_type_error(ctx, "cannot find module: %s", resolved_id);
@@ -225,4 +321,49 @@ duk_ret_t JSApplication::cb_load_module(duk_context *ctx) {
     }
 
     return 1;  /*nrets*/
+}
+
+bool JSApplication::applicationExists(const char* path) {
+  vector<string> names = listApplicationNames();
+
+  for(int i = 0; i < names.size(); ++i) {
+    if(string(path) == names.at(i))
+      return true;
+  }
+
+  return false;
+}
+
+vector<string> JSApplication::listApplicationNames() {
+  vector<string> names;
+
+  DIR *dir;
+  struct dirent *ent;
+
+  if ((dir = opendir ("applications")) != NULL) {
+    // clearing old application names
+    names.clear();
+
+    /* print all the files and directories within directory */
+    while ((ent = readdir (dir)) != NULL) {
+      string temp_name = ent->d_name;
+      if(temp_name != "." && temp_name != "..") {
+        names.push_back(ent->d_name);
+      }
+    }
+    closedir (dir);
+  } else {
+    /* could not open directory */
+    // perror ("");
+    return names;
+  }
+
+  return names;
+
+}
+
+void JSApplication::getJoinThreads() {
+    for (  map<duk_context*, thread*>::const_iterator it=app_threads_.begin(); it!=app_threads_.end(); ++it) {
+      it->second->join();
+    }
 }

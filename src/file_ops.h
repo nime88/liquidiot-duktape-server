@@ -16,8 +16,8 @@ std::map<std::string, std::string> load_config(const char* filename);
 FILE_TYPE is_file(const char* path);
 
 // extracts file from location to
-extern int extract_file(const char* file_path, const char* extract_path);
-extern void extract(const char *filename, int do_extract, int flags);
+extern std::string extract_file(const char* file_path, const char* extract_path);
+extern std::string extract(const char *filename, int do_extract, int flags);
 extern int copy_data(struct archive *ar, struct archive *aw);
 
 #endif

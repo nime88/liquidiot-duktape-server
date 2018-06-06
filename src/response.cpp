@@ -1,10 +1,15 @@
 #include "response.h"
 
 #include <iostream>
+#include <vector>
+
+using namespace std;
+
 #include <sys/fcntl.h>
 #include <errno.h>
 
 #include "file_ops.h"
+#include "application.h"
 
 int handle_404_response(struct lws *wsi, void* buffer_data, uint8_t *start, uint8_t *p, uint8_t *end) {
   struct user_buffer_data *dest_buffer = (struct user_buffer_data*)buffer_data;
@@ -51,12 +56,45 @@ int write_GET_response_headers(struct lws *wsi, void* buffer_data, uint8_t *star
   return false;
 }
 
+int handle_http_POST_header(struct lws *wsi, void* buffer_data, uint8_t *start, uint8_t *p, uint8_t *end) {
+  struct user_buffer_data *dest_buffer = (struct user_buffer_data*)buffer_data;
+
+  if(write_POST_response_headers(wsi, dest_buffer, start, p, end)) {
+    return 1;
+  }
+
+  lws_callback_on_writable(wsi);
+
+  return 0;
+}
+
 int handle_http_POST_response(struct lws *wsi, void* buffer_data, uint8_t *start, uint8_t *p, uint8_t *end) {
   struct user_buffer_data *dest_buffer = (struct user_buffer_data*)buffer_data;
 
+  map<duk_context*, JSApplication*> apps = JSApplication::getApplications();
+  JSApplication *app = 0;
+
+  for (  map<duk_context*, JSApplication*>::const_iterator it=apps.begin(); it!=apps.end(); ++it) {
+    // if the application already exists, simply assign it
+    if(it->second->getAppPath() + "/" == "applications/" + string(dest_buffer->ext_filename)) {
+      app = it->second;
+      break;
+    }
+  }
+
+  // creating new one if not found on previous
+  if(!app) {
+    string temp_path = "applications/" + string(dest_buffer->ext_filename);
+    app = new JSApplication(temp_path.c_str());
+  } else {
+    // we have to reload the app if it's already running
+    // TODO restart app
+    app->reload();
+  }
+
   dest_buffer->len = lws_snprintf(dest_buffer->str, sizeof(dest_buffer->str),
       "<html>"
-      "<h1>POST request</h1>"
+      "<h1>POST request yatta</h1>"
       "</html>");
 
   if(write_POST_response_headers(wsi, dest_buffer, start, p, end)) {
@@ -164,8 +202,11 @@ int handle_http_POST_form_filecb(void *data, const char *name, const char *filen
     dest_buffer->fd = LWS_INVALID_FILE;
 
     // we have the file in file system now so we can just extract it
-    extract_file(std::string("tmp/" + std::string(dest_buffer->filename)).c_str(), "tmp/test");
+    std::string ext_filename = extract_file(std::string("tmp/" + std::string(dest_buffer->filename)).c_str(), "tmp/test");
 
+    strcpy(dest_buffer->ext_filename,ext_filename.c_str());
+
+    lwsl_user("%s: extracted, written to applicaitons/%s\n", __func__, dest_buffer->ext_filename);
 
 		break;
 	}

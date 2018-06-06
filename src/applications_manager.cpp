@@ -30,16 +30,13 @@ vector<string> AppManager::listApplicationNames() {
     return names;
   }
 
-  // storing the results
-  app_names_ = names;
-
   return names;
 
 }
 
 void AppManager::loadApplications() {
   // loading the list of application names
-  listApplicationNames();
+  app_names_ = listApplicationNames();
 
   unsigned int num_app = app_names_.size();
   for(unsigned int i = 0; i < num_app; ++i) {

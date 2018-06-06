@@ -67,6 +67,7 @@ int HttpServer::rest_api_callback(struct lws *wsi, enum lws_callback_reasons rea
 
 	switch (reason) {
   	case LWS_CALLBACK_HTTP: {
+      cout << "LWS_CALLBACK_HTTP" << endl;
       // string wut = parseRequestType(in);
   		/* in contains the url part after our mountpoint /dyn, if any */
 
@@ -76,7 +77,8 @@ int HttpServer::rest_api_callback(struct lws *wsi, enum lws_callback_reasons rea
 
       if (lws_hdr_total_length(wsi, WSI_TOKEN_POST_URI))
         /* POST request */
-        return handle_http_POST_response(wsi, user, start, p, end);
+        return 0;
+        // return handle_http_POST_header(wsi, user, start, p, end);
 
       if(lws_hdr_total_length(wsi, WSI_TOKEN_DELETE_URI))
         /* DELETE request */
@@ -86,7 +88,7 @@ int HttpServer::rest_api_callback(struct lws *wsi, enum lws_callback_reasons rea
     }
 
   	case LWS_CALLBACK_HTTP_WRITEABLE: {
-
+      cout << "LWS_CALLBACK_HTTP_WRITEABLE" << endl;
   		if (!dest_buffer || !dest_buffer->len)
   			break;
 
@@ -113,7 +115,7 @@ int HttpServer::rest_api_callback(struct lws *wsi, enum lws_callback_reasons rea
 
     // handling reading of the body
     case LWS_CALLBACK_HTTP_BODY: {
-
+      cout << "LWS_CALLBACK_HTTP_BODY" << endl;
       if (lws_hdr_total_length(wsi, WSI_TOKEN_POST_URI)) {
         cout << "READING POST FORM" << endl;
         /* POST request */
@@ -128,19 +130,25 @@ int HttpServer::rest_api_callback(struct lws *wsi, enum lws_callback_reasons rea
 
     // finishing up the form reading
     case LWS_CALLBACK_HTTP_BODY_COMPLETION: {
-      cout << "BODY COMPLETION" << endl;
+      cout << "LWS_CALLBACK_HTTP_BODY_COMPLETION" << endl;
       if (lws_hdr_total_length(wsi, WSI_TOKEN_POST_URI)) {
         cout << "COMPLETING POST FORM" << endl;
         /* POST request */
         int post_form = handle_http_POST_form_complete(wsi, user, in, len);
         cout << "Handled post form" << endl;
-        return 0;
+
+        // generating response
+        // generate_POST_response();
+        return handle_http_POST_response(wsi, user, start, p, end);
+
+        // return -1;
       }
 
       break;
     }
 
     case LWS_CALLBACK_HTTP_DROP_PROTOCOL: {
+      cout << "LWS_CALLBACK_HTTP_DROP_PROTOCOL" << endl;
       /* called when our wsi user_space is going to be destroyed */
       if (dest_buffer->spa) {
         lws_spa_destroy(dest_buffer->spa);

@@ -84,22 +84,21 @@ FILE_TYPE is_file(const char* path) {
   return FILE_TYPE::NOT_EXIST;
 }
 
-int extract_file(const char* file_path, const char* extract_path) {
+std::string extract_file(const char* file_path, const char* extract_path) {
   int compress, flags, mode, opt, verbose;
 
   flags = ARCHIVE_EXTRACT_TIME;
 
-  extract(file_path, 1, flags);
-
-  return 0;
+  return extract(file_path, 1, flags);
 }
 
-void extract(const char *filename, int do_extract, int flags)
+std::string extract(const char *filename, int do_extract, int flags)
 {
 	struct archive *a;
 	struct archive *ext;
 	struct archive_entry *entry;
 	int r;
+  std::string final_filename;
 
 	a = archive_read_new();
 	ext = archive_write_disk_new();
@@ -123,7 +122,7 @@ void extract(const char *filename, int do_extract, int flags)
 	if ((r = archive_read_open_filename(a, filename, 10240))) {
     std::cout << "archive_read_open_filename()" << std::endl;
     std::cout << archive_error_string(a) << std::endl;
-		return;
+		return "";
   }
 	for (;;) {
 		r = archive_read_next_header(a, &entry);
@@ -134,15 +133,21 @@ void extract(const char *filename, int do_extract, int flags)
 		if (r != ARCHIVE_OK) {
       std::cout << "archive_read_next_header()" << std::endl;
       std::cout << archive_error_string(a) << std::endl;
-      return;
+      return "";
     }
 
 		if (do_extract)
-      write(1, "x ", strlen("x "));
+      write(1, "x", strlen("x"));
 
 		if (do_extract) {
       // setting extract path
       const char* currentFile = archive_entry_pathname(entry);
+
+      // storing the extract path for later use
+      if(final_filename.length() == 0) {
+        final_filename = currentFile;
+      }
+
       const std::string fullOutputPath = "applications/" + string(currentFile);
       archive_entry_set_pathname(entry, fullOutputPath.c_str());
 
@@ -151,14 +156,14 @@ void extract(const char *filename, int do_extract, int flags)
 			if (r != ARCHIVE_OK) {
         std::cout << "archive_write_header()" << std::endl;
         std::cout << archive_error_string(ext) << std::endl;
-        return;
+        return "";
       } else {
 				copy_data(a, ext);
 				r = archive_write_finish_entry(ext);
 				if (r != ARCHIVE_OK) {
           std::cout << "archive_write_finish_entry()" << std::endl;
           std::cout << archive_error_string(ext) << std::endl;
-          return;
+          return "";
         }
 			}
 		}
@@ -169,7 +174,7 @@ void extract(const char *filename, int do_extract, int flags)
 	archive_write_close(ext);
   archive_write_free(ext);
 
-  return;
+  return final_filename;
 }
 
 int copy_data(struct archive *ar, struct archive *aw) {

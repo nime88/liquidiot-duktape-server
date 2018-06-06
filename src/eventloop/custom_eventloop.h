@@ -35,6 +35,8 @@ class EventLoop {
 
     void evloopRegister(duk_context *ctx);
     void setRequestExit(bool request_exit) { exit_requested_ = request_exit; }
+    void setCurrentTimeout(int timeout) { current_timeout_ = timeout; }
+    int getCurrentTimeout() { return current_timeout_; }
 
     static int eventloop_run(duk_context *ctx, void *udata);
     static int expire_timers(duk_context *ctx);
@@ -48,6 +50,7 @@ class EventLoop {
     duk_context *ctx_;
     map<int,TimerStruct> *timers_;
     bool exit_requested_ = 0;
+    int current_timeout_ = 0;
 
     static double get_now(void);
 

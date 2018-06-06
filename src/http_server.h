@@ -28,6 +28,7 @@
       char filename[128];		/* the filename of the uploaded file */
       unsigned long long file_length; /* the amount of bytes uploaded */
       int fd;				/* fd on file being saved */
+      char ext_filename[128];
     };
 
     static struct lws_protocols protocols[];

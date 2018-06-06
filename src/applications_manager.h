@@ -16,7 +16,7 @@ class AppManager {
     }
 
     // lists and regenerates all the applications folder names
-    vector<string> listApplicationNames();
+    static vector<string> listApplicationNames();
 
     // loads the applications to usable "executables"
     void loadApplications();
