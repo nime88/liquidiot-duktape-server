@@ -67,6 +67,9 @@ class JSApplication {
     // reloads the app from files
     void reload();
 
+    // formats
+    string getDescriptionAsJSON();
+
     static duk_ret_t cb_resolve_module(duk_context *ctx);
     static duk_ret_t cb_load_module(duk_context *ctx);
 
@@ -78,17 +81,24 @@ class JSApplication {
     static void getJoinThreads();
 
   private:
-    APP_STATES app_state_;
     thread *ev_thread_;
     EventLoop *eventloop_;
-    string name_;
     duk_context *duk_context_;
     char* package_js_;
     char* source_code_;
     string app_path_;
 
-
+    // outside app references
+    string name_;
+    string version_;
+    string description_;
+    string main_;
     int id_;
+    APP_STATES app_state_;
+    vector<string> application_interfaces_;
+
+
+    // static
     static int next_id_;
     static map<string,string> options_;
     static map<duk_context*, JSApplication*> applications_;

@@ -98,9 +98,16 @@ int HttpServer::rest_api_callback(struct lws *wsi, enum lws_callback_reasons rea
   		 * frame
   		 */
 
-  		if (lws_write(wsi, (uint8_t *)dest_buffer->str, dest_buffer->len,
-  			      LWS_WRITE_HTTP_FINAL) != dest_buffer->len)
+      if(dest_buffer->large_str.length() > 0) {
+        if (lws_write(wsi, (uint8_t *)dest_buffer->large_str.c_str(), dest_buffer->large_str.length(),
+    			      LWS_WRITE_HTTP_FINAL) != dest_buffer->large_str.length()) {
+    			return 1;
+        }
+  		} else if (lws_write(wsi, (uint8_t *)dest_buffer->str, dest_buffer->len,
+  			      LWS_WRITE_HTTP_FINAL) != dest_buffer->len) {
   			return 1;
+      }
+
 
   		/*
   		 * HTTP/1.0 no keepalive: close network connection

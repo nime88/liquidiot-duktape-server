@@ -41,7 +41,7 @@ function setTimeout(func, delay) {
         cb_func = func;
     }
 
-    timer_id = EventLoop.createTimer(cb_func, delay, true /*oneshot*/);
+    timer_id = EventLoop.createTimer(cb_func, delay, true /* oneshot */);
 
     return timer_id;
 }
@@ -81,7 +81,7 @@ function setInterval(func, delay) {
         cb_func = func;
     }
 
-    timer_id = EventLoop.createTimer(cb_func, delay, false /*oneshot*/);
+    timer_id = EventLoop.createTimer(cb_func, delay, false /* repeats */);
 
     return timer_id;
 }

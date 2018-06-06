@@ -6,6 +6,7 @@
  #include <signal.h>
 
  #include <iostream>
+ #include <string>
  using namespace std;
 
  #include "response.h"
@@ -29,6 +30,7 @@
       unsigned long long file_length; /* the amount of bytes uploaded */
       int fd;				/* fd on file being saved */
       char ext_filename[128];
+      string large_str;
     };
 
     static struct lws_protocols protocols[];

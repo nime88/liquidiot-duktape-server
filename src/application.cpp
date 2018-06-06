@@ -90,7 +90,9 @@ void JSApplication::init() {
   DBOUT ("JSApplication(): Reading package to attr");
   map<string,string> json_attr = read_json_file(duk_context_, package_js_);
 
-  string main_file = app_path_ + "/" + json_attr.at("main");
+  main_ = json_attr.at("main");
+  string main_file = app_path_ + "/" + main_;
+
 
   DBOUT ("JSApplication(): Creating full source code");
   int source_len2;
@@ -184,8 +186,60 @@ void JSApplication::reload() {
     clean();
     cout << "Initializing app" << endl;
     // initialize app
+    // while(!getMutex()->try_lock()) {}
     init();
   }
+}
+
+string JSApplication::getDescriptionAsJSON() {
+  while(!getMutex()->try_lock()){}
+  string full_status;
+  duk_context *ctx = getContext();
+
+  duk_push_object(ctx);
+
+  // name
+  if(name_.length() > 0) {
+    duk_push_string(ctx,name_.c_str());
+    duk_put_prop_string(ctx, -2, "name");
+  }
+
+  // version
+  if(version_.length() > 0) {
+    duk_push_string(ctx,version_.c_str());
+    duk_put_prop_string(ctx, -2, "version");
+  }
+
+  // description
+  if(description_.length() > 0) {
+    duk_push_string(ctx,description_.c_str());
+    duk_put_prop_string(ctx, -2, "description");
+  }
+
+  // main
+  if(main_.length() > 0) {
+    duk_push_string(ctx,main_.c_str());
+    duk_put_prop_string(ctx, -2, "main");
+  }
+
+  // id
+  if(id_ >= 0) {
+    duk_push_int(ctx, id_);
+    duk_put_prop_string(ctx, -2, "id");
+  }
+
+  // status
+  if(app_state_ >= 0 && app_state_ < 4) {
+    duk_push_string(ctx,APP_STATES_CHAR.at(app_state_).c_str());
+    duk_put_prop_string(ctx, -2, "state");
+  }
+
+  full_status = duk_json_encode(ctx, -1);
+  duk_pop(ctx);
+
+  getMutex()->unlock();
+
+  return full_status;
 }
 
 duk_ret_t JSApplication::cb_resolve_module(duk_context *ctx) {

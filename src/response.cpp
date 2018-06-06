@@ -88,14 +88,28 @@ int handle_http_POST_response(struct lws *wsi, void* buffer_data, uint8_t *start
     app = new JSApplication(temp_path.c_str());
   } else {
     // we have to reload the app if it's already running
-    // TODO restart app
+    while(!app->getMutex()->try_lock()) {}
+    app->getMutex()->unlock();
     app->reload();
   }
 
-  dest_buffer->len = lws_snprintf(dest_buffer->str, sizeof(dest_buffer->str),
-      "<html>"
-      "<h1>POST request yatta</h1>"
-      "</html>");
+  dest_buffer->large_str = app->getDescriptionAsJSON();
+
+  dest_buffer->len = dest_buffer->large_str.length();
+  //
+  // dest_buffer->len = lws_snprintf(dest_buffer->str, sizeof(dest_buffer->str),
+  //     "<html>"
+  //     "<h1>POST request yatta</h1>"
+  //     "<h1>POST request yatta</h1>"
+  //     "<h1>POST request yatta</h1>"
+  //     "<h1>POST request yatta</h1>"
+  //     "<h1>POST request yatta</h1>"
+  //     "<h1>POST request yatta</h1>"
+  //     "<h1>POST request yatta</h1>"
+  //     "<h1>POST request yatta</h1>"
+  //     "<h1>POST request yatta</h1>"
+  //     "<h1>POST request yatta</h1>"
+  //     "</html>");
 
   if(write_POST_response_headers(wsi, dest_buffer, start, p, end)) {
     return 1;

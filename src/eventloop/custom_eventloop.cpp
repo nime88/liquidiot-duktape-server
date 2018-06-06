@@ -27,7 +27,7 @@ int EventLoop::next_id_ = 0;
 map<duk_context*,map<int, EventLoop::TimerStruct>*> EventLoop::all_timers_;
 map<duk_context*,EventLoop*> EventLoop::all_eventloops_;
 duk_function_list_entry EventLoop::eventloop_funcs[] = {
- { "createTimer", create_timer, 2 },
+ { "createTimer", create_timer, 3 },
  { "deleteTimer", delete_timer, 1 },
  { "requestExit", request_exit, 0 },
  { NULL, NULL, 0 }
@@ -74,22 +74,23 @@ int EventLoop::eventloop_run(duk_context *ctx, void *udata) {
   (void) udata;
 
   // DBOUT( "eventloop_run(): Data initialized");
-
+  while(!JSApplication::getMutex()->try_lock()){}
   duk_push_global_object(ctx);
   duk_get_prop_string(ctx, -1, "EventLoop");
+  JSApplication::getMutex()->unlock();
 
   DBOUT( "eventloop_run(): Got EventLoop property");
 
   for(;;) {
     JSApplication::getMutex()->lock();
 
-    if(interrupted || app->getAppState() != JSApplication::APP_STATES::RUNNING) {
-      DBOUT( "eventloop_run(): Asked for termination");
+    if(interrupted) {
+      // DBOUT( "eventloop_run(): Asked for termination");
       JSApplication::getMutex()->unlock();
       break;
     }
 
-    DBOUT( "eventloop_run(): Expiring timers");
+    // DBOUT( "eventloop_run(): Expiring timers");
     expire_timers(ctx);
 
     if (eventloop->exit_requested_) {
@@ -125,8 +126,8 @@ int EventLoop::eventloop_run(duk_context *ctx, void *udata) {
     // handling sigint event
     signal(SIGINT, sigint_handler);
 
-    DBOUT( "eventloop_run(): Timers, diff " << diff);
-    DBOUT( "eventloop_run(): Starting poll() wait for " << timeout << " millis");
+    // DBOUT( "eventloop_run(): Timers, diff " << diff);
+    // DBOUT( "eventloop_run(): Starting poll() wait for " << timeout << " millis");
 
     JSApplication::getMutex()->unlock();
     poll(NULL,NULL,timeout);
@@ -168,14 +169,13 @@ int EventLoop::expire_timers(duk_context *ctx) {
       break;
     }
 
-    // DBOUT( "expire_timers(): Loop, there are " << timers->size() << " timers");
+    DBOUT( "expire_timers(): Loop, there are " << timers->size() << " timers");
     // find expired timers and mark them
     for (map<int, TimerStruct>::iterator it = timers->begin(); it != timers->end(); ++it) {
-      if(it->second.oneshot) {
-        it->second.removed = 1;
-        duk_push_number(ctx, (double) it->second.id);
-        duk_del_prop(ctx, -2);
-        timers->erase(it);
+      if(it->second.removed) {
+        // duk_push_number(ctx, (double) it->second.id);
+        // duk_del_prop(ctx, -2);
+        // timers->erase(it);
         break;
       }
 
@@ -189,6 +189,12 @@ int EventLoop::expire_timers(duk_context *ctx) {
         rc = duk_pcall(ctx, 0 /*nargs*/);  /* -> [ ... stash eventTimers retval ] */
         duk_pop(ctx);
         it->second.expiring = 0;
+
+        // checking oneshot
+        if(it->second.oneshot) {
+          it->second.removed = 1;
+        }
+
         // breaking to avoid too long callback executions on one run
         break;
       } else {
@@ -196,11 +202,11 @@ int EventLoop::expire_timers(duk_context *ctx) {
       }
     }
 
-    // DBOUT( "expire_timers(): Loop, trying to pop last 2");
+    DBOUT( "expire_timers(): Loop, trying to pop last 2");
     duk_pop_2(ctx);  /* -> [ ... ] */
   }
 
-  // DBOUT( "expire_timers(): Expired timers successfully");
+  DBOUT( "expire_timers(): Expired timers successfully");
 
   return 0;
 }
