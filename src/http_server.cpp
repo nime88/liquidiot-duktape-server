@@ -21,7 +21,7 @@ struct lws_protocols HttpServer::protocols[] = {
 
 int HttpServer::run() {
   // const char *p;
-  int n = 0, logs = LLL_USER | LLL_ERR | LLL_WARN | LLL_NOTICE
+  int n = 0, logs = LLL_USER | LLL_ERR | LLL_WARN | LLL_NOTICE | LLL_PARSER
     /* for LLL_ verbosity above NOTICE to be built into lws,
      * lws must have been configured and built with
      * -DCMAKE_BUILD_TYPE=DEBUG instead of =RELEASE */
@@ -68,19 +68,23 @@ int HttpServer::rest_api_callback(struct lws *wsi, enum lws_callback_reasons rea
 	switch (reason) {
   	case LWS_CALLBACK_HTTP: {
       cout << "LWS_CALLBACK_HTTP" << endl;
-      // string wut = parseRequestType(in);
-  		/* in contains the url part after our mountpoint /dyn, if any */
+  		/* in contains the url part after our mountpoint /api, if any */
 
       if (lws_hdr_total_length(wsi, WSI_TOKEN_GET_URI))
         /* GET request */
         return handle_http_GET_response(wsi, user, start, p, end);
 
-      if (lws_hdr_total_length(wsi, WSI_TOKEN_POST_URI))
+      if (lws_hdr_total_length(wsi, WSI_TOKEN_POST_URI)) {
+        // storing the request url from the mountpoint
+        dest_buffer->request_url = (char*)in;
         /* POST request */
         return 0;
         // return handle_http_POST_header(wsi, user, start, p, end);
+      }
 
       if(lws_hdr_total_length(wsi, WSI_TOKEN_DELETE_URI))
+        // storing the request url from the mountpoint
+        dest_buffer->request_url = (char*)in;
         /* DELETE request */
         return handle_http_DELETE_response(wsi, user, start, p, end);
 
@@ -124,9 +128,13 @@ int HttpServer::rest_api_callback(struct lws *wsi, enum lws_callback_reasons rea
     case LWS_CALLBACK_HTTP_BODY: {
       cout << "LWS_CALLBACK_HTTP_BODY" << endl;
       if (lws_hdr_total_length(wsi, WSI_TOKEN_POST_URI)) {
-        cout << "READING POST FORM" << endl;
         /* POST request */
         int post_form = handle_http_POST_form(wsi, user, in, len);
+
+        if(dest_buffer->error_msg.length() > 0) {
+          // if we have an error, just continue to body completion
+          return 0;
+        }
 
         if(post_form)
           return post_form;
@@ -138,17 +146,29 @@ int HttpServer::rest_api_callback(struct lws *wsi, enum lws_callback_reasons rea
     // finishing up the form reading
     case LWS_CALLBACK_HTTP_BODY_COMPLETION: {
       cout << "LWS_CALLBACK_HTTP_BODY_COMPLETION" << endl;
+      if(dest_buffer->error_msg.length() > 0) {
+        return handle_http_POST_fail_response(wsi, user, start, p, end);
+      }
+
       if (lws_hdr_total_length(wsi, WSI_TOKEN_POST_URI)) {
-        cout << "COMPLETING POST FORM" << endl;
+        cout << "Completing POST form" << endl;
         /* POST request */
         int post_form = handle_http_POST_form_complete(wsi, user, in, len);
-        cout << "Handled post form" << endl;
 
         // generating response
-        // generate_POST_response();
-        return handle_http_POST_response(wsi, user, start, p, end);
+        int post_resp = handle_http_POST_response(wsi, user, start, p, end);
 
-        // return -1;
+        if(dest_buffer->error_msg.length() > 0) {
+          return handle_http_POST_fail_response(wsi, user, start, p, end);
+        }
+
+        return post_resp;
+      }
+
+      if (lws_hdr_total_length(wsi, WSI_TOKEN_DELETE_URI)) {
+        cout << "Completing DELETE" << endl;
+        /* POST request */
+        int del_resp = handle_http_POST_response(wsi, user, start, p, end);
       }
 
       break;

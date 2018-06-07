@@ -9,6 +9,8 @@
 #include <sys/stat.h>
 #include <archive.h>
 #include <archive_entry.h>
+#include <stdio.h>
+#include <dirent.h>
 
 using namespace std;
 
@@ -73,7 +75,6 @@ FILE_TYPE is_file(const char* path) {
       //it's a file
       return FILE_TYPE::PATH_TO_FILE;
     } else {
-      // std::cout << "What is this" << std::endl;
       return FILE_TYPE::OTHER;
     }
   } else {
@@ -89,10 +90,10 @@ std::string extract_file(const char* file_path, const char* extract_path) {
 
   flags = ARCHIVE_EXTRACT_TIME;
 
-  return extract(file_path, 1, flags);
+  return extract(file_path, 1, flags, extract_path);
 }
 
-std::string extract(const char *filename, int do_extract, int flags)
+std::string extract(const char *filename, int do_extract, int flags, const char* extract_path)
 {
 	struct archive *a;
 	struct archive *ext;
@@ -104,19 +105,9 @@ std::string extract(const char *filename, int do_extract, int flags)
 	ext = archive_write_disk_new();
 	archive_write_disk_set_options(ext, flags);
 
-	/*
-	 * Note: archive_write_disk_set_standard_lookup() is useful
-	 * here, but it requires library routines that can add 500k or
-	 * more to a static executable.
-	 */
   archive_read_support_compression_gzip(a);
 	archive_read_support_format_tar(a);
-	/*
-	 * On my system, enabling other archive formats adds 20k-30k
-	 * each.  Enabling gzip decompression adds about 20k.
-	 * Enabling bzip2 is more expensive because the libbz2 library
-	 * isn't very well factored.
-	 */
+
 	if (filename != NULL && strcmp(filename, "-") == 0)
 		filename = NULL;
 	if ((r = archive_read_open_filename(a, filename, 10240))) {
@@ -124,6 +115,7 @@ std::string extract(const char *filename, int do_extract, int flags)
     std::cout << archive_error_string(a) << std::endl;
 		return "";
   }
+
 	for (;;) {
 		r = archive_read_next_header(a, &entry);
 
@@ -148,7 +140,19 @@ std::string extract(const char *filename, int do_extract, int flags)
         final_filename = currentFile;
       }
 
-      const std::string fullOutputPath = "applications/" + string(currentFile);
+      std::string fullOutputPath;
+
+      // separating if we have designated extract path or not
+      if(!extract_path)
+        fullOutputPath = "applications/" + string(currentFile);
+      else {
+        fullOutputPath = string(extract_path) + "/" + string(currentFile);
+        size_t found;
+        found=string(currentFile).find_first_of("/");
+        fullOutputPath = string(currentFile).substr(found+1);
+        fullOutputPath = string(extract_path) + "/" + fullOutputPath;
+      }
+
       archive_entry_set_pathname(entry, fullOutputPath.c_str());
 
 			r = archive_write_header(ext, entry);
@@ -200,4 +204,33 @@ int copy_data(struct archive *ar, struct archive *aw) {
 			return (r);
 		}
 	}
+}
+
+int delete_files(const char* file_path) {
+  if(is_file(file_path) == FILE_TYPE::PATH_TO_FILE) {
+    int ul = remove(file_path);
+    return ul != 0 ? 0 : 1;
+  }
+
+  if(is_file(file_path) == FILE_TYPE::PATH_TO_DIR && string(file_path) != "." && string(file_path) != "..") {
+    DIR *dir;
+    struct dirent *ent;
+    if ((dir = opendir (file_path)) != NULL) {
+      /* print all the files and directories within directory */
+      while ((ent = readdir (dir)) != NULL) {
+        string temp = string(file_path) + "/" + string(ent->d_name);
+        if(string(ent->d_name) != "." && string(ent->d_name) != "..")
+          delete_files(temp.c_str());
+      }
+
+      closedir (dir);
+      int ul = remove(file_path);
+      return ul != 0 ? 0 : 1;
+    } else {
+      return 0;
+    }
+
+  }
+
+  return 0;
 }

@@ -31,6 +31,8 @@
       int fd;				/* fd on file being saved */
       char ext_filename[128];
       string large_str;
+      string request_url;
+      string error_msg;
     };
 
     static struct lws_protocols protocols[];

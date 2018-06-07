@@ -17,6 +17,8 @@ struct user_buffer_data {
   int fd;				/* fd on file being saved */
   char ext_filename[128];
   string large_str;
+  string request_url;
+  string error_msg;
 };
 
 // defining post parameters
@@ -25,7 +27,7 @@ static const char * const post_param_names[] = {
 };
 
 enum post_enum_param_names {
-	EPN_FILEKEY,
+	EPN_FILEKEY=0,
 };
 
 extern int handle_404_response(struct lws *wsi, void* buffer_data, uint8_t *start, uint8_t *p, uint8_t *end);
@@ -35,6 +37,7 @@ extern int write_GET_response_headers(struct lws *wsi, void *buffer_data, uint8_
 
 extern int handle_http_POST_header(struct lws *wsi, void* buffer_data, uint8_t *start, uint8_t *p, uint8_t *end);
 extern int handle_http_POST_response(struct lws *wsi, void* buffer_data, uint8_t *start, uint8_t *p, uint8_t *end);
+extern int handle_http_POST_fail_response(struct lws *wsi, void* buffer_data, uint8_t *start, uint8_t *p, uint8_t *end);
 extern int write_POST_response_headers(struct lws *wsi, void *buffer_data, uint8_t *start, uint8_t *p, uint8_t *end);
 extern int handle_http_POST_form(struct lws *wsi, void *buffer_data, void *in, size_t len);
 extern int handle_http_POST_form_complete(struct lws *wsi, void *buffer_data, void *in, size_t len);
