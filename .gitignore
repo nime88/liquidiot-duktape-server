@@ -4,3 +4,4 @@ liquid-server
 *.o
 applications/*.js
 *.gch
+*.swp

@@ -23,7 +23,7 @@ Duktape.errThrow = function (e) {
 }
 
 // interface between the application and main program
-var setTaskInterval = function(repeat, interval) {
+setTaskInterval = function(repeat, interval) {
   var interval;
 
   if(!repeat) {

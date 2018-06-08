@@ -96,7 +96,14 @@ void JSApplication::init() {
 
   DBOUT ("JSApplication(): Creating full source code");
   int source_len2;
-  string temp_source = string(load_js_file("./application_header.js",source_len2)) + string(load_js_file(main_file.c_str(),source_len)) + "\ninitialize();";
+  string temp_source = string(load_js_file(main_file.c_str(),source_len)) + "\ninitialize();";
+
+  // executing ready made headers
+  duk_push_string(duk_context_, load_js_file("./application_header.js",source_len2));
+  if(duk_peval(duk_context_) != 0) {
+    printf("Script error: %s\n", duk_safe_to_string(duk_context_, -1));
+  }
+  duk_pop(duk_context_);
 
   // executing initialize code
   source_code_ = new char[temp_source.length()+1];
