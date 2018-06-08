@@ -40,12 +40,12 @@ extern int handle_http_POST_response(struct lws *wsi, void* buffer_data, uint8_t
 extern int handle_http_POST_fail_response(struct lws *wsi, void* buffer_data, uint8_t *start, uint8_t *p, uint8_t *end);
 extern int write_POST_response_headers(struct lws *wsi, void *buffer_data, uint8_t *start, uint8_t *p, uint8_t *end);
 extern int handle_http_POST_form(struct lws *wsi, void *buffer_data, void *in, size_t len);
-extern int handle_http_POST_form_complete(struct lws *wsi, void *buffer_data, void *in, size_t len);
 extern int handle_http_POST_form_filecb(void *data, const char *name, const char *filename,
 	       char *buf, int len, enum lws_spa_fileupload_states state);
 extern int generate_POST_response();
 
 extern int handle_http_DELETE_response(struct lws *wsi, void* buffer_data, uint8_t *start, uint8_t *p, uint8_t *end);
+extern int handle_http_DELETE_fail_response(struct lws *wsi, void* buffer_data, uint8_t *start, uint8_t *p, uint8_t *end);
 extern int write_DELETE_response_headers(struct lws *wsi, void *buffer_data, uint8_t *start, uint8_t *p, uint8_t *end);
 
 # endif

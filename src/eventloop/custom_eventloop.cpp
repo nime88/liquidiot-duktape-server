@@ -66,7 +66,6 @@ int EventLoop::eventloop_run(duk_context *ctx, void *udata) {
   DBOUT( "eventloop_run(): Starting");
   EventLoop *eventloop = EventLoop::all_eventloops_.at(ctx);
   map<int,TimerStruct> *timers = EventLoop::all_timers_.at(ctx);
-  JSApplication *app = JSApplication::getApplications().at(ctx);
   double now;
   double diff;
   int timeout;
@@ -130,7 +129,7 @@ int EventLoop::eventloop_run(duk_context *ctx, void *udata) {
     // DBOUT( "eventloop_run(): Starting poll() wait for " << timeout << " millis");
 
     JSApplication::getMutex()->unlock();
-    poll(NULL,NULL,timeout);
+    poll(NULL,0,timeout);
 
   }
 
@@ -158,7 +157,7 @@ int EventLoop::expire_timers(duk_context *ctx) {
 
   DBOUT( "expire_timers(): Reading timers form heap slot successful");
 
-  for(;sanity > 0 && (MAX_EXPIRIES-sanity) < timers->size(); --sanity) {
+  for(;sanity > 0 && (MAX_EXPIRIES-sanity) < (int)timers->size(); --sanity) {
     // exit has been requested...
     if (eventloop->exit_requested_) {
       break;
@@ -187,6 +186,10 @@ int EventLoop::expire_timers(duk_context *ctx) {
         duk_push_number(ctx, (double) it->second.id);
         duk_get_prop(ctx, -2);
         rc = duk_pcall(ctx, 0 /*nargs*/);  /* -> [ ... stash eventTimers retval ] */
+        if(rc != 0) {
+          fprintf(stderr, "expire_timers(): js callback failed: %s\n", duk_to_string(ctx, -1));
+          fflush(stderr);
+        }
         duk_pop(ctx);
         it->second.expiring = 0;
 
@@ -217,7 +220,6 @@ int EventLoop::create_timer(duk_context *ctx) {
   double delay;
   bool oneshot;
   map<int, TimerStruct> *timers = EventLoop::all_timers_.at(ctx);
-  EventLoop *eventloop = EventLoop::all_eventloops_.at(ctx);
   TimerStruct timer;
 
   DBOUT( "Loading data successful" );

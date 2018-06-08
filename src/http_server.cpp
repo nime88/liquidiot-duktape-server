@@ -11,6 +11,7 @@ extern "C" {
 #endif
 
 #include <iostream>
+#include <algorithm>
 using namespace std;
 
 struct lws_protocols HttpServer::protocols[] = {
@@ -77,16 +78,25 @@ int HttpServer::rest_api_callback(struct lws *wsi, enum lws_callback_reasons rea
       if (lws_hdr_total_length(wsi, WSI_TOKEN_POST_URI)) {
         // storing the request url from the mountpoint
         dest_buffer->request_url = (char*)in;
+
         /* POST request */
         return 0;
-        // return handle_http_POST_header(wsi, user, start, p, end);
+
       }
 
       if(lws_hdr_total_length(wsi, WSI_TOKEN_DELETE_URI))
         // storing the request url from the mountpoint
         dest_buffer->request_url = (char*)in;
+
+        cout << "Completing DELETE" << endl;
         /* DELETE request */
-        return handle_http_DELETE_response(wsi, user, start, p, end);
+        int del_resp = handle_http_DELETE_response(wsi, user, start, p, end);
+        cout << "Error msg: " << dest_buffer->error_msg << endl;
+        if(dest_buffer->error_msg.length() > 0) {
+          return handle_http_DELETE_fail_response(wsi, user, start, p, end);
+        }
+
+        return del_resp;
 
       return handle_404_response(wsi, user, start, p, end);
     }
@@ -104,7 +114,7 @@ int HttpServer::rest_api_callback(struct lws *wsi, enum lws_callback_reasons rea
 
       if(dest_buffer->large_str.length() > 0) {
         if (lws_write(wsi, (uint8_t *)dest_buffer->large_str.c_str(), dest_buffer->large_str.length(),
-    			      LWS_WRITE_HTTP_FINAL) != dest_buffer->large_str.length()) {
+    			      LWS_WRITE_HTTP_FINAL) != (int)dest_buffer->large_str.length()) {
     			return 1;
         }
   		} else if (lws_write(wsi, (uint8_t *)dest_buffer->str, dest_buffer->len,
@@ -146,14 +156,16 @@ int HttpServer::rest_api_callback(struct lws *wsi, enum lws_callback_reasons rea
     // finishing up the form reading
     case LWS_CALLBACK_HTTP_BODY_COMPLETION: {
       cout << "LWS_CALLBACK_HTTP_BODY_COMPLETION" << endl;
-      if(dest_buffer->error_msg.length() > 0) {
-        return handle_http_POST_fail_response(wsi, user, start, p, end);
-      }
 
       if (lws_hdr_total_length(wsi, WSI_TOKEN_POST_URI)) {
+        if(dest_buffer->error_msg.length() > 0) {
+          return handle_http_POST_fail_response(wsi, user, start, p, end);
+        }
+
         cout << "Completing POST form" << endl;
         /* POST request */
-        int post_form = handle_http_POST_form_complete(wsi, user, in, len);
+        /* inform the spa no more payload data coming */
+        lws_spa_finalize(dest_buffer->spa);
 
         // generating response
         int post_resp = handle_http_POST_response(wsi, user, start, p, end);
@@ -166,9 +178,7 @@ int HttpServer::rest_api_callback(struct lws *wsi, enum lws_callback_reasons rea
       }
 
       if (lws_hdr_total_length(wsi, WSI_TOKEN_DELETE_URI)) {
-        cout << "Completing DELETE" << endl;
-        /* POST request */
-        int del_resp = handle_http_POST_response(wsi, user, start, p, end);
+
       }
 
       break;

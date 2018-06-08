@@ -45,6 +45,8 @@ class JSApplication {
     // cleans the app from unnecessary stuff
     void clean();
 
+
+
     enum APP_STATES { INITIALIZING=0, CRASHED, RUNNING, PAUSED};
     vector<string> APP_STATES_CHAR = {"initializing","crashed","running","paused"};
 
@@ -66,6 +68,8 @@ class JSApplication {
     void run();
     // reloads the app from files
     void reload();
+    // effectively deletes the app
+    bool deleteApp();
 
     // formats
     string getDescriptionAsJSON();

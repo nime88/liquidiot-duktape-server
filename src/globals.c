@@ -5,5 +5,6 @@
 int interrupted;
 
 void sigint_handler(int sig) {
+  (void)sig;
   interrupted = 1;
 }

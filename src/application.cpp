@@ -128,7 +128,7 @@ void JSApplication::clean() {
     while (ev_thread_->joinable()) {
       mtx->unlock();
       // waiting eventloop poll to finish
-      poll(NULL,NULL,eventloop_->getCurrentTimeout());
+      poll(NULL,0,eventloop_->getCurrentTimeout());
       if(ev_thread_->joinable())
         ev_thread_->join();
       mtx->lock();
@@ -189,6 +189,16 @@ void JSApplication::reload() {
     // while(!getMutex()->try_lock()) {}
     init();
   }
+}
+
+bool JSApplication::deleteApp() {
+  // have to delete app before we clean (otherwise can really find it)
+  applications_.erase(getContext());
+  clean();
+  if(delete_files(getAppPath().c_str()))
+    return 1;
+
+  return 0;
 }
 
 string JSApplication::getDescriptionAsJSON() {
@@ -258,7 +268,6 @@ duk_ret_t JSApplication::cb_resolve_module(duk_context *ctx) {
 
   // getting the known application/module path
   JSApplication *app = JSApplication::applications_.at(ctx);
-  int app_id = app->getId();
   string path = app->getAppPath() + "/";
 
   // if buffer is requested just use native duktape implemented buffer
@@ -380,7 +389,7 @@ duk_ret_t JSApplication::cb_load_module(duk_context *ctx) {
 bool JSApplication::applicationExists(const char* path) {
   vector<string> names = listApplicationNames();
 
-  for(int i = 0; i < names.size(); ++i) {
+  for(unsigned int i = 0; i < names.size(); ++i) {
     if(string(path) == names.at(i))
       return true;
   }

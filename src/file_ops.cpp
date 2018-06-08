@@ -86,7 +86,7 @@ FILE_TYPE is_file(const char* path) {
 }
 
 std::string extract_file(const char* file_path, const char* extract_path) {
-  int compress, flags, mode, opt, verbose;
+  int flags;
 
   flags = ARCHIVE_EXTRACT_TIME;
 
@@ -105,7 +105,7 @@ std::string extract(const char *filename, int do_extract, int flags, const char*
 	ext = archive_write_disk_new();
 	archive_write_disk_set_options(ext, flags);
 
-  archive_read_support_compression_gzip(a);
+  archive_read_support_filter_gzip(a);
 	archive_read_support_format_tar(a);
 
 	if (filename != NULL && strcmp(filename, "-") == 0)
@@ -219,6 +219,7 @@ int delete_files(const char* file_path) {
       /* print all the files and directories within directory */
       while ((ent = readdir (dir)) != NULL) {
         string temp = string(file_path) + "/" + string(ent->d_name);
+        cout << "The temp path: " << temp << endl;
         if(string(ent->d_name) != "." && string(ent->d_name) != "..")
           delete_files(temp.c_str());
       }

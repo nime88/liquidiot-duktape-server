@@ -205,15 +205,6 @@ int handle_http_POST_form(struct lws *wsi, void *buffer_data, void *in, size_t l
   return false;
 }
 
-int handle_http_POST_form_complete(struct lws *wsi, void *buffer_data, void *in, size_t len) {
-  struct user_buffer_data *dest_buffer = (struct user_buffer_data*)buffer_data;
-
-  /* inform the spa no more payload data coming */
-  lws_spa_finalize(dest_buffer->spa);
-
-  return -1;
-}
-
 int handle_http_POST_form_filecb(void *data, const char *name, const char *filename,
 	       char *buf, int len, enum lws_spa_fileupload_states state) {
 	struct user_buffer_data *dest_buffer = (struct user_buffer_data *)data;
@@ -274,27 +265,80 @@ int handle_http_POST_form_filecb(void *data, const char *name, const char *filen
 int handle_http_DELETE_response(struct lws *wsi, void* buffer_data, uint8_t *start, uint8_t *p, uint8_t *end) {
   struct user_buffer_data *dest_buffer = (struct user_buffer_data*)buffer_data;
 
-  if(dest_buffer->request_url.length() == 0) {
-    map<duk_context*, JSApplication*> apps = JSApplication::getApplications();
+  string temp_request_url = dest_buffer->request_url;
+  // removing '/' so we can parse int
+  temp_request_url.erase(std::remove(temp_request_url.begin(), temp_request_url.end(), '/'), temp_request_url.end());
+  int id = -1;
 
-    int deleted_apps = 0;
-
-    for (  map<duk_context*, JSApplication*>::const_iterator it=apps.begin(); it!=apps.end(); ++it) {
-      it->second->clean();
-      cout << "Deleting app files" << endl;
-      deleted_apps += delete_files(it->second->getAppPath().c_str());
-      cout << "App files deleted" << endl;
+  if(temp_request_url.length() > 0) {
+    try {
+      id = stoi(temp_request_url);
+    } catch( invalid_argument e) {
+      id = -2;
     }
-
-    cout << deleted_apps << " app deleted" << endl;
   }
 
-  dest_buffer->len = lws_snprintf(dest_buffer->str, sizeof(dest_buffer->str),
-      "<html>"
-      "<h1>DELETE request</h1>"
-      "</html>");
+  int deleted_apps = 0;
+  map<duk_context*, JSApplication*> apps = JSApplication::getApplications();
+
+  cout << "Delete id: " << id << endl;
+  cout << "Amount of apps baefore " << apps.size() << endl;
+
+  if(id == -1) {
+    int app_amount = apps.size();
+
+    for (  map<duk_context*, JSApplication*>::const_iterator it=apps.begin(); it!=apps.end(); ++it) {
+      deleted_apps += it->second->deleteApp();
+    }
+    cout << deleted_apps << " apps deleted" << endl;
+    if(deleted_apps == app_amount) {
+      dest_buffer->large_str = "All apps were deleted successfully";
+    } else {
+      dest_buffer->large_str = to_string(deleted_apps) + " of " + to_string(app_amount) + " app were deleted successfully.";
+    }
+  } else if(id >= 0) {
+    for (  map<duk_context*, JSApplication*>::const_iterator it=apps.begin(); it!=apps.end(); ++it) {
+      if(id == it->second->getId()) {
+        deleted_apps += it->second->deleteApp();
+        if(deleted_apps) {
+          dest_buffer->large_str = "Application " + to_string(id) + " was deleted successfully.";
+        }
+      }
+    }
+
+    if(!deleted_apps) {
+      dest_buffer->error_msg = "No application with id '" + to_string(id) + "'.";
+      return -1;
+    }
+  }
+
+  cout << "Deleted app amount: " << deleted_apps << endl;
+  cout << "Amount of apps after " << apps.size() << endl;
+
+
+  dest_buffer->len = dest_buffer->large_str.length();
 
   if(write_DELETE_response_headers(wsi, dest_buffer, start, p, end)) {
+    return 1;
+  }
+
+  lws_callback_on_writable(wsi);
+
+  return 0;
+}
+
+int handle_http_DELETE_fail_response(struct lws *wsi, void* buffer_data, uint8_t *start, uint8_t *p, uint8_t *end) {
+  struct user_buffer_data *dest_buffer = (struct user_buffer_data*)buffer_data;
+
+  dest_buffer->large_str = dest_buffer->error_msg;
+  dest_buffer->len = dest_buffer->large_str.length();
+
+  /* prepare and write http headers */
+  if (lws_add_http_common_headers(wsi, HTTP_STATUS_NOT_FOUND,
+          "text/html", dest_buffer->len, &p, end)) {
+    return 1;
+  }
+  if (lws_finalize_write_http_header(wsi, start, &p, end)) {
     return 1;
   }
 
