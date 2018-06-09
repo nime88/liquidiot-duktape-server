@@ -32,8 +32,8 @@ enum post_enum_param_names {
 
 extern int handle_404_response(struct lws *wsi, void* buffer_data, uint8_t *start, uint8_t *p, uint8_t *end);
 
-extern int handle_http_GET_response(struct lws *wsi, void* buffer_data, uint8_t *start, uint8_t *p, uint8_t *end);
-extern int write_GET_response_headers(struct lws *wsi, void *buffer_data, uint8_t *start, uint8_t *p, uint8_t *end);
+extern int handle_http_GET_request(struct lws *wsi, void *buffer_data, uint8_t *start, uint8_t *p, uint8_t *end);
+extern int write_GET_response(struct lws *wsi, void *buffer_data, uint8_t *start, uint8_t *p, uint8_t *end);
 
 extern int handle_http_POST_header(struct lws *wsi, void* buffer_data, uint8_t *start, uint8_t *p, uint8_t *end);
 extern int handle_http_POST_response(struct lws *wsi, void* buffer_data, uint8_t *start, uint8_t *p, uint8_t *end);

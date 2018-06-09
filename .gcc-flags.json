@@ -3,6 +3,6 @@
   "gccDefaultCFlags": "-c -Wall -Wextra -lm",
   "gccDefaultCppFlags": "-c -Wall -Wextra -lm -lstdc++ -std=c++11 -larchive -lwebsockets",
   "gccErrorLimit": 15,
-  "gccIncludePaths": "../duktape-2.2.1/extras/print-alert,../duktape-2.2.1/extras/console,../duktape-2.2.1/extras/module-node,../duktape-2.2.1/src,./src,./src/nodejs,./src/eventloop,./src/api",
+  "gccIncludePaths": "../duktape-2.2.1/extras/print-alert,../duktape-2.2.1/extras/console,../duktape-2.2.1/extras/module-node,../duktape-2.2.1/src,./src,./src/nodejs,./src/eventloop,./src/api,./src/http",
   "gccSuppressWarnings": true
 }

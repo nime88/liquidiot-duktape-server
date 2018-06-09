@@ -22,19 +22,6 @@
     struct lws_context_creation_info info_;
     struct lws_context *context_;
 
-    struct user_buffer_data {
-      char str[256];
-      int len;
-      struct lws_spa *spa;		/* lws helper decodes multipart form */
-      char filename[128];		/* the filename of the uploaded file */
-      unsigned long long file_length; /* the amount of bytes uploaded */
-      int fd;				/* fd on file being saved */
-      char ext_filename[128];
-      string large_str;
-      string request_url;
-      string error_msg;
-    };
-
     static struct lws_protocols protocols[];
 
     const struct lws_http_mount mount_rest_ = {

@@ -14,9 +14,12 @@ extern "C" {
 #include <algorithm>
 using namespace std;
 
+#include "http_request.h"
+#include "get_request.h"
+
 struct lws_protocols HttpServer::protocols[] = {
   /* name, callback, per_session_data_size, rx_buffer_size, id, user, tx_packet_size */
-  { "http", rest_api_callback, sizeof(struct user_buffer_data), 8096, 1, new struct user_buffer_data, 8096},
+  { "http", rest_api_callback, sizeof(struct HttpRequest::user_buffer_data), 1024, 1, new struct HttpRequest::user_buffer_data, 1024},
   { NULL, NULL, 0, 0, 0, NULL, 0 } /* terminator */
 };
 
@@ -64,16 +67,26 @@ int HttpServer::rest_api_callback(struct lws *wsi, enum lws_callback_reasons rea
   void *user, void *in, size_t len){
 	uint8_t buf[LWS_PRE + 256], *start = &buf[LWS_PRE], *p = start,
 		*end = &buf[sizeof(buf) - 1];
-  struct user_buffer_data *dest_buffer = (struct user_buffer_data *)user;
+  struct HttpRequest::user_buffer_data *dest_buffer = (struct HttpRequest::user_buffer_data *)user;
 
 	switch (reason) {
   	case LWS_CALLBACK_HTTP: {
       cout << "LWS_CALLBACK_HTTP" << endl;
   		/* in contains the url part after our mountpoint /api, if any */
 
-      if (lws_hdr_total_length(wsi, WSI_TOKEN_GET_URI))
-        /* GET request */
-        return handle_http_GET_response(wsi, user, start, p, end);
+      if (lws_hdr_total_length(wsi, WSI_TOKEN_GET_URI)) {
+        if(!dest_buffer->request)
+          dest_buffer->request = new GetRequest();
+
+        int get_resp = ((GetRequest*) (dest_buffer->request))->handleHttpRequest(wsi, dest_buffer,in);
+        if(get_resp == 0) {
+          get_resp = ((GetRequest*) (dest_buffer->request))->generateResponse(wsi, dest_buffer, start, p, end);
+          return get_resp;
+        } else if(get_resp < 0) {
+          get_resp = ((GetRequest*)(dest_buffer->request))->generateFailResponse(wsi, dest_buffer, start, p, end);
+          return get_resp;
+        }
+      }
 
       if (lws_hdr_total_length(wsi, WSI_TOKEN_POST_URI)) {
         // storing the request url from the mountpoint
@@ -103,15 +116,16 @@ int HttpServer::rest_api_callback(struct lws *wsi, enum lws_callback_reasons rea
 
   	case LWS_CALLBACK_HTTP_WRITEABLE: {
       cout << "LWS_CALLBACK_HTTP_WRITEABLE" << endl;
+
   		if (!dest_buffer || !dest_buffer->len)
   			break;
+
 
   		/*
   		 * Use LWS_WRITE_HTTP for intermediate writes, on http/2
   		 * lws uses this to understand to end the stream with this
   		 * frame
   		 */
-
       if(dest_buffer->large_str.length() > 0) {
         if (lws_write(wsi, (uint8_t *)dest_buffer->large_str.c_str(), dest_buffer->large_str.length(),
     			      LWS_WRITE_HTTP_FINAL) != (int)dest_buffer->large_str.length()) {
@@ -121,7 +135,6 @@ int HttpServer::rest_api_callback(struct lws *wsi, enum lws_callback_reasons rea
   			      LWS_WRITE_HTTP_FINAL) != dest_buffer->len) {
   			return 1;
       }
-
 
   		/*
   		 * HTTP/1.0 no keepalive: close network connection

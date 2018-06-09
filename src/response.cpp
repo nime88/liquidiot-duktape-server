@@ -27,33 +27,58 @@ int handle_404_response(struct lws *wsi, void* buffer_data, uint8_t *start, uint
   return 0;
 }
 
-int handle_http_GET_response(struct lws *wsi, void* buffer_data, uint8_t *start, uint8_t *p, uint8_t *end) {
+int handle_http_GET_request(struct lws *wsi, void *buffer_data, uint8_t *start, uint8_t *p, uint8_t *end) {
   struct user_buffer_data *dest_buffer = (struct user_buffer_data*)buffer_data;
 
-  dest_buffer->len = lws_snprintf(dest_buffer->str, sizeof(dest_buffer->str),
-      "<html>"
-      "<h1>GET request</h1>"
-      "</html>");
+  map<duk_context*, JSApplication*> apps = JSApplication::getApplications();
+  JSApplication *app = 0;
 
-  if(write_GET_response_headers(wsi, dest_buffer, start, p, end)) {
+  string temp_request_url = dest_buffer->request_url;
+  // removing '/' so we can parse int
+  temp_request_url.erase(std::remove(temp_request_url.begin(), temp_request_url.end(), '/'), temp_request_url.end());
+  int id = -1;
+
+  cout << "handle_http_GET_request(): Before  buffers" << endl;
+
+  if(temp_request_url.length() > 0) {
+    try {
+      id = stoi(temp_request_url);
+    } catch( invalid_argument e) {
+      id = -2;
+    }
+  } else {
+    cout << "handle_http_GET_request(): Getting descriptions" << endl;
+    dest_buffer->large_str = "[\n";
+    for (  map<duk_context*, JSApplication*>::const_iterator it=apps.begin(); it!=apps.end(); ++it) {
+      dest_buffer->large_str += it->second->getDescriptionAsJSON();
+      dest_buffer->large_str += ",\n";
+    }
+    dest_buffer->large_str += "]";
+    dest_buffer->len = dest_buffer->large_str.length();
+
+    cout << "handle_http_GET_request(): writing headers " << endl << dest_buffer->large_str << endl;
+    return write_GET_response(wsi, dest_buffer, start, p, end);
+    // if we just want all the applications
+  }
+
+  return -1;
+}
+
+int write_GET_response(struct lws *wsi, void* buffer_data, uint8_t *start, uint8_t *p, uint8_t *end) {
+  struct user_buffer_data *dest_buffer = (struct user_buffer_data*)buffer_data;
+
+  /* prepare and write http headers */
+  if (lws_add_http_common_headers(wsi, HTTP_STATUS_OK,
+          "text/html", dest_buffer->len, &p, end)) {
+    return 1;
+  }
+  if (lws_finalize_write_http_header(wsi, start, &p, end)) {
     return 1;
   }
 
   lws_callback_on_writable(wsi);
 
   return 0;
-}
-
-int write_GET_response_headers(struct lws *wsi, void* buffer_data, uint8_t *start, uint8_t *p, uint8_t *end) {
-  struct user_buffer_data *dest_buffer = (struct user_buffer_data*)buffer_data;
-  /* prepare and write http headers */
-  if (lws_add_http_common_headers(wsi, HTTP_STATUS_OK,
-          "text/html", dest_buffer->len, &p, end))
-    return 1;
-  if (lws_finalize_write_http_header(wsi, start, &p, end))
-    return 1;
-
-  return false;
 }
 
 int handle_http_POST_header(struct lws *wsi, void* buffer_data, uint8_t *start, uint8_t *p, uint8_t *end) {
