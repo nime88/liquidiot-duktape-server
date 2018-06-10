@@ -61,9 +61,10 @@ class JSApplication {
     string getAppPath() { return app_path_; }
 
     APP_STATES getAppState() { return app_state_; }
+    bool setAppState(APP_STATES state);
 
-    void initializeApp();
-    void pauseApp();
+    bool pause();
+    bool start();
 
     void run();
     // reloads the app from files

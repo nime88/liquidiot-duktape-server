@@ -1,7 +1,16 @@
 #ifndef RESPONSE_H_INCLUDED
 #define RESPONSE_H_INCLUDED
 
-#include <libwebsockets.h>
+#if defined (__cplusplus)
+extern "C" {
+#endif
+
+  #include <libwebsockets.h>
+
+#if defined (__cplusplus)
+}
+#endif
+
 #include <string>
 
 using std::string;

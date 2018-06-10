@@ -1,8 +1,8 @@
-#include "get_request.h"
+#include "delete_request.h"
 
 #include "application.h"
 
-int GetRequest::handleHttpRequest(struct lws *wsi, void* buffer_data, void* in, uint8_t *start, uint8_t *p, uint8_t *end, size_t len, enum lws_callback_reasons reason) {
+int DeleteRequest::handleHttpRequest(struct lws *wsi, void* buffer_data, void* in, uint8_t *start, uint8_t *p, uint8_t *end, size_t len, enum lws_callback_reasons reason) {
   switch (reason) {
     // initial http request (headers)
     case LWS_CALLBACK_HTTP: {
@@ -33,7 +33,7 @@ int GetRequest::handleHttpRequest(struct lws *wsi, void* buffer_data, void* in, 
   return lws_callback_http_dummy(wsi, reason, buffer_data, in, len);
 }
 
-int GetRequest::generateResponse(struct lws *wsi, void* buffer_data, uint8_t *start, uint8_t *p, uint8_t *end) {
+int DeleteRequest::generateResponse(struct lws *wsi, void* buffer_data, uint8_t *start, uint8_t *p, uint8_t *end) {
   struct user_buffer_data *dest_buffer = (struct user_buffer_data*)buffer_data;
 
   /* prepare and write http headers */
@@ -50,7 +50,7 @@ int GetRequest::generateResponse(struct lws *wsi, void* buffer_data, uint8_t *st
   return 0;
 }
 
-int GetRequest::generateFailResponse(struct lws *wsi, void* buffer_data, uint8_t *start, uint8_t *p, uint8_t *end) {
+int DeleteRequest::generateFailResponse(struct lws *wsi, void* buffer_data, uint8_t *start, uint8_t *p, uint8_t *end) {
   struct user_buffer_data *dest_buffer = (struct user_buffer_data*)buffer_data;
   /* prepare and write http headers */
   if (lws_add_http_common_headers(wsi, HTTP_STATUS_NOT_FOUND, "text/html", dest_buffer->len, &p, end)) {
@@ -66,52 +66,52 @@ int GetRequest::generateFailResponse(struct lws *wsi, void* buffer_data, uint8_t
   return 0;
 }
 
-int GetRequest::calculateHttpRequest(struct lws *wsi, void* buffer_data, void* in) {
+int DeleteRequest::calculateHttpRequest(struct lws *wsi, void* buffer_data, void* in) {
   struct user_buffer_data *dest_buffer = (struct user_buffer_data*)buffer_data;
-
-  map<duk_context*, JSApplication*> apps = JSApplication::getApplications();
-  JSApplication *app = 0;
 
   dest_buffer->request_url = (char*)in;
 
   int id =  parseIdFromURL(dest_buffer->request_url);
+  int deleted_apps = 0;
+  map<duk_context*, JSApplication*> apps = JSApplication::getApplications();
 
-  // if there  is something to we try parse the id (otherwise list everything else)
   if(id == -1) {
-    dest_buffer->large_str = "[\n";
+    int app_amount = apps.size();
+
     for (  map<duk_context*, JSApplication*>::const_iterator it=apps.begin(); it!=apps.end(); ++it) {
-      dest_buffer->large_str += it->second->getDescriptionAsJSON();
-      dest_buffer->large_str += ",\n";
+      deleted_apps += it->second->deleteApp();
     }
-    dest_buffer->large_str += "]";
 
-    optimizeResponseString(dest_buffer->large_str, buffer_data);
+    if(deleted_apps == app_amount) {
+      dest_buffer->large_str = "All apps were deleted successfully";
+    } else {
+      dest_buffer->large_str = to_string(deleted_apps) + " of " + to_string(app_amount) + " app were deleted successfully.";
+    }
+  } else if(id >= 0) {
+    for (  map<duk_context*, JSApplication*>::const_iterator it=apps.begin(); it!=apps.end(); ++it) {
+      if(id == it->second->getId()) {
+        deleted_apps += it->second->deleteApp();
+        if(deleted_apps) {
+          dest_buffer->large_str = "Application " + to_string(id) + " was deleted successfully.";
+        }
+      }
+    }
 
-    return 0;
+    if(!deleted_apps) {
+      dest_buffer->error_msg = "No application with id '" + to_string(id) + "'.";
+      optimizeResponseString(dest_buffer->error_msg, buffer_data);
+      return -1;
+    }
   }
 
-  // handling parse error
   if(id == -2) {
     dest_buffer->error_msg = "No application with id '" + dest_buffer->request_url + "'.";
-
     optimizeResponseString(dest_buffer->error_msg, buffer_data);
-
     return -1;
   }
 
-  for (  map<duk_context*, JSApplication*>::const_iterator it=apps.begin(); it!=apps.end(); ++it) {
-    if(it->second->getId() == id) {
-      dest_buffer->large_str = it->second->getDescriptionAsJSON();
+  dest_buffer->len = dest_buffer->large_str.length();
+  optimizeResponseString(dest_buffer->large_str, buffer_data);
 
-      optimizeResponseString(dest_buffer->large_str, buffer_data);
-
-      return 0;
-    }
-  }
-
-  dest_buffer->error_msg = "No application with id '" + to_string(id) + "'.";
-
-  optimizeResponseString(dest_buffer->error_msg, buffer_data);
-
-  return -1;
+  return 0;
 }

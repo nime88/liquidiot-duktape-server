@@ -66,6 +66,7 @@ int EventLoop::eventloop_run(duk_context *ctx, void *udata) {
   DBOUT( "eventloop_run(): Starting");
   EventLoop *eventloop = EventLoop::all_eventloops_.at(ctx);
   map<int,TimerStruct> *timers = EventLoop::all_timers_.at(ctx);
+  JSApplication *app = JSApplication::getApplications().at(ctx);
   double now;
   double diff;
   int timeout;
@@ -73,7 +74,9 @@ int EventLoop::eventloop_run(duk_context *ctx, void *udata) {
   (void) udata;
 
   // DBOUT( "eventloop_run(): Data initialized");
-  while(!JSApplication::getMutex()->try_lock()){}
+  while(!JSApplication::getMutex()->try_lock()){
+    poll(NULL,0,MIN_WAIT);
+  }
   duk_push_global_object(ctx);
   duk_get_prop_string(ctx, -1, "EventLoop");
   JSApplication::getMutex()->unlock();
@@ -81,12 +84,20 @@ int EventLoop::eventloop_run(duk_context *ctx, void *udata) {
   DBOUT( "eventloop_run(): Got EventLoop property");
 
   for(;;) {
-    JSApplication::getMutex()->lock();
+    while (!JSApplication::getMutex()->try_lock()){
+      poll(NULL,0,MIN_WAIT);
+    }
 
     if(interrupted) {
       // DBOUT( "eventloop_run(): Asked for termination");
       JSApplication::getMutex()->unlock();
       break;
+    }
+
+    if(app->getAppState() == JSApplication::APP_STATES::PAUSED) {
+      JSApplication::getMutex()->unlock();
+      poll(NULL,0,MIN_WAIT);
+      continue;
     }
 
     // DBOUT( "eventloop_run(): Expiring timers");

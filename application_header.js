@@ -24,17 +24,17 @@ Duktape.errThrow = function (e) {
 
 // interface between the application and main program
 setTaskInterval = function(repeat, interval) {
-  var interval;
+  var interval_id;
 
   if(!repeat) {
     // only execute task() once if not on repeat
     print("Executing task once...");
-    setTimeout(task,interval);
+    interval_id = setTimeout(task,interval);
   } else  {
     print("Setting interval in header...");
     try {
-      interval = setInterval(task, interval);
-      print("Set the interval " + interval);
+      interval_id = setInterval(task, interval);
+      print("Set the interval " + interval_id);
     } catch(e) {
       print("Setting the interval failed. " + e);
     }

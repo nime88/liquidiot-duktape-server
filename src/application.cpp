@@ -19,9 +19,11 @@ map<duk_context*, JSApplication*> JSApplication::applications_;
 map<duk_context*, thread*> JSApplication::app_threads_;
 mutex *JSApplication::mtx = new mutex();
 
-JSApplication::JSApplication(const char* path){
+JSApplication::JSApplication(const char* path) {
   // adding app_path to global app paths
   app_path_ = string(path);
+  if(app_path_.length() > 0 && app_path_.at(app_path_.length()-1) != '/')
+    app_path_ += "/";
 
   // setting id for the application
   id_ = next_id_;
@@ -31,7 +33,9 @@ JSApplication::JSApplication(const char* path){
 }
 
 void JSApplication::init() {
-  mtx->lock();
+  while(!mtx->try_lock()) {
+    poll(NULL,0,1);
+  }
   // setting app state to initializing
   app_state_ = APP_STATES::INITIALIZING;
 
@@ -123,7 +127,9 @@ void JSApplication::init() {
 }
 
 void JSApplication::clean() {
-  mtx->lock();
+  while(!mtx->try_lock()) {
+    poll(NULL,0,1);
+  }
     DBOUT ( "clean()" );
   // if the application is running we need to stop the thread
   app_state_ = APP_STATES::PAUSED;
@@ -138,7 +144,9 @@ void JSApplication::clean() {
       poll(NULL,0,eventloop_->getCurrentTimeout());
       if(ev_thread_->joinable())
         ev_thread_->join();
-      mtx->lock();
+        while(!mtx->try_lock()) {
+          poll(NULL,0,1);
+        }
     }
     // ev_thread_->detach();
   } catch (const std::system_error& e) {
@@ -173,6 +181,47 @@ void JSApplication::clean() {
   mtx->unlock();
 }
 
+bool JSApplication::setAppState(APP_STATES state) {
+  // trivial case
+  if(state == app_state_) return true;
+
+  if(state == APP_STATES::PAUSED && app_state_ == APP_STATES::RUNNING) {
+    return pause();
+  }
+
+  else if(state == APP_STATES::RUNNING && app_state_ == APP_STATES::PAUSED) {
+    return start();
+  }
+
+  return false;
+}
+
+bool JSApplication::pause() {
+  if(app_state_ == APP_STATES::PAUSED) return true;
+
+  while (!mtx->try_lock()){
+    poll(NULL,0,1);
+  }
+  DBOUT ( "pause()" );
+  app_state_ = APP_STATES::PAUSED;
+  mtx->unlock();
+
+  return true;
+}
+
+bool JSApplication::start() {
+  if(app_state_ == APP_STATES::RUNNING) return true;
+
+  while (!mtx->try_lock()){
+    poll(NULL,0,1);
+  }
+
+  app_state_ = APP_STATES::RUNNING;
+
+  mtx->unlock();
+
+  return true;
+}
 
 void JSApplication::run() {
   app_state_ = APP_STATES::RUNNING;
