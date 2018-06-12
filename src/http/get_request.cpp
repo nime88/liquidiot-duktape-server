@@ -8,7 +8,7 @@ int GetRequest::handleHttpRequest(struct lws *wsi, void* buffer_data, void* in, 
   switch (reason) {
     // initial http request (headers)
     case LWS_CALLBACK_HTTP: {
-      int get_resp = calculateHttpRequest(wsi, buffer_data, in);
+      int get_resp = calculateHttpRequest(buffer_data, in);
       if(get_resp == 0) {
         return generateResponse(wsi, buffer_data, start, p, end);
       } else if(get_resp < 0) {
@@ -87,7 +87,7 @@ int GetRequest::generateFailResponse(struct lws *wsi, void* buffer_data, uint8_t
   return 0;
 }
 
-int GetRequest::calculateHttpRequest(struct lws *wsi, void* buffer_data, void* in) {
+int GetRequest::calculateHttpRequest(void* buffer_data, void* in) {
   struct user_buffer_data *dest_buffer = (struct user_buffer_data*)buffer_data;
 
   map<duk_context*, JSApplication*> apps = JSApplication::getApplications();

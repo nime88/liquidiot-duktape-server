@@ -37,7 +37,7 @@ int PostRequest::handleHttpRequest(struct lws *wsi, void* buffer_data, void* in,
         return generateFailResponse(wsi, buffer_data, start, p, end);
       }
 
-      int post_resp = calculateHttpRequest(wsi, buffer_data, in);
+      int post_resp = calculateHttpRequest(buffer_data, in);
 
       if(post_resp < 0) {
         return generateFailResponse(wsi, buffer_data, start, p, end);
@@ -166,11 +166,13 @@ int PostRequest::parsePostFormCB(void *data, const char *name, const char *filen
   return 0;
 }
 
-int PostRequest::calculateHttpRequest(struct lws *wsi, void* buffer_data, void* in) {
+int PostRequest::calculateHttpRequest(void* buffer_data, void* in) {
   struct user_buffer_data *dest_buffer = (struct user_buffer_data*)buffer_data;
 
   map<duk_context*, JSApplication*> apps = JSApplication::getApplications();
   JSApplication *app = 0;
+
+  (void)in;
 
   int id = parseIdFromURL(dest_buffer->request_url);
 

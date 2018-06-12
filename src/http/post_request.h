@@ -16,7 +16,7 @@ class PostRequest : public HttpRequest {
 
     static int parsePostFormCB(void *data, const char *name, const char *filename, char *buf, int len, enum lws_spa_fileupload_states state);
 
-    int calculateHttpRequest(struct lws *wsi, void* buffer_data, void* in);
+    int calculateHttpRequest(void* buffer_data, void* in);
 
     // defining post parameters
     static const char * const post_param_names[];

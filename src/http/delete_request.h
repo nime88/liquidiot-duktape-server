@@ -15,7 +15,7 @@ class DeleteRequest : public HttpRequest {
 
   private:
 
-    int calculateHttpRequest(struct lws *wsi, void* buffer_data, void* in);
+    int calculateHttpRequest(void* buffer_data, void* in);
 };
 
 #endif

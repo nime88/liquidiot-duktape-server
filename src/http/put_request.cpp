@@ -35,7 +35,7 @@ int PutRequest::handleHttpRequest(struct lws *wsi, void* buffer_data, void* in, 
 
       lws_spa_finalize(dest_buffer->spa);
 
-      int get_resp = calculateHttpRequest(wsi, buffer_data, in);
+      int get_resp = calculateHttpRequest(buffer_data, in);
       if(get_resp == 0) {
         return generateResponse(wsi, buffer_data, start, p, end);
       } else if(get_resp < 0) {
@@ -94,10 +94,12 @@ int PutRequest::generateFailResponse(struct lws *wsi, void* buffer_data, uint8_t
   return 0;
 }
 
-int PutRequest::calculateHttpRequest(struct lws *wsi, void* buffer_data, void* in) {
+int PutRequest::calculateHttpRequest(void* buffer_data, void* in) {
   struct user_buffer_data *dest_buffer = (struct user_buffer_data*)buffer_data;
 
   int id =  parseIdFromURL(dest_buffer->request_url);
+
+  (void)in;
 
   // can instantly fail the request if not valid id
   if(id == -1) {

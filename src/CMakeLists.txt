@@ -9,7 +9,7 @@ set ( CMAKE_CXX_FLAGS "-Wall -Wextra -lm -std=c++11")
 set ( CMAKE_C_FLAGS "-Wall -Wextra -lm -std=c99")
 
 # adding libraries
-add_library (Main file_ops.cpp http_server.cpp response.cpp util.cpp)
+add_library (Main file_ops.cpp http_server.cpp util.cpp)
 add_library (JSApp applications_manager.cpp application.cpp)
 add_library (Globals globals.c)
 

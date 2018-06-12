@@ -15,7 +15,7 @@ class GetRequest : public HttpRequest {
     int generateFailResponse(struct lws *wsi, void* buffer_data, uint8_t *start, uint8_t *p, uint8_t *end);
 
   private:
-    int calculateHttpRequest(struct lws *wsi, void* buffer_data, void* in);
+    int calculateHttpRequest(void* buffer_data, void* in);
 
     // parses url to check if logs are asked
     bool hasLogs(string url);

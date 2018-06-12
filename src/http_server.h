@@ -9,8 +9,6 @@
  #include <string>
  using namespace std;
 
- #include "response.h"
-
  class HttpServer {
   public:
     HttpServer(){}

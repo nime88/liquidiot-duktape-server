@@ -14,7 +14,7 @@ class PutRequest : public HttpRequest {
 
     private:
 
-      int calculateHttpRequest(struct lws *wsi, void* buffer_data, void* in);
+      int calculateHttpRequest(void* buffer_data, void* in);
 
       // defining post parameters
       static const char * const put_param_names[];

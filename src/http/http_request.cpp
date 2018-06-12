@@ -11,7 +11,7 @@ using std::invalid_argument;
 using std::remove;
 
 
-const int HttpRequest::BUFFER_SIZE = 4096;
+const size_t HttpRequest::BUFFER_SIZE = 4096;
 
 int HttpRequest::writeHttpRequest(struct lws *wsi, void* buffer_data, void* in, size_t len) {
   struct user_buffer_data *dest_buffer = (struct user_buffer_data *)buffer_data;
@@ -74,7 +74,7 @@ void HttpRequest::optimizeResponseString(string response, void* buffer_data) {
   struct user_buffer_data *dest_buffer = (struct user_buffer_data *)buffer_data;
 
   dest_buffer->len = response.length();
-  if(dest_buffer->len < ARRAY_SIZE(dest_buffer->str)) {
+  if(dest_buffer->len < (int)ARRAY_SIZE(dest_buffer->str)) {
     strcpy(dest_buffer->str,response.c_str());
     if(dest_buffer->large_str.length() > 0)
       dest_buffer->large_str = "";

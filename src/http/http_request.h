@@ -16,7 +16,7 @@ using std::string;
 
 class HttpRequest {
   public:
-    static const int BUFFER_SIZE;
+    static const size_t BUFFER_SIZE;
 
     HttpRequest() {}
 
