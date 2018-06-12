@@ -13,9 +13,7 @@ Duktape.errThrow = function (e) {
 
     e.timestamp = new Date();
 
-    print(e);
     print(e.stack);
-    print(e.timestamp);
 
     EventLoop.requestExit();
 

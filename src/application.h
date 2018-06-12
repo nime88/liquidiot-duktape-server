@@ -59,6 +59,8 @@ class JSApplication {
     int getId() { return id_; }
     string getAppName() { return name_; }
     string getAppPath() { return app_path_; }
+    string getLogs();
+    string getLogsAsJSON();
 
     APP_STATES getAppState() { return app_state_; }
     bool setAppState(APP_STATES state);
@@ -77,6 +79,8 @@ class JSApplication {
 
     static duk_ret_t cb_resolve_module(duk_context *ctx);
     static duk_ret_t cb_load_module(duk_context *ctx);
+    static duk_ret_t cb_print(duk_context *ctx);
+    static duk_ret_t cb_alert(duk_context *ctx);
 
     static bool applicationExists(const char* path);
     static vector<string> listApplicationNames();
@@ -84,6 +88,8 @@ class JSApplication {
 
     static mutex* getMutex() { return mtx; }
     static void getJoinThreads();
+
+
 
   private:
     thread *ev_thread_;

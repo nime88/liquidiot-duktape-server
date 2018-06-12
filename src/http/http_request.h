@@ -16,6 +16,8 @@ using std::string;
 
 class HttpRequest {
   public:
+    static const int BUFFER_SIZE;
+
     HttpRequest() {}
 
     virtual ~HttpRequest() {}
@@ -30,6 +32,7 @@ class HttpRequest {
       int fd;				/* fd on file being saved */
       char ext_filename[128];
       string large_str;
+      int buffer_idx;
       string request_url;
       string error_msg;
       HttpRequest *request;

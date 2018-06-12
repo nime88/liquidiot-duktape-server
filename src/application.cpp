@@ -4,6 +4,8 @@
 
 #include "node_module_search.h"
 #include "util.h"
+#include "app_log.h"
+#include "read_app_log.h"
 
 // #define NDEBUG
 
@@ -51,8 +53,14 @@ void JSApplication::init() {
 
   DBOUT ("Duktape initializations");
   DBOUT ("Duktape initializations: print alert");
-  // initializing print alerts (enables print and alert functions in js)
-  duk_print_alert_init(duk_context_, 0 /*flags*/);
+  duk_push_global_object(duk_context_);
+  duk_push_string(duk_context_, "print");
+  duk_push_c_function(duk_context_, cb_print, DUK_VARARGS);
+  duk_def_prop(duk_context_, -3, DUK_DEFPROP_HAVE_VALUE | DUK_DEFPROP_SET_WRITABLE | DUK_DEFPROP_SET_CONFIGURABLE);
+  duk_push_string(duk_context_, "alert");
+  duk_push_c_function(duk_context_, cb_alert, DUK_VARARGS);
+  duk_def_prop(duk_context_, -3, DUK_DEFPROP_HAVE_VALUE | DUK_DEFPROP_SET_WRITABLE | DUK_DEFPROP_SET_CONFIGURABLE);
+  duk_pop(duk_context_);
 
   DBOUT ("Duktape initializations: console");
   // initializing console (enables console in js)
@@ -179,6 +187,43 @@ void JSApplication::clean() {
   applications_.erase(duk_context_);
   duk_context_ = 0;
   mtx->unlock();
+}
+
+string JSApplication::getLogs() {
+  string logs;
+
+  logs = ReadAppLog(getAppPath().c_str()).getLogsString();
+
+  return logs;
+}
+
+string JSApplication::getLogsAsJSON() {
+  string json_logs;
+  string logs = ReadAppLog(getAppPath().c_str()).getLogsString();
+
+  std::smatch m;
+  std::regex e( R"(\[(\w{3}\s+\w{3}\s+\d{2}\s+\d{2}:\d{2}:\d{2}\s+\d{4})\]\s\[(\w+)\]\s([A-Za-z\d\s._:]*)(\n|\n$)+?)" );
+
+  json_logs += "[\n";
+  while (std::regex_search (logs,m,e, std::regex_constants::match_any)) {
+    string row = "{";
+    string timestamp = m[1];
+    string type = m[2];
+    string message = m[3];
+
+    row += "\"timestamp\":\"" + timestamp + "\",";
+    row += "\"type\":\"" + type + "\",";
+    row += "\"msg\":\"" + message + "\"";
+
+    row += "},\n";
+    logs = m.suffix().str();
+    json_logs += row;
+  }
+  //cleaning up the end
+  json_logs.erase(json_logs.length()-2,2);
+  json_logs += "\n]";
+
+  return json_logs;
 }
 
 bool JSApplication::setAppState(APP_STATES state) {
@@ -440,6 +485,34 @@ duk_ret_t JSApplication::cb_load_module(duk_context *ctx) {
     }
 
     return 1;  /*nrets*/
+}
+
+duk_ret_t JSApplication::cb_print (duk_context *ctx) {
+  JSApplication *app = JSApplication::getApplications().at(ctx);
+  duk_idx_t nargs = duk_get_top(ctx);
+
+  duk_push_string(ctx, " ");
+  duk_insert(ctx, 0);
+  duk_concat(ctx, nargs);
+
+  // writing to log
+  AppLog(app->getAppPath().c_str()) << AppLog::getTimeStamp() << " [Print] " << duk_require_string(ctx, -1) << endl;
+
+  return 0;
+}
+
+duk_ret_t JSApplication::cb_alert (duk_context *ctx) {
+  JSApplication *app = JSApplication::getApplications().at(ctx);
+  duk_idx_t nargs = duk_get_top(ctx);
+
+  duk_push_string(ctx, " ");
+  duk_insert(ctx, 0);
+  duk_concat(ctx, nargs);
+
+  // writing to log
+  AppLog(app->getAppPath().c_str()) << AppLog::getTimeStamp() << " [Alert] " << duk_require_string(ctx, -1) << endl;
+
+  return 0;
 }
 
 bool JSApplication::applicationExists(const char* path) {

@@ -2,9 +2,16 @@
 
 #include <stdexcept>
 #include <algorithm>
+#include <regex>
+
+#include <iostream>
+using namespace std;
 
 using std::invalid_argument;
 using std::remove;
+
+
+const int HttpRequest::BUFFER_SIZE = 4096;
 
 int HttpRequest::writeHttpRequest(struct lws *wsi, void* buffer_data, void* in, size_t len) {
   struct user_buffer_data *dest_buffer = (struct user_buffer_data *)buffer_data;
@@ -18,12 +25,26 @@ int HttpRequest::writeHttpRequest(struct lws *wsi, void* buffer_data, void* in, 
    * frame
    */
   if(dest_buffer->large_str.length() > 0) {
-    if (lws_write(wsi, (uint8_t *)dest_buffer->large_str.c_str(), dest_buffer->large_str.length(),
-            LWS_WRITE_HTTP_FINAL) != (int)dest_buffer->large_str.length()) {
-      return 1;
+    // handling larger string by splitting it apart and writing it in chunks
+    string write_buffer = dest_buffer->large_str.substr( dest_buffer->buffer_idx, HttpRequest::BUFFER_SIZE);
+    dest_buffer->buffer_idx += HttpRequest::BUFFER_SIZE;
+
+    if(dest_buffer->buffer_idx < dest_buffer->len && write_buffer.length() == HttpRequest::BUFFER_SIZE) {
+      char *out = (char *)malloc(sizeof(char)*(LWS_SEND_BUFFER_PRE_PADDING + write_buffer.length() + LWS_SEND_BUFFER_POST_PADDING));
+      memcpy (out + LWS_SEND_BUFFER_PRE_PADDING, write_buffer.c_str(), write_buffer.length() );
+      if (lws_write( wsi, (uint8_t *)out + LWS_SEND_BUFFER_PRE_PADDING, write_buffer.length(), LWS_WRITE_HTTP ) < 0) {
+        free(out);
+        return 1;
+      }
+
+      free(out);
+      return lws_callback_on_writable(wsi);
     }
-  } else if (lws_write(wsi, (uint8_t *)dest_buffer->str, dest_buffer->len,
-          LWS_WRITE_HTTP_FINAL) != dest_buffer->len) {
+    else {
+      // if string
+      if (lws_write(wsi, (uint8_t *)write_buffer.c_str(), write_buffer.length(), LWS_WRITE_HTTP_FINAL) < 0) return 1;
+    }
+  } else if (dest_buffer->large_str.length() == 0 && lws_write(wsi, (uint8_t *)dest_buffer->str, dest_buffer->len, LWS_WRITE_HTTP_FINAL) != dest_buffer->len) {
     return 1;
   }
 
@@ -63,20 +84,29 @@ void HttpRequest::optimizeResponseString(string response, void* buffer_data) {
 }
 
 int HttpRequest::parseIdFromURL(string url) {
-  string temp_request_url = url;
-
-  // removing '/' so we can parse int
-  temp_request_url.erase(remove(temp_request_url.begin(), temp_request_url.end(), '/'), temp_request_url.end());
+  std::smatch m_id;
+  std::regex e_id("^[/]?(\\d+)([/](log)[/]?)?$");
+  std::regex_match(url,m_id,e_id);
 
   int id = -1;
 
-  if(temp_request_url.length() > 0) {
+  if(m_id.size() > 1) {
     try {
-      id = stoi(temp_request_url);
+      id = stoi(m_id[1]);
     } catch( invalid_argument e) {
       id = -2;
     }
+
+    return id;
   }
 
-  return id;
+  std::smatch m_no;
+  std::regex e_no("(^[/]?$)");
+  std::regex_match(url,m_no,e_no);
+
+  if(m_no.size() > 0) {
+    return -1;
+  }
+
+  return -2;
 }

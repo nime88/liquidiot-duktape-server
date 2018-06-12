@@ -2,6 +2,8 @@
 
 #include "application.h"
 
+#include <regex>
+
 int GetRequest::handleHttpRequest(struct lws *wsi, void* buffer_data, void* in, uint8_t *start, uint8_t *p, uint8_t *end, size_t len, enum lws_callback_reasons reason) {
   switch (reason) {
     // initial http request (headers)
@@ -11,6 +13,8 @@ int GetRequest::handleHttpRequest(struct lws *wsi, void* buffer_data, void* in, 
         return generateResponse(wsi, buffer_data, start, p, end);
       } else if(get_resp < 0) {
         return generateFailResponse(wsi, buffer_data, start, p, end);
+      } else if(get_resp == 1) {
+        return generateJSONResponse(wsi, buffer_data, start, p, end);
       }
 
       break;
@@ -38,6 +42,23 @@ int GetRequest::generateResponse(struct lws *wsi, void* buffer_data, uint8_t *st
 
   /* prepare and write http headers */
   if(lws_add_http_common_headers(wsi, HTTP_STATUS_OK, "text/html", dest_buffer->len, &p, end)) {
+    return 1;
+  }
+
+  if (lws_finalize_write_http_header(wsi, start, &p, end)) {
+    return 1;
+  }
+
+  lws_callback_on_writable(wsi);
+
+  return 0;
+}
+
+int GetRequest::generateJSONResponse(struct lws *wsi, void* buffer_data, uint8_t *start, uint8_t *p, uint8_t *end) {
+  struct user_buffer_data *dest_buffer = (struct user_buffer_data*)buffer_data;
+
+  /* prepare and write http headers */
+  if(lws_add_http_common_headers(wsi, HTTP_STATUS_OK, "application/json", dest_buffer->len, &p, end)) {
     return 1;
   }
 
@@ -101,11 +122,26 @@ int GetRequest::calculateHttpRequest(struct lws *wsi, void* buffer_data, void* i
 
   for (  map<duk_context*, JSApplication*>::const_iterator it=apps.begin(); it!=apps.end(); ++it) {
     if(it->second->getId() == id) {
-      dest_buffer->large_str = it->second->getDescriptionAsJSON();
+      app = it->second;
+      break;
+    }
+  }
+
+  if(app) {
+    if(!hasLogs(string(dest_buffer->request_url))) {
+      dest_buffer->large_str = app->getDescriptionAsJSON();
 
       optimizeResponseString(dest_buffer->large_str, buffer_data);
 
       return 0;
+    } else {
+      string logs = app->getLogsAsJSON();
+      cout << "Buffer length: " << logs.size() << endl;
+      dest_buffer->large_str = logs;
+
+      optimizeResponseString(dest_buffer->large_str, buffer_data);
+
+      return 1;
     }
   }
 
@@ -114,4 +150,16 @@ int GetRequest::calculateHttpRequest(struct lws *wsi, void* buffer_data, void* i
   optimizeResponseString(dest_buffer->error_msg, buffer_data);
 
   return -1;
+}
+
+bool GetRequest::hasLogs(string url) {
+  std::smatch m;
+  std::regex e("^[/]?(\\d+)[/](log)[/]?$");
+  std::regex_match(url,m,e);
+
+  if(m.size() > 0) {
+    return true;
+  }
+
+  return false;
 }

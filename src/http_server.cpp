@@ -21,7 +21,7 @@ using namespace std;
 
 struct lws_protocols HttpServer::protocols[] = {
   /* name, callback, per_session_data_size, rx_buffer_size, id, user, tx_packet_size */
-  { "http", rest_api_callback, sizeof(struct HttpRequest::user_buffer_data), 1024, 1, new struct HttpRequest::user_buffer_data, 1024},
+  { "http", rest_api_callback, sizeof(struct HttpRequest::user_buffer_data), HttpRequest::BUFFER_SIZE, 1, new struct HttpRequest::user_buffer_data, 0},
   { NULL, NULL, 0, 0, 0, NULL, 0 } /* terminator */
 };
 
