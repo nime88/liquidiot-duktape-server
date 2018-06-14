@@ -7,7 +7,7 @@
 #include "app_log.h"
 #include "read_app_log.h"
 
-// #define NDEBUG
+#define NDEBUG
 
 #ifdef NDEBUG
     #define DBOUT( x ) cout << x  << "\n"
@@ -83,10 +83,43 @@ void JSApplication::init() {
 
   // loading the event loop javascript functions (setTimeout ect.)
   int evlLen;
-  char* evlSource = load_js_file("./custom_eventloop.js",evlLen);
+  char* evlSource = load_js_file("./js/custom_eventloop.js",evlLen);
   duk_push_string(duk_context_, evlSource);
   if (duk_peval(duk_context_) != 0) {
     printf("Failed to evaluate custom_eventloop.js: %s\n", duk_safe_to_string(duk_context_, -1));
+  }
+  duk_pop(duk_context_);
+
+  int tmpLen;
+  char* headerSource = load_js_file("./js/application_header.js",tmpLen);
+
+  // evaluating ready made headers
+  duk_push_string(duk_context_, headerSource);
+  if(duk_peval(duk_context_) != 0) {
+    printf("Script error: %s\n", duk_safe_to_string(duk_context_, -1));
+  }
+  duk_pop(duk_context_);
+
+  // evaluating necessary js files that main.js will need
+  char* agentSource = load_js_file("./js/agent.js",tmpLen);
+  char* apiSource = load_js_file("./js/api.js",tmpLen);
+  char* appSource = load_js_file("./js/app.js",tmpLen);
+
+  duk_push_string(duk_context_, agentSource);
+  if (duk_peval(duk_context_) != 0) {
+    printf("Failed to evaluate agent.js: %s\n", duk_safe_to_string(duk_context_, -1));
+  }
+  duk_pop(duk_context_);
+
+  duk_push_string(duk_context_, apiSource);
+  if (duk_peval(duk_context_) != 0) {
+    printf("Failed to evaluate api.js: %s\n", duk_safe_to_string(duk_context_, -1));
+  }
+  duk_pop(duk_context_);
+
+  duk_push_string(duk_context_, appSource);
+  if (duk_peval(duk_context_) != 0) {
+    printf("Failed to evaluate app.js: %s\n", duk_safe_to_string(duk_context_, -1));
   }
   duk_pop(duk_context_);
 
@@ -107,15 +140,11 @@ void JSApplication::init() {
 
 
   DBOUT ("JSApplication(): Creating full source code");
-  int source_len2;
-  string temp_source = string(load_js_file(main_file.c_str(),source_len)) + "\ninitialize();";
-
-  // executing ready made headers
-  duk_push_string(duk_context_, load_js_file("./application_header.js",source_len2));
-  if(duk_peval(duk_context_) != 0) {
-    printf("Script error: %s\n", duk_safe_to_string(duk_context_, -1));
-  }
-  duk_pop(duk_context_);
+  string temp_source = string(load_js_file(main_file.c_str(),source_len)) +
+    "\napp = {};\n"
+    "IoTApp(app);\n"
+    "module.exports(app);\n"
+    "app.internal.start();\n";
 
   // executing initialize code
   source_code_ = new char[temp_source.length()+1];
@@ -165,6 +194,14 @@ void JSApplication::clean() {
   }
 
   cout << "clean(): killing thread was successful" << endl;
+
+  cout << "clean(): thread waiting over and calling terminate" << endl;
+
+  duk_push_string(duk_context_, "app.internal.terminate(function(){});");
+  if(duk_peval(duk_context_) != 0) {
+    printf("Script error: %s\n", duk_safe_to_string(duk_context_, -1));
+  }
+
   delete ev_thread_;
   ev_thread_ = 0;
   app_threads_.erase(duk_context_);
@@ -172,12 +209,7 @@ void JSApplication::clean() {
   delete eventloop_;
   eventloop_ = 0;
 
-  cout << "clean(): thread waiting over and calling terminate" << endl;
 
-  duk_push_string(duk_context_, "terminate();");
-  if(duk_peval(duk_context_) != 0) {
-    printf("Script error: %s\n", duk_safe_to_string(duk_context_, -1));
-  }
 
   cout << "clean(): destoying duk heap" << endl;
   duk_destroy_heap(duk_context_);

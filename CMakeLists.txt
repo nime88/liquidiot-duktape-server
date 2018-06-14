@@ -53,8 +53,8 @@ add_custom_command(TARGET liquid-server POST_BUILD
                    COMMAND ${CMAKE_COMMAND} -E copy_directory
                        ${LIQUID_IOT_SERVER_SOURCE_DIR}/http-files $<TARGET_FILE_DIR:liquid-server>/http-files)
 add_custom_command(TARGET liquid-server POST_BUILD
-                   COMMAND ${CMAKE_COMMAND} -E copy
-                       ${LIQUID_IOT_SERVER_SOURCE_DIR}/*.js $<TARGET_FILE_DIR:liquid-server>)
+                   COMMAND ${CMAKE_COMMAND} -E copy_directory
+                       ${LIQUID_IOT_SERVER_SOURCE_DIR}/js $<TARGET_FILE_DIR:liquid-server>/js)
 add_custom_command(TARGET liquid-server POST_BUILD
                    COMMAND ${CMAKE_COMMAND} -E copy
                        ${LIQUID_IOT_SERVER_SOURCE_DIR}/config.cfg $<TARGET_FILE_DIR:liquid-server>)
