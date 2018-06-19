@@ -84,7 +84,13 @@ int AppRequest::handleHttpRequest(struct lws *wsi, void* buffer_data, void* in, 
 
       if(headers_.find("content-length") == headers_.end() && app_) {
         AppResponse *response = app_->getResponse(this);
-        break;
+
+        if(response) {
+          dest_buffer->large_str = response->getContent();
+          optimizeResponseString(dest_buffer->large_str, buffer_data);
+
+          return response->generateResponseHeaders(wsi, buffer_data, start, p, end);
+        }
       }
 
       break;
@@ -126,7 +132,7 @@ int AppRequest::handleHttpRequest(struct lws *wsi, void* buffer_data, void* in, 
 
         return response->generateResponseHeaders(wsi, buffer_data, start, p, end);
       }
-      
+
       break;
     }
 
@@ -181,7 +187,7 @@ int AppRequest::generateFailResponse(struct lws *wsi, void* buffer_data, uint8_t
 }
 
 map<string,string> AppRequest::parseUrlArgs(struct lws *wsi, void* buffer_data) {
-  struct HttpRequest::user_buffer_data *dest_buffer = (struct HttpRequest::user_buffer_data *)buffer_data;
+  (void)buffer_data;
   map<string,string> args;
   /* dump the individual URI Arg parameters */
 	int n = 0;

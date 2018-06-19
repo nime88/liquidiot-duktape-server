@@ -3,6 +3,12 @@
 #include "application.h"
 
 #include <regex>
+#include <iostream>
+#include <string>
+
+using std::cout;
+using std::endl;
+using std::to_string;
 
 int GetRequest::handleHttpRequest(struct lws *wsi, void* buffer_data, void* in, uint8_t *start, uint8_t *p, uint8_t *end, size_t len, enum lws_callback_reasons reason) {
   switch (reason) {

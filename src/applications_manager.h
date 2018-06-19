@@ -6,7 +6,8 @@
 
 #include "application.h"
 
-using namespace std;
+using std::vector;
+using std::string;
 
 class AppManager {
   public:

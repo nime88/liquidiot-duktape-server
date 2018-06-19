@@ -2,18 +2,11 @@
 #define HTTP_SERVER_H_INCLUDED
 
  #include <libwebsockets.h>
- #include <string.h>
- #include <signal.h>
-
- #include <iostream>
- #include <string>
- using namespace std;
 
  class HttpServer {
   public:
     HttpServer(){}
     int run();
-
 
     static int rest_api_callback(struct lws *wsi, enum lws_callback_reasons reason,
       void *user, void *in, size_t len);

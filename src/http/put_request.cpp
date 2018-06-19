@@ -2,6 +2,9 @@
 
 #include "application.h"
 
+#include <string>
+using std::to_string;
+
 const char * const PutRequest::put_param_names[] = {
   "status",
 };

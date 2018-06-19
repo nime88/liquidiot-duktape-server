@@ -1,10 +1,10 @@
 #include "applications_manager.h"
 
 #include <dirent.h>
-#include <stdlib.h>
-#include <string>
-
 #include <iostream>
+
+using std::cout;
+using std::endl;
 
 vector<string> AppManager::listApplicationNames() {
   vector<string> names;

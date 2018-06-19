@@ -6,18 +6,13 @@ extern "C" {
 #endif
 
   #include "duktape.h"
-  #include <signal.h>
-  #include "../globals.h"
 
 #if defined (__cplusplus)
 }
 #endif
 
-#include <iostream>
-#include <vector>
 #include <map>
-
-using namespace std;
+using std::map;
 
 class EventLoop {
   public:

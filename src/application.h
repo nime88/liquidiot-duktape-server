@@ -1,21 +1,16 @@
 #if !defined(APPLICATION_H_INCLUDED)
 #define APPLICATION_H_INCLUDED
 
-#include "file_ops.h"
-#include "nodejs/node_module_search.h"
-#include "eventloop/custom_eventloop.h"
+#include "custom_eventloop.h"
 class AppRequest;
-#include "http/app_request.h"
+#include "app_request.h"
 class AppResponse;
-#include "http/app_response.h"
+#include "app_response.h"
 
 #if defined (__cplusplus)
 extern "C" {
 #endif
 
-  #include <stdio.h>
-  #include <dirent.h>
-  #include <stdlib.h>
   #include <poll.h>
   #include "duktape.h"
   #include "duk_print_alert.h"
@@ -26,14 +21,17 @@ extern "C" {
 }
 #endif
 
-#include <iostream>
 #include <string>
 #include <vector>
-#include <regex>
 #include <map>
 #include <thread>
 #include <mutex>
-using namespace std;
+
+using std::string;
+using std::vector;
+using std::map;
+using std::thread;
+using std::mutex;
 
 class JSApplication {
   public:
@@ -92,7 +90,7 @@ class JSApplication {
     }
 
     void setResponseObj(AppResponse *response) {
-      // locking thread as it's possible that this is called ny something else 
+      // locking thread as it's possible that this is called ny something else
       while (!mtx->try_lock()){ poll(NULL,0,1); }
       app_response_ = response;
       mtx->unlock();

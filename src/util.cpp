@@ -1,7 +1,6 @@
 #include "util.h"
 
-#include <iostream>
-using namespace std;
+using std::pair;
 
 map<string,string> read_package_json(duk_context *ctx, const char* js_src) {
   map<string,string> attr;

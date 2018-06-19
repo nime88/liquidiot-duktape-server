@@ -1,7 +1,6 @@
 #ifndef APP_LOG_H_INCLUDED
 #define APP_LOG_H_INCLUDED
 
-#include <ostream>
 #include <fstream>
 #include <string>
 #include <sstream>

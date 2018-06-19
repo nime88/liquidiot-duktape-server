@@ -1,11 +1,20 @@
 #include "custom_eventloop.h"
 
-#include <stdio.h>
 #include <sys/time.h>
 #include <poll.h>
 #include <cmath>
 
-#include "../application.h"
+#include "application.h"
+
+#if defined (__cplusplus)
+extern "C" {
+#endif
+
+  #include "globals.h"
+
+#if defined (__cplusplus)
+}
+#endif
 
 // #define NDEBUG
 

@@ -37,7 +37,7 @@ set ( CMAKE_CXX_FLAGS "-Wall -Wextra -lm -pthread -std=c++11 -lstdc++")
 
 add_executable (liquid-server src/main.cpp)
 
-target_link_libraries (liquid-server LINK_PUBLIC Main EventLoop NodeJS DukTape DukTapeExtra websockets archive)
+target_link_libraries (liquid-server LINK_PUBLIC HttpServer JSApp)
 
 # Some post build file moving stuff to help debugging and stuff
 add_custom_command(TARGET liquid-server POST_BUILD 

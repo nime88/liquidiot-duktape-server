@@ -1,6 +1,7 @@
 #include "post_request.h"
 
 #include "application.h"
+#include "file_ops.h"
 
 #include <sys/fcntl.h>
 

@@ -3,24 +3,31 @@
 #include <iostream>
 #include <cstring>
 #include <fstream>
-#include <ios>
 #include <sstream>
-#include <map>
-#include <sys/stat.h>
 #include <archive.h>
 #include <archive_entry.h>
-#include <stdio.h>
 #include <dirent.h>
 
-using namespace std;
+using std::cout;
+using std::ifstream;
+using std::pair;
+using std::istringstream;
+
+// #define NDEBUG
+
+#ifdef NDEBUG
+    #define DBOUT( x ) cout << x  << "\n"
+#else
+    #define DBOUT( x )
+#endif
 
 char* load_js_file(const char* filename, int & sourceLen) {
   char* sourceCode;
 
-  cout << "Filename: " << filename << endl;
+  DBOUT ( "Filename: " << filename );
 
   ifstream file(filename);
-  std::string content( (std::istreambuf_iterator<char>(file) ),
+  string content( (std::istreambuf_iterator<char>(file) ),
                      (std::istreambuf_iterator<char>()    ) );
 
   // converting c++ string to char* source code for return
@@ -32,7 +39,7 @@ char* load_js_file(const char* filename, int & sourceLen) {
   if (file.is_open()) file.close();
 
   if(sourceLen <= 1) {
-    cout << "File " << filename << " doesn't exist or is empty." << endl;
+    DBOUT ( "File " << filename << " doesn't exist or is empty." );
   }
 
   return sourceCode;
@@ -85,7 +92,7 @@ FILE_TYPE is_file(const char* path) {
   return FILE_TYPE::NOT_EXIST;
 }
 
-std::string extract_file(const char* file_path, const char* extract_path) {
+string extract_file(const char* file_path, const char* extract_path) {
   int flags;
 
   flags = ARCHIVE_EXTRACT_TIME;
@@ -93,13 +100,13 @@ std::string extract_file(const char* file_path, const char* extract_path) {
   return extract(file_path, 1, flags, extract_path);
 }
 
-std::string extract(const char *filename, int do_extract, int flags, const char* extract_path)
+string extract(const char *filename, int do_extract, int flags, const char* extract_path)
 {
 	struct archive *a;
 	struct archive *ext;
 	struct archive_entry *entry;
 	int r;
-  std::string final_filename;
+  string final_filename;
 
 	a = archive_read_new();
 	ext = archive_write_disk_new();
@@ -111,8 +118,8 @@ std::string extract(const char *filename, int do_extract, int flags, const char*
 	if (filename != NULL && strcmp(filename, "-") == 0)
 		filename = NULL;
 	if ((r = archive_read_open_filename(a, filename, 10240))) {
-    std::cout << "archive_read_open_filename()" << std::endl;
-    std::cout << archive_error_string(a) << std::endl;
+    DBOUT ( "archive_read_open_filename()" );
+    DBOUT ( archive_error_string(a) );
 		return "";
   }
 
@@ -123,8 +130,8 @@ std::string extract(const char *filename, int do_extract, int flags, const char*
 			break;
 
 		if (r != ARCHIVE_OK) {
-      std::cout << "archive_read_next_header()" << std::endl;
-      std::cout << archive_error_string(a) << std::endl;
+      DBOUT ( "archive_read_next_header()" );
+      DBOUT ( archive_error_string(a) );
       return "";
     }
 
@@ -140,7 +147,7 @@ std::string extract(const char *filename, int do_extract, int flags, const char*
         final_filename = currentFile;
       }
 
-      std::string fullOutputPath;
+      string fullOutputPath;
 
       // separating if we have designated extract path or not
       if(!extract_path)
@@ -158,15 +165,15 @@ std::string extract(const char *filename, int do_extract, int flags, const char*
 			r = archive_write_header(ext, entry);
 
 			if (r != ARCHIVE_OK) {
-        std::cout << "archive_write_header()" << std::endl;
-        std::cout << archive_error_string(ext) << std::endl;
+        DBOUT ( "archive_write_header()" );
+        DBOUT ( archive_error_string(ext) );
         return "";
       } else {
 				copy_data(a, ext);
 				r = archive_write_finish_entry(ext);
 				if (r != ARCHIVE_OK) {
-          std::cout << "archive_write_finish_entry()" << std::endl;
-          std::cout << archive_error_string(ext) << std::endl;
+          DBOUT ( "archive_write_finish_entry()" );
+          DBOUT ( archive_error_string(ext) );
           return "";
         }
 			}
@@ -199,8 +206,8 @@ int copy_data(struct archive *ar, struct archive *aw) {
 			return (r);
 		r = archive_write_data_block(aw, buff, size, offset);
 		if (r != ARCHIVE_OK) {
-      std::cout << "archive_write_data_block()" << std::endl;
-      std::cout << archive_error_string(aw) << std::endl;
+      DBOUT ( "archive_write_data_block()" );
+      DBOUT ( archive_error_string(aw) );
 			return (r);
 		}
 	}
@@ -219,7 +226,7 @@ int delete_files(const char* file_path) {
       /* print all the files and directories within directory */
       while ((ent = readdir (dir)) != NULL) {
         string temp = string(file_path) + "/" + string(ent->d_name);
-        cout << "The temp path: " << temp << endl;
+        DBOUT ( "The temp path: " << temp );
         if(string(ent->d_name) != "." && string(ent->d_name) != "..")
           delete_files(temp.c_str());
       }

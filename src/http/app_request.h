@@ -59,7 +59,7 @@ class AppRequest : public HttpRequest {
     int generateFailResponse(struct lws *wsi, void* buffer_data, uint8_t *start, uint8_t *p, uint8_t *end);
 
     request_types getRequestTypeByName(const char* name) {
-      for( int i = 0; i < ARRAY_SIZE(request_types_char);++i) {
+      for( unsigned int i = 0; i < ARRAY_SIZE(request_types_char);++i) {
         if(string(request_types_char[i]) == string(name)) {
           return request_types(i);
         }

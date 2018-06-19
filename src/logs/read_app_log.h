@@ -1,12 +1,8 @@
 #ifndef READ_APP_LOG_H_INCLUDED
 #define READ_APP_LOG_H_INCLUDED
 
-#include <istream>
 #include <fstream>
 #include <string>
-#include <sstream>
-
-#include <iostream>
 
 using std::string;
 
@@ -26,7 +22,7 @@ class ReadAppLog {
 
     string getLogsString()
     {
-      std::string str((std::istreambuf_iterator<char>(file_)),
+      string str((std::istreambuf_iterator<char>(file_)),
                  std::istreambuf_iterator<char>());
 
       return str;

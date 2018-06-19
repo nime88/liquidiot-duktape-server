@@ -1,11 +1,28 @@
 #include "application.h"
 
+#if defined (__cplusplus)
+extern "C" {
+#endif
+
+  #include <dirent.h>
+
+#if defined (__cplusplus)
+}
+#endif
+
 #include <algorithm>
+#include <regex>
+#include <iostream>
+
+using std::regex;
+using std::cout;
+using std::endl;
 
 #include "node_module_search.h"
 #include "util.h"
-#include "app_log.h"
-#include "read_app_log.h"
+#include "file_ops.h"
+#include "logs/app_log.h"
+#include "logs/read_app_log.h"
 
 #define NDEBUG
 
@@ -639,8 +656,6 @@ duk_ret_t JSApplication::cb_resolve_app_response(duk_context *ctx) {
   duk_push_string(ctx, "headers");
   if(duk_get_prop(ctx, 0)) {
     /* [ ... response headers ] */
-    duk_uarridx_t index = 0;
-
     duk_enum(ctx, -1, DUK_ENUM_OWN_PROPERTIES_ONLY);
 
     while (duk_next(ctx, -1 /*enum_idx*/, 1)) {
