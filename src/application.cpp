@@ -77,6 +77,14 @@ void JSApplication::init() {
   duk_put_prop_string(duk_context_, -2, "load");
   duk_module_node_init(duk_context_);
 
+  DBOUT ("Adding response resolution");
+
+  /* Set global 'ResolveResponse'. */
+  duk_push_global_object(duk_context_);
+  duk_push_c_function(duk_context_, cb_resolve_app_response, 1);
+  duk_put_prop_string(duk_context_, -2, "ResolveResponse");
+  duk_pop(duk_context_);
+
   DBOUT ("Creating new eventloop");
   // registering/creating the eventloop
   eventloop_ = new EventLoop(duk_context_);
@@ -104,6 +112,8 @@ void JSApplication::init() {
   char* agentSource = load_js_file("./js/agent.js",tmpLen);
   char* apiSource = load_js_file("./js/api.js",tmpLen);
   char* appSource = load_js_file("./js/app.js",tmpLen);
+  char* requestSource = load_js_file("./js/request.js",tmpLen);
+  char* responseSource = load_js_file("./js/response.js",tmpLen);
 
   duk_push_string(duk_context_, agentSource);
   if (duk_peval(duk_context_) != 0) {
@@ -123,6 +133,18 @@ void JSApplication::init() {
   }
   duk_pop(duk_context_);
 
+  duk_push_string(duk_context_, requestSource);
+  if (duk_peval(duk_context_) != 0) {
+    printf("Failed to evaluate request.js: %s\n", duk_safe_to_string(duk_context_, -1));
+  }
+  duk_pop(duk_context_);
+
+  duk_push_string(duk_context_, responseSource);
+  if (duk_peval(duk_context_) != 0) {
+    printf("Failed to evaluate response.js: %s\n", duk_safe_to_string(duk_context_, -1));
+  }
+  duk_pop(duk_context_);
+
   /** reding the source code (main.js) for the app **/
 
   int source_len;
@@ -133,11 +155,21 @@ void JSApplication::init() {
   package_js_ = load_js_file(package_file.c_str(),source_len);
 
   DBOUT ("JSApplication(): Reading package to attr");
-  map<string,string> json_attr = read_json_file(duk_context_, package_js_);
+  map<string,string> package_json_attr = read_package_json(duk_context_, package_js_);
 
-  main_ = json_attr.at("main");
+  main_ = package_json_attr.at("main");
   string main_file = app_path_ + "/" + main_;
 
+  DBOUT ("JSApplication(): Loading liquidiot file");
+  // reading the package.json file to memory
+  string liquidiot_file = app_path_ + string("/liquidiot.json");
+  string liquidiot_js = load_js_file(liquidiot_file.c_str(),source_len);
+
+  DBOUT ("JSApplication(): Reading json to attr");
+  map<string,vector<string> > liquidiot_json_attr = read_liquidiot_json(duk_context_, liquidiot_js.c_str());
+  if(liquidiot_json_attr.find("applicationInterfaces") != liquidiot_json_attr.end()) {
+    application_interfaces_ = liquidiot_json_attr.at("applicationInterfaces");
+  }
 
   DBOUT ("JSApplication(): Creating full source code");
   string temp_source = string(load_js_file(main_file.c_str(),source_len)) +
@@ -153,7 +185,7 @@ void JSApplication::init() {
   DBOUT ("JSApplication(): Making it main node module");
   // pushing this as main module
   duk_push_string(duk_context_, source_code_);
-  duk_module_node_peval_main(duk_context_, json_attr.at("main").c_str());
+  duk_module_node_peval_main(duk_context_, package_json_attr.at("main").c_str());
 
   DBOUT ("Inserting application thread");
   // initializing the thread, this must be the last initialization
@@ -256,6 +288,49 @@ string JSApplication::getLogsAsJSON() {
   json_logs += "\n]";
 
   return json_logs;
+}
+
+AppResponse *JSApplication::getResponse(AppRequest *request) {
+  map<string,string> headers = request->getHeaders();
+  map<string,string> body_args = request->getBodyArguments();
+  cout << "Body args size: "<< body_args.size() << endl;
+
+  // formatting the headers
+  string js_headers = "request.headers = { ";
+  for(map<string,string>::iterator it = headers.begin(); it != headers.end(); it++) {
+    js_headers += "\"" + it->first + "\" : \"" + it->second + "\",\n";
+  }
+  js_headers += "};\n";
+
+  // formatting body arguments
+  string js_body_args = "request.params = { ";
+  for(map<string,string>::iterator it = body_args.begin(); it != body_args.end(); it++) {
+    js_body_args += "\"" + it->first + "\" : \"" + it->second + "\",\n";
+  }
+  js_body_args += "};\n";
+
+  string sourceCode = "var request = {};\n"
+    "Request(request);\n"
+    "request.request_type = \"" + string(request->requestTypeToString(request->getRequestType())) + "\";\n"
+    + js_headers + js_body_args +
+    "request.protocol = \"" + request->getProtocol() + "\";\n" +
+    "var response = {};\n"
+    "Response(response);\n"
+    "app.external." + request->getAI() + "(request,response);\n";
+
+  // initializing just in case
+  if(app_response_) {
+    delete app_response_;
+    app_response_ = 0;
+  }
+
+  duk_push_string(duk_context_, sourceCode.c_str());
+  if (duk_peval(duk_context_) != 0) {
+    printf("Failed to evaluate response: %s\n", duk_safe_to_string(duk_context_, -1));
+  }
+  duk_pop(duk_context_);
+
+  return app_response_;
 }
 
 bool JSApplication::setAppState(APP_STATES state) {
@@ -487,7 +562,7 @@ duk_ret_t JSApplication::cb_load_module(duk_context *ctx) {
         int sourceLen;
         char* package_js = load_js_file(path.c_str(),sourceLen);
 
-        map<string,string> json_attr = read_json_file(ctx, package_js);
+        map<string,string> json_attr = read_package_json(ctx, package_js);
 
         // loading main file to source
         path = string(resolved_id) + json_attr.at("main");
@@ -543,6 +618,86 @@ duk_ret_t JSApplication::cb_alert (duk_context *ctx) {
 
   // writing to log
   AppLog(app->getAppPath().c_str()) << AppLog::getTimeStamp() << " [Alert] " << duk_require_string(ctx, -1) << endl;
+
+  return 0;
+}
+
+duk_ret_t JSApplication::cb_resolve_app_response(duk_context *ctx) {
+  /* Entry [ ... response ] */
+
+  JSApplication *app = JSApplication::getApplications().at(ctx);
+  AppResponse *app_response = new AppResponse();
+  map<string,string> headers;
+  string content_body = "";
+  int status_code = 200;
+  string status_message = "";
+
+  // locking thread for duktape operations
+  while (!app->getMutex()->try_lock()){ poll(NULL,0,1); }
+
+  // getting headers first
+  duk_push_string(ctx, "headers");
+  if(duk_get_prop(ctx, 0)) {
+    /* [ ... response headers ] */
+    duk_uarridx_t index = 0;
+
+    duk_enum(ctx, -1, DUK_ENUM_OWN_PROPERTIES_ONLY);
+
+    while (duk_next(ctx, -1 /*enum_idx*/, 1)) {
+      /* [ ... response enum key value ] */
+      headers.insert(pair<string,string>(duk_to_string(ctx, -2), duk_to_string(ctx, -1)));
+      duk_pop_2(ctx);  /* pop key value  */
+    }
+
+    duk_pop(ctx); // popping enum object
+  } else {
+    duk_pop(ctx);
+  }
+
+  // getting content body
+  /* [ ... response ] */
+  duk_push_string(ctx, "body");
+  if(duk_get_prop(ctx, 0)) {
+    /* [ ... response body ] */
+    content_body = duk_to_string(ctx, -1);
+    duk_pop(ctx);
+  } else {
+    duk_pop(ctx);
+  }
+
+  // getting status code
+  /* [ ... response ] */
+  duk_push_string(ctx, "statusCode");
+  if(duk_get_prop(ctx, 0)) {
+    /* [ ... response status_code ] */
+    status_code = duk_to_int(ctx, -1);
+    duk_pop(ctx);
+  } else {
+    duk_pop(ctx);
+  }
+
+  // getting status message
+  /* [ ... response ] */
+  duk_push_string(ctx, "statusMessage");
+  if(duk_get_prop(ctx, 0)) {
+    /* [ ... response status_message ] */
+    status_message = duk_to_string(ctx, -1);
+    duk_pop(ctx);
+  } else {
+    duk_pop(ctx);
+  }
+
+  duk_pop(ctx);
+  /* [ ... ] */
+
+  app->getMutex()->unlock();
+
+  app_response->setHeaders(headers);
+  app_response->setStatusCode(status_code);
+  app_response->setStatusMessage(status_message);
+  app_response->setContent(content_body);
+
+  app->setResponseObj(app_response);
 
   return 0;
 }

@@ -85,28 +85,49 @@ void HttpRequest::optimizeResponseString(string response, void* buffer_data) {
 
 int HttpRequest::parseIdFromURL(string url) {
   std::smatch m_id;
-  std::regex e_id("^[/]?(\\d+)([/](log)[/]?)?$");
+  std::regex e_id(R"(^(/)?(\d+)(\1|$))");
   std::regex_match(url,m_id,e_id);
 
   int id = -1;
 
-  if(m_id.size() > 1) {
+  while (std::regex_search (url,m_id,e_id, std::regex_constants::match_any)) {
     try {
-      id = stoi(m_id[1]);
+      id = stoi( m_id[2]);
+      return id;
     } catch( invalid_argument e) {
       id = -2;
     }
-
-    return id;
   }
 
-  std::smatch m_no;
-  std::regex e_no("(^[/]?$)");
-  std::regex_match(url,m_no,e_no);
+  return id;
+}
 
-  if(m_no.size() > 0) {
-    return -1;
+string HttpRequest::parseApiFromURL(string url) {
+  std::smatch m_api;
+  std::regex e_api(R"(^(/)?(\d+)/api/(\w+)$)");
+
+  string api;
+
+  while (std::regex_search (url,m_api,e_api, std::regex_constants::match_any)) {
+    api = m_api[3];
+    return api;
   }
 
-  return -2;
+  return api;
+}
+
+map<string,string> HttpRequest::parseBodyAttributes(string body) {
+  std::smatch m;
+  std::regex e(R"""(Content-Disposition:.*name="(\w+)"(\s*|\n*)(\w+))""");
+
+  map<string,string> attr;
+
+  while (std::regex_search (body, m, e, std::regex_constants::match_any)) {
+    string name = m[1];
+    string value = m[3];
+    attr.insert(pair<string,string>(name,value));
+    body = m.suffix();
+  }
+  
+  return attr;
 }

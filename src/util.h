@@ -12,10 +12,12 @@ extern "C" {
 #endif
 
 #include <map>
+#include <vector>
 #include <string>
 
 using namespace std;
 
-extern map<string,string> read_json_file(duk_context *ctx, const char* package_js_src);
+extern map<string,string> read_package_json(duk_context *ctx, const char* package_js_src);
+extern map<string,vector<string> > read_liquidiot_json(duk_context *ctx, const char* package_js_src);
 
 #endif

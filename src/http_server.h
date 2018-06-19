@@ -14,9 +14,17 @@
     HttpServer(){}
     int run();
 
-  private:
-    static string parseRequestType(void *in);
 
+    static int rest_api_callback(struct lws *wsi, enum lws_callback_reasons reason,
+      void *user, void *in, size_t len);
+
+    static int server_rest_api(struct lws *wsi, enum lws_callback_reasons reason,
+      void *user, void *in, size_t len);
+
+    static int app_rest_api(struct lws *wsi, enum lws_callback_reasons reason,
+      void *user, void *in, size_t len);
+
+  private:
     struct lws_context_creation_info info_;
     struct lws_context *context_;
 
@@ -63,9 +71,6 @@
      /* .basic_auth_login_file */	NULL,
      /* ._unused */ {} /* Extra to suppress warnings */
    };
-
-    static int rest_api_callback(struct lws *wsi, enum lws_callback_reasons reason,
-      void *user, void *in, size_t len);
 
  };
 

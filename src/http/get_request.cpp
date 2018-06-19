@@ -40,11 +40,13 @@ int GetRequest::handleHttpRequest(struct lws *wsi, void* buffer_data, void* in, 
 int GetRequest::generateResponse(struct lws *wsi, void* buffer_data, uint8_t *start, uint8_t *p, uint8_t *end) {
   struct user_buffer_data *dest_buffer = (struct user_buffer_data*)buffer_data;
 
+  cout << "lws_add_http_common_headers()" << endl;
   /* prepare and write http headers */
   if(lws_add_http_common_headers(wsi, HTTP_STATUS_OK, "text/html", dest_buffer->len, &p, end)) {
     return 1;
   }
 
+  cout << "lws_finalize_write_http_header()" << endl;
   if (lws_finalize_write_http_header(wsi, start, &p, end)) {
     return 1;
   }

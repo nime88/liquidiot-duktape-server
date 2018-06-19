@@ -12,12 +12,17 @@ extern "C" {
 
 #include <iostream>
 #include <algorithm>
+#include <regex>
+#include <string>
 using namespace std;
 
+#include "application.h"
+#include "urls.h"
 #include "get_request.h"
 #include "post_request.h"
 #include "delete_request.h"
 #include "put_request.h"
+#include "app_request.h"
 
 struct lws_protocols HttpServer::protocols[] = {
   /* name, callback, per_session_data_size, rx_buffer_size, id, user, tx_packet_size */
@@ -65,10 +70,37 @@ int HttpServer::run() {
 }
 
 // look reasons from https://libwebsockets.org/lws-api-doc-master/html/group__usercb.html
-int HttpServer::rest_api_callback(struct lws *wsi, enum lws_callback_reasons reason,
-  void *user, void *in, size_t len){
-	uint8_t buf[LWS_PRE + 256], *start = &buf[LWS_PRE], *p = start,
-		*end = &buf[sizeof(buf) - 1];
+int HttpServer::rest_api_callback(struct lws *wsi, enum lws_callback_reasons reason, void *user, void *in, size_t len){
+  struct HttpRequest::user_buffer_data *dest_buffer = (struct HttpRequest::user_buffer_data *)user;
+
+  // filtering out some stuff that isn't handled
+  if(reason ==  LWS_CALLBACK_HTTP_BIND_PROTOCOL ||
+    reason == LWS_CALLBACK_FILTER_HTTP_CONNECTION ||
+    reason == LWS_CALLBACK_CHECK_ACCESS_RIGHTS)
+    return 0;
+
+  if(reason == LWS_CALLBACK_HTTP) {
+    for(int i = 0; i < ARRAY_SIZE(URL_MOUNTS); ++i) {
+      string url = (char*)in;
+      smatch m;
+      regex_match(url,m,URL_MOUNTS[i].url_rule);
+
+      if(m.size() > 0) {
+        dest_buffer->request_callback_index = i;
+        return URL_MOUNTS[i].call_back(wsi, reason,user,in,len);
+      }
+    }
+  }
+
+  if(dest_buffer && dest_buffer->request_callback_index >= 0)
+    return URL_MOUNTS[dest_buffer->request_callback_index].call_back(wsi, reason,user,in,len);
+
+  return lws_callback_http_dummy(wsi, reason, user, in, len);
+}
+
+int HttpServer::server_rest_api(struct lws *wsi, enum lws_callback_reasons reason, void *user, void *in, size_t len) {
+  uint8_t buf[LWS_PRE + 256], *start = &buf[LWS_PRE], *p = start,
+    *end = &buf[sizeof(buf) - 1];
   struct HttpRequest::user_buffer_data *dest_buffer = (struct HttpRequest::user_buffer_data *)user;
 
   // Get request
@@ -103,5 +135,37 @@ int HttpServer::rest_api_callback(struct lws *wsi, enum lws_callback_reasons rea
     return ((PutRequest*)dest_buffer->request)->handleHttpRequest(wsi, dest_buffer, in, start, p, end, len, reason);
   }
 
-	return lws_callback_http_dummy(wsi, reason, user, in, len);
+  return lws_callback_http_dummy(wsi, reason, user, in, len);
+}
+
+int HttpServer::app_rest_api(struct lws *wsi, enum lws_callback_reasons reason, void *user, void *in, size_t len) {
+  uint8_t buf[LWS_PRE + 256], *start = &buf[LWS_PRE], *p = start,
+    *end = &buf[sizeof(buf) - 1];
+  struct HttpRequest::user_buffer_data *dest_buffer = (struct HttpRequest::user_buffer_data *)user;
+  if(reason == LWS_CALLBACK_HTTP) {
+    string url = (char*)in;
+    int id = HttpRequest::parseIdFromURL(url);
+    string ai = HttpRequest::parseApiFromURL(url);
+
+    JSApplication *app = JSApplication::getApplicationById(id);
+
+    if(app && app->hasAI(ai)) {
+      if(!dest_buffer->request) {
+        dest_buffer->request = new AppRequest();
+      }
+    }
+
+    ((AppRequest*)dest_buffer->request)->setApp(app);
+    ((AppRequest*)dest_buffer->request)->setAI(ai);
+  }
+
+  int cont = dest_buffer->request->handleHttpRequest(wsi, dest_buffer, in, start, p, end, len, reason);
+
+  if(cont >= 0)
+    return cont;
+      // TODO find "class" or function to be called app->generateResponse(string function)
+      // TODO maybe create respose and request libs to keep documentation easier
+      // TODO probably just imagine implementation/interface for others to use
+
+  return lws_callback_http_dummy(wsi, reason, user, in, len);
 }

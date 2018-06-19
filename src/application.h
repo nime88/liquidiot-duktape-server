@@ -4,6 +4,10 @@
 #include "file_ops.h"
 #include "nodejs/node_module_search.h"
 #include "eventloop/custom_eventloop.h"
+class AppRequest;
+#include "http/app_request.h"
+class AppResponse;
+#include "http/app_response.h"
 
 #if defined (__cplusplus)
 extern "C" {
@@ -62,6 +66,8 @@ class JSApplication {
     string getLogs();
     string getLogsAsJSON();
 
+    AppResponse* getResponse(AppRequest *request);
+
     APP_STATES getAppState() { return app_state_; }
     bool setAppState(APP_STATES state);
 
@@ -77,14 +83,44 @@ class JSApplication {
     // formats
     string getDescriptionAsJSON();
 
+    bool hasAI(const string &ai) {
+      for (string &s : application_interfaces_) {
+        if (s == ai) return true;
+      }
+
+      return false;
+    }
+
+    void setResponseObj(AppResponse *response) {
+      // locking thread as it's possible that this is called ny something else 
+      while (!mtx->try_lock()){ poll(NULL,0,1); }
+      app_response_ = response;
+      mtx->unlock();
+    }
+
     static duk_ret_t cb_resolve_module(duk_context *ctx);
     static duk_ret_t cb_load_module(duk_context *ctx);
     static duk_ret_t cb_print(duk_context *ctx);
     static duk_ret_t cb_alert(duk_context *ctx);
 
+    static duk_ret_t cb_resolve_app_response(duk_context *ctx);
+
     static bool applicationExists(const char* path);
     static vector<string> listApplicationNames();
     static map<duk_context*, JSApplication*> getApplications() { return applications_; }
+    static JSApplication* getApplicationById(int id) {
+      while (!mtx->try_lock()){
+        poll(NULL,0,1);
+      }
+      for (  map<duk_context*, JSApplication*>::const_iterator it=applications_.begin(); it!=applications_.end(); ++it) {
+        if (it->second->getId() == id) {
+          mtx->unlock();
+          return it->second;
+        }
+      }
+      mtx->unlock();
+      return 0;
+    }
 
     static mutex* getMutex() { return mtx; }
     static void getJoinThreads();
@@ -107,6 +143,9 @@ class JSApplication {
     int id_;
     APP_STATES app_state_;
     vector<string> application_interfaces_;
+
+    // other
+    AppResponse *app_response_ = 0;
 
 
     // static

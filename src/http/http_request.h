@@ -13,6 +13,8 @@ extern "C" {
 
 #include <string>
 using std::string;
+#include <map>
+using std::map;
 
 class HttpRequest {
   public:
@@ -36,6 +38,7 @@ class HttpRequest {
       string request_url;
       string error_msg;
       HttpRequest *request;
+      int request_callback_index = -1;
     };
 
     // return: < 0 will we an error
@@ -51,6 +54,9 @@ class HttpRequest {
     // return: -1 empty
     // return: -2 parse error
     static int parseIdFromURL(string url);
+
+    static string parseApiFromURL(string url);
+    static map<string,string> parseBodyAttributes(string body);
 
   protected:
     int writeHttpRequest(struct lws *wsi, void* buffer_data, void* in, size_t len);

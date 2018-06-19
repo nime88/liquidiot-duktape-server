@@ -15,7 +15,7 @@ add_library (Globals globals.c)
 
 # making libraries accessable
 target_link_libraries(Main DukTape DukTapeExtra JSApp NodeJS Globals Http archive)
-target_link_libraries(JSApp EventLoop NodeJS Logs)
+target_link_libraries(JSApp Http EventLoop NodeJS Logs)
 target_include_directories (Main PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 
