@@ -1,0 +1,9 @@
+ {
+    "name": "DeviceName",
+    "manufacturer": "",
+    "libraries": "",
+    "location": "Some Location",
+    "url": "localhost:7681",
+    "connected-devices": {},
+    "classes": ""
+ }

@@ -11,10 +11,9 @@ using std::string;
 
 class AppManager {
   public:
-    AppManager() {
-      // loading applications
-      loadApplications();
-    }
+    // app manager is singleton instance to make some stuff more accessable
+    // from different threads
+    static AppManager* getInstance();
 
     // lists and regenerates all the applications folder names
     static vector<string> listApplicationNames();
@@ -22,8 +21,6 @@ class AppManager {
     // loads the applications to usable "executables"
     void loadApplications();
 
-    // TODO: In practice only one app works properly with intervals
-    // as they are static atm
     void addApp(JSApplication* app);
 
     vector<JSApplication*> getApps() {
@@ -40,9 +37,16 @@ class AppManager {
     }
 
   private:
+    static AppManager *instance_;
+
     vector<string> app_names_;
     vector<JSApplication*> apps_;
 
+    // constructor is private so it can't be instantiated outside of this class
+    AppManager() {
+      // loading applications
+      loadApplications();
+    }
 };
 
 #endif

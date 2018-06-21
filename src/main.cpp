@@ -9,13 +9,23 @@ using std::string;
 using std::thread;
 
 #include "applications_manager.h"
+#include "device.h"
 #include "http_server.h"
 
 int main(int argc, char *argv[]) {
 
   (void) argc; (void) argv;  /* suppress warning */
 
-  AppManager *app_manager = new AppManager();
+  /* As there is only one device this is running at one time it makes sense to
+   * make AppManager and Device singleton instances to reduce confusion and
+   * improve accessability of some properties
+   */
+
+  // creates and stores all the applications
+  AppManager *app_manager = AppManager::getInstance();
+  Device *device = Device::getInstance();
+
+
 
   // Http server
   HttpServer *server = new HttpServer();

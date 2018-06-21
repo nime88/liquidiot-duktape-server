@@ -13,14 +13,18 @@ add_library (Utility file_ops.cpp util.cpp)
 add_library (JSApp applications_manager.cpp application.cpp)
 add_library (HttpServer http_server.cpp)
 add_library (Globals globals.c)
+add_library (Device device.cpp)
 
-# making libraries accessable
+# linking necessary dependencies
 target_link_libraries(Utility DukTape archive)
 target_link_libraries(JSApp DukTape DukTapeExtra Http EventLoop NodeJS Logs)
 target_link_libraries(HttpServer JSApp Http websockets)
+target_link_libraries(Device DukTape Utility HttpClient)
 
+# making libraries accessable
 target_include_directories (Utility PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_include_directories (JSApp PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_include_directories (HttpServer PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-
+target_include_directories (Globals PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories (Device PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 

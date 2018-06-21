@@ -6,6 +6,16 @@
 using std::cout;
 using std::endl;
 
+AppManager* AppManager::instance_ = 0;
+
+AppManager* AppManager::getInstance() {
+  if(!instance_) {
+    instance_ = new AppManager();
+  }
+
+  return instance_;
+}
+
 vector<string> AppManager::listApplicationNames() {
   vector<string> names;
 
