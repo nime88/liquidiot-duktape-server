@@ -15,9 +15,17 @@ class ClientRequestConfig {
     void setRawReturnData(string raw_data) { raw_return_data_ = raw_data; }
     string getRawReturnData() { return raw_return_data_; }
 
+    void setRequestType(string request_type) { request_type_ = request_type; }
+    string getRequestType() { return request_type_; }
+
+    void setRequestPath(const char * path) { request_path_ = path; }
+    const char * getRequestPath() { return request_path_; }
+
   private:
     string raw_payload_;
     string raw_return_data_;
+    string request_type_;
+    const char * request_path_;
 };
 
 #endif

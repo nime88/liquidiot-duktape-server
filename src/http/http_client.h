@@ -16,14 +16,21 @@ class HttpClient {
   private:
 
     struct user_buffer_data {
+        char str[256];
+        int len;
   	   char boundary[32];
        char body_part;
-       int connected_status;
+       string raw_data;
+       int buffer_idx = 0;
+       ClientRequestConfig *config;
     };
 
     static const struct lws_protocols protocols[];
 
     static struct lws *client_wsi;
+
+    static ClientRequestConfig *crconfig_;
+    static int status_;
 
 };
 

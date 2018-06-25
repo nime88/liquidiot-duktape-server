@@ -23,9 +23,8 @@ int main(int argc, char *argv[]) {
 
   // creates and stores all the applications
   AppManager *app_manager = AppManager::getInstance();
-  Device *device = Device::getInstance();
-
-
+  // Device device = Device::getInstance();
+  Device::getInstance();
 
   // Http server
   HttpServer *server = new HttpServer();

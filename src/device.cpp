@@ -3,17 +3,13 @@
 #include "file_ops.h"
 #include "util.h"
 
+#include <fstream>
+
 using std::pair;
+using std::ofstream;
 
 Device *Device::instance_ = 0;
-
-Device* Device::getInstance() {
-  if(!instance_) {
-    instance_ = new Device();
-  }
-
-  return instance_;
-}
+mutex *Device::mtx_ = new mutex();
 
 Device::Device():id_("") {
   // As device_config is read only once we don't store or retain the duktape context
@@ -55,25 +51,34 @@ Device::Device():id_("") {
     url_ = raw_data_.at("url");
   }
 
-  printf("Hello world!\n");
-  if(id_.length() == 0) {
-    sendDeviceInfo();
-    http_client_thread_->join();
+  sendDeviceInfo();
 
-  }
+  // if(id_.length() == 0) {
+  //   sendDeviceInfo();
+  // }
 }
 
 void Device::sendDeviceInfo() {
   // creating first connection to
   crconfig_ = new ClientRequestConfig();
 
-  // TODO next is to get this JSON to the device manager
-  printf("Ya man: \n%s\n",getDeviceInfoAsJSON().c_str());
+  crconfig_->setRawPayload(getDeviceInfoAsJSON());
+  crconfig_->setRequestType("POST");
+  crconfig_->setRequestPath("/devices");
 
   if(!http_client_)
     http_client_ = new HttpClient();
 
   http_client_thread_ = new thread(&HttpClient::run,http_client_,crconfig_);
+}
+
+void Device::saveSettings() {
+  string settings = getDeviceInfoAsJSON();
+
+  ofstream dev_file;
+  dev_file.open ("device_config.json");
+  dev_file << settings;
+  dev_file.close();
 }
 
 string Device::getDeviceInfoAsJSON() {
@@ -91,4 +96,17 @@ string Device::getDeviceInfoAsJSON() {
   duk_pop(ctx);
 
   return full_info;
+}
+
+void Device::setDeviceId(string id) {
+  while(getMutex()->try_lock()) { poll(NULL,NULL,1); }
+  id_ = id;
+
+  if(raw_data_.find("_id") != raw_data_.end())
+    raw_data_.at("_id") = id_;
+  else
+    raw_data_.insert(pair<string,string>("_id",id_));
+
+  saveSettings();
+  getMutex()->unlock();
 }

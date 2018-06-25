@@ -15,27 +15,53 @@ extern "C" {
 #include <map>
 #include <vector>
 #include <thread>
+#include <mutex>
 
 using std::string;
 using std::map;
 using std::vector;
 using std::thread;
+using std::mutex;
 
 #include "client_request_config.h"
 #include "http_client.h"
 
 class Device {
   public:
-    static Device* getInstance();
+    static Device& getInstance() {
+      static Device instance;
+
+      return instance;
+    }
+
+    ~Device() {
+      //dont need duktape anymore
+      duk_destroy_heap(duk_context_);
+      duk_context_ = 0;
+      
+      http_client_thread_->join();
+      delete http_client_thread_;
+      http_client_thread_ = 0;
+    }
+
+    Device(Device const&) = delete;
+    void operator=(Device const&) = delete;
 
     void sendDeviceInfo();
+
+    void saveSettings();
 
     string getDeviceInfoAsJSON();
 
     inline duk_context* getContext() { return duk_context_; }
 
+    void setDeviceId(string id);
+
+    static mutex* getMutex() { return mtx_; }
+
   private:
     static Device *instance_;
+    static mutex *mtx_;
 
     map<string,string> raw_data_;
 
@@ -63,12 +89,6 @@ class Device {
     duk_context *duk_context_;
 
     Device();
-
-    ~Device() {
-      //dont need duktape anymore
-      duk_destroy_heap(duk_context_);
-      duk_context_ = 0;
-    }
 };
 
 #endif
