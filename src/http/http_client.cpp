@@ -58,7 +58,7 @@ void HttpClient::run(ClientRequestConfig *config) {
   // connect_info.ssl_connection = LCCSCF_USE_SSL;
 
   connect_info.port = 3000;
-  connect_info.address = "localhost";
+  connect_info.address = crconfig_->getDeviceUrl();
   // connect_info.ssl_connection |= LCCSCF_ALLOW_SELFSIGNED;
 
   connect_info.alpn = "http/1.1";
@@ -126,7 +126,8 @@ int HttpClient::http_client_callback(struct lws *wsi, enum lws_callback_reasons 
       dest_buffer->raw_data = (char *)in;
       dest_buffer->raw_data.erase(std::remove(dest_buffer->raw_data.begin(),
         dest_buffer->raw_data.end(), '\"'), dest_buffer->raw_data.end());
-      Device::getInstance().setDeviceId(dest_buffer->raw_data);
+      crconfig_->setResponse(dest_buffer->raw_data);
+      crconfig_->setResponseStatus(status_);
       return 0; /* don't passthru */
     }
 

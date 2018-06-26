@@ -23,12 +23,13 @@ int main(int argc, char *argv[]) {
 
   // creates and stores all the applications
   AppManager *app_manager = AppManager::getInstance();
-  // Device device = Device::getInstance();
-  Device::getInstance();
 
   // Http server
   HttpServer *server = new HttpServer();
   thread *servert = new thread(&HttpServer::run, server);
+
+  // calling device constructor to get it ready
+  Device::getInstance();
 
   JSApplication::getJoinThreads();
   servert->join();

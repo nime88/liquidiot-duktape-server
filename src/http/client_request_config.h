@@ -9,6 +9,13 @@ class ClientRequestConfig {
   public:
     ClientRequestConfig() {}
 
+    // this will be the response we're getting from the client
+    void setResponse(string response) { response_ = response; }
+    string getResponse() { return response_; }
+
+    void setResponseStatus(int status) { response_status_ = status; }
+    int getResponseStatus() { return response_status_; }
+
     void setRawPayload(string raw_data) { raw_payload_ = raw_data; }
     string getRawPayload() { return raw_payload_; }
 
@@ -21,11 +28,21 @@ class ClientRequestConfig {
     void setRequestPath(const char * path) { request_path_ = path; }
     const char * getRequestPath() { return request_path_; }
 
+    void setDeviceUrl(const char * url) { device_url_ = url; }
+    const char * getDeviceUrl() { return device_url_; }
+
+
+
+
   private:
     string raw_payload_;
     string raw_return_data_;
     string request_type_;
     const char * request_path_;
+    const char * device_url_;
+
+    string response_;
+    int response_status_;
 };
 
 #endif

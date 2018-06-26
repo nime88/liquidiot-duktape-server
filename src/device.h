@@ -35,19 +35,28 @@ class Device {
     }
 
     ~Device() {
+
       //dont need duktape anymore
       duk_destroy_heap(duk_context_);
       duk_context_ = 0;
-      
-      http_client_thread_->join();
-      delete http_client_thread_;
-      http_client_thread_ = 0;
+
+      exitClientThread();
+
+      if( http_client_ )
+        delete http_client_;
+      http_client_ = 0;
+
+      if( mtx_ )
+        delete mtx_;
+      mtx_ = 0;
     }
 
     Device(Device const&) = delete;
     void operator=(Device const&) = delete;
 
     void sendDeviceInfo();
+
+    bool deviceExists();
 
     void saveSettings();
 
@@ -89,6 +98,7 @@ class Device {
     duk_context *duk_context_;
 
     Device();
+    void exitClientThread();
 };
 
 #endif

@@ -51,25 +51,74 @@ Device::Device():id_("") {
     url_ = raw_data_.at("url");
   }
 
-  sendDeviceInfo();
+  if(!deviceExists()) {
+    sendDeviceInfo();
+  }
 
-  // if(id_.length() == 0) {
-  //   sendDeviceInfo();
-  // }
 }
 
 void Device::sendDeviceInfo() {
+  exitClientThread();
+
+  while(getMutex()->try_lock()) { poll(NULL,NULL,1); }
   // creating first connection to
   crconfig_ = new ClientRequestConfig();
 
   crconfig_->setRawPayload(getDeviceInfoAsJSON());
   crconfig_->setRequestType("POST");
   crconfig_->setRequestPath("/devices");
+  crconfig_->setDeviceUrl(url_.c_str());
 
   if(!http_client_)
     http_client_ = new HttpClient();
 
   http_client_thread_ = new thread(&HttpClient::run,http_client_,crconfig_);
+
+  getMutex()->unlock();
+
+  if(http_client_thread_) {
+    http_client_thread_->join();
+    delete http_client_thread_;
+    http_client_thread_ = 0;
+  }
+
+  if(crconfig_->getResponseStatus()  == 200) {
+    setDeviceId(crconfig_->getResponse());
+  }
+
+}
+
+bool Device::deviceExists() {
+  if(id_.length() == 0) return false;
+
+  exitClientThread();
+
+  while(getMutex()->try_lock()) { poll(NULL,NULL,1); }
+
+  if(!crconfig_) {
+    // creating first connection to
+    crconfig_ = new ClientRequestConfig();
+  }
+
+  crconfig_->setRawPayload(getDeviceInfoAsJSON());
+  crconfig_->setRequestType("GET");
+  string srpath = (string("/devices/id/")+id_);
+  const char * rpath = srpath.c_str();
+  crconfig_->setRequestPath(rpath);
+  crconfig_->setDeviceUrl(url_.c_str());
+
+  if(!http_client_) {
+    http_client_ = new HttpClient();
+  }
+
+  http_client_thread_ = new thread(&HttpClient::run,http_client_,crconfig_);
+
+  getMutex()->unlock();
+
+  http_client_thread_->join();
+
+  return crconfig_->getResponseStatus() == 200;
+
 }
 
 void Device::saveSettings() {
@@ -108,5 +157,16 @@ void Device::setDeviceId(string id) {
     raw_data_.insert(pair<string,string>("_id",id_));
 
   saveSettings();
+  getMutex()->unlock();
+}
+
+void Device::exitClientThread() {
+  while(getMutex()->try_lock()) { poll(NULL,NULL,1); }
+  if(http_client_thread_) {
+    if(http_client_thread_->joinable())
+      http_client_thread_->join();
+    delete http_client_thread_;
+    http_client_thread_ = 0;
+  }
   getMutex()->unlock();
 }
