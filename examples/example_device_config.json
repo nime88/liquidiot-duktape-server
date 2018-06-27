@@ -1,9 +1,10 @@
- {
-    "name": "DeviceName",
-    "manufacturer": "",
-    "libraries": "",
-    "location": "Some Location",
-    "url": "localhost:7681",
-    "connected-devices": {},
-    "classes": ""
- }
+{ 
+ "classes":"",
+ "host":"localhost",
+ "libraries":"",
+ "location":"Some Location",
+ "manufacturer":"",
+ "name":"DeviceName",
+ "port":"7681",
+ "url":"http://localhost:7681/"
+}

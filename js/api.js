@@ -1,3 +1,4 @@
 ExternalApi = function(iotApp) {
-  // just empty implementation for later use
+  // initializing base for wagger fragments
+  iotApp.swagger = {};
 }
