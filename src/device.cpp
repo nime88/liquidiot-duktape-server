@@ -4,9 +4,16 @@
 #include "util.h"
 
 #include <fstream>
+#include <algorithm>
+#include <regex>
+
+#include <iostream>
+using std::cout;
+using std::endl;
 
 using std::pair;
 using std::ofstream;
+using std::regex;
 
 Device *Device::instance_ = 0;
 mutex *Device::mtx_ = new mutex();
@@ -51,13 +58,32 @@ Device::Device():id_("") {
     url_ = raw_data_.at("url");
   }
 
-  if(!deviceExists()) {
+  if(raw_data_.find("host") != raw_data_.end()) {
+    host_ = raw_data_.at("host");
+  }
+
+  if(raw_data_.find("port") != raw_data_.end()) {
+    port_ = raw_data_.at("port");
+  }
+
+  printf("Device exists \n");
+  bool dexists = deviceExists();
+  printf("Device exists %d\n",dexists);
+
+  if(!dexists) {
+    if(raw_data_.find("_id") != raw_data_.end()) {
+      id_ = "";
+      raw_data_.erase("_id");
+    }
+
+    printf("Sending Device Info\n");
     sendDeviceInfo();
   }
 
 }
 
-void Device::sendDeviceInfo() {
+bool Device::sendDeviceInfo() {
+  // making sure we have nothing to worry about
   exitClientThread();
 
   while(getMutex()->try_lock()) { poll(NULL,NULL,1); }
@@ -68,32 +94,31 @@ void Device::sendDeviceInfo() {
   crconfig_->setRequestType("POST");
   crconfig_->setRequestPath("/devices");
   crconfig_->setDeviceUrl(url_.c_str());
+  crconfig_->setDeviceHost(host_.c_str());
 
   if(!http_client_)
     http_client_ = new HttpClient();
 
+  printf("Just making sure\n");
   http_client_thread_ = new thread(&HttpClient::run,http_client_,crconfig_);
+
+  if(http_client_thread_->joinable())
+    http_client_thread_->join();
 
   getMutex()->unlock();
 
-  if(http_client_thread_) {
-    http_client_thread_->join();
-    delete http_client_thread_;
-    http_client_thread_ = 0;
-  }
-
   if(crconfig_->getResponseStatus()  == 200) {
     setDeviceId(crconfig_->getResponse());
+    return true;
   }
 
+  return false;
 }
 
 bool Device::deviceExists() {
-  if(id_.length() == 0) return false;
-
   exitClientThread();
 
-  while(getMutex()->try_lock()) { poll(NULL,NULL,1); }
+  while(getMutex()->try_lock()) { poll(NULL,0,1); }
 
   if(!crconfig_) {
     // creating first connection to
@@ -106,6 +131,7 @@ bool Device::deviceExists() {
   const char * rpath = srpath.c_str();
   crconfig_->setRequestPath(rpath);
   crconfig_->setDeviceUrl(url_.c_str());
+  crconfig_->setDeviceHost(host_.c_str());
 
   if(!http_client_) {
     http_client_ = new HttpClient();
@@ -113,12 +139,117 @@ bool Device::deviceExists() {
 
   http_client_thread_ = new thread(&HttpClient::run,http_client_,crconfig_);
 
+  if(http_client_thread_->joinable())
+    http_client_thread_->join();
+
   getMutex()->unlock();
 
-  http_client_thread_->join();
+  // cleaning the response out of spaces
+  string resp = crconfig_->getResponse();
+  resp.erase(std::remove(resp.begin(),
+    resp.end(), ' '), resp.end());
+
+  return resp != "null" && crconfig_->getResponseStatus() == 200;
+}
+
+bool Device::registerAppApi(string class_name, string swagger_fragment) {
+  exitClientThread();
+
+  while(getMutex()->try_lock()) { poll(NULL,NULL,1); }
+
+  if(!crconfig_) {
+    // creating first connection to
+    crconfig_ = new ClientRequestConfig();
+  }
+
+  crconfig_->setRawPayload(swagger_fragment);
+  crconfig_->setRequestType("PUT");
+  string srpath = (string("/apis/")+ class_name);
+  const char * rpath = srpath.c_str();
+  crconfig_->setRequestPath(rpath);
+  crconfig_->setDeviceUrl(url_.c_str());
+  crconfig_->setDeviceHost(host_.c_str());
+
+  if(!http_client_) {
+    http_client_ = new HttpClient();
+  }
+
+  http_client_thread_ = new thread(&HttpClient::run,http_client_,crconfig_);
+
+  if(http_client_thread_->joinable())
+    http_client_thread_->join();
+
+  getMutex()->unlock();
 
   return crconfig_->getResponseStatus() == 200;
+}
 
+bool Device::registerApp(string app_payload) {
+  if(id_.length() == 0) return false;
+
+  exitClientThread();
+
+  while(getMutex()->try_lock()) { poll(NULL,NULL,1); }
+
+  if(!crconfig_) {
+    // creating first connection to
+    crconfig_ = new ClientRequestConfig();
+  }
+
+  crconfig_->setRawPayload(app_payload);
+  crconfig_->setRequestType("POST");
+  string srpath = (string("/devices/")+ id_ + "/apps");
+  const char * rpath = srpath.c_str();
+  crconfig_->setRequestPath(rpath);
+  crconfig_->setDeviceUrl(url_.c_str());
+  crconfig_->setDeviceHost(host_.c_str());
+
+  if(!http_client_) {
+    http_client_ = new HttpClient();
+  }
+
+  http_client_thread_ = new thread(&HttpClient::run,http_client_,crconfig_);
+
+  if(http_client_thread_->joinable())
+    http_client_thread_->join();
+
+  getMutex()->unlock();
+
+  return crconfig_->getResponseStatus() == 200;
+}
+
+bool Device::updateApp(string app_id, string app_payload) {
+  if(id_.length() == 0) return false;
+
+  exitClientThread();
+
+  while(getMutex()->try_lock()) { poll(NULL,NULL,1); }
+
+  if(!crconfig_) {
+    // creating first connection to
+    crconfig_ = new ClientRequestConfig();
+  }
+
+  crconfig_->setRawPayload(app_payload);
+  crconfig_->setRequestType("PUT");
+  string srpath = (string("/devices/")+ id_ + "/apps/" + app_id);
+  const char * rpath = srpath.c_str();
+  crconfig_->setRequestPath(rpath);
+  crconfig_->setDeviceUrl(url_.c_str());
+  crconfig_->setDeviceHost(host_.c_str());
+
+  if(!http_client_) {
+    http_client_ = new HttpClient();
+  }
+
+  http_client_thread_ = new thread(&HttpClient::run,http_client_,crconfig_);
+
+  if(http_client_thread_->joinable())
+    http_client_thread_->join();
+
+  getMutex()->unlock();
+
+  return crconfig_->getResponseStatus() == 200;
 }
 
 void Device::saveSettings() {
@@ -148,6 +279,16 @@ string Device::getDeviceInfoAsJSON() {
 }
 
 void Device::setDeviceId(string id) {
+  // cleaning id
+  std::smatch m;
+  std::regex e( R"(^([A-Za-z0-9]+))" );
+
+  string temp_id = id;
+  while (std::regex_search (temp_id,m,e, std::regex_constants::match_any)) {
+    id = m[1];
+    temp_id = m.suffix().str();
+  }
+
   while(getMutex()->try_lock()) { poll(NULL,NULL,1); }
   id_ = id;
 

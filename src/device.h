@@ -54,9 +54,15 @@ class Device {
     Device(Device const&) = delete;
     void operator=(Device const&) = delete;
 
-    void sendDeviceInfo();
+    /** Functions that use the client **/
 
+    bool sendDeviceInfo();
     bool deviceExists();
+    bool registerAppApi(string class_name, string swagger_fragment);
+    bool registerApp(string app_payload);
+    bool updateApp(string app_id, string app_payload);
+
+    /** Functions that use the client end **/
 
     void saveSettings();
 
@@ -84,6 +90,8 @@ class Device {
     string location_;
     // url (most likely this device)
     string url_;
+    string host_;
+    string port_;
     // for future support
     map<string,string> connected_devices_;
     // hardware capabilities

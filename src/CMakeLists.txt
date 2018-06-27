@@ -17,7 +17,7 @@ add_library (Device device.cpp)
 
 # linking necessary dependencies
 target_link_libraries(Utility DukTape archive)
-target_link_libraries(JSApp DukTape DukTapeExtra Http EventLoop NodeJS Logs)
+target_link_libraries(JSApp DukTape DukTapeExtra Http EventLoop NodeJS Logs Device)
 target_link_libraries(HttpServer JSApp Http websockets)
 target_link_libraries(Device DukTape Utility HttpClient)
 target_link_libraries(Globals Device)

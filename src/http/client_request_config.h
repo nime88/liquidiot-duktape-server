@@ -31,7 +31,11 @@ class ClientRequestConfig {
     void setDeviceUrl(const char * url) { device_url_ = url; }
     const char * getDeviceUrl() { return device_url_; }
 
+    void setDeviceHost(const char * host) { device_host_ = host; }
+    const char * getDeviceHost() { return device_host_; }
 
+    void setDevicePort(const char * port) { device_port_ = port; }
+    const char * getDevicePort() { return device_port_; }
 
 
   private:
@@ -40,6 +44,9 @@ class ClientRequestConfig {
     string request_type_;
     const char * request_path_;
     const char * device_url_;
+
+    const char * device_host_;
+    const char * device_port_;
 
     string response_;
     int response_status_;

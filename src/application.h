@@ -78,8 +78,12 @@ class JSApplication {
     // effectively deletes the app
     bool deleteApp();
 
+    void updateAppState(APP_STATES state) { updateAppState(state,false); }
+    void updateAppState(APP_STATES state, bool update_client);
+
     // formats
     string getDescriptionAsJSON();
+    string getAppAsJSON();
 
     bool hasAI(const string &ai) {
       for (string &s : application_interfaces_) {
@@ -102,6 +106,7 @@ class JSApplication {
     static duk_ret_t cb_alert(duk_context *ctx);
 
     static duk_ret_t cb_resolve_app_response(duk_context *ctx);
+    static duk_ret_t cb_load_swagger_fragment(duk_context *ctx);
 
     static bool applicationExists(const char* path);
     static vector<string> listApplicationNames();
@@ -128,7 +133,7 @@ class JSApplication {
   private:
     thread *ev_thread_;
     EventLoop *eventloop_;
-    duk_context *duk_context_;
+    duk_context *duk_context_ = 0;
     char* package_js_;
     char* source_code_;
     string app_path_;
@@ -137,6 +142,8 @@ class JSApplication {
     string name_;
     string version_;
     string description_;
+    string author_;
+    string licence_;
     string main_;
     int id_;
     APP_STATES app_state_;
@@ -144,6 +151,7 @@ class JSApplication {
 
     // other
     AppResponse *app_response_ = 0;
+    string swagger_fragment_;
 
 
     // static

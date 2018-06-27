@@ -23,6 +23,7 @@ using std::endl;
 #include "file_ops.h"
 #include "logs/app_log.h"
 #include "logs/read_app_log.h"
+#include "device.h"
 
 #define NDEBUG
 
@@ -49,20 +50,27 @@ JSApplication::JSApplication(const char* path) {
   next_id_++;
 
   init();
+
+  for(int i = 0; i < application_interfaces_.size(); ++i) {
+      Device::getInstance().registerAppApi(application_interfaces_.at(i), swagger_fragment_);
+  }
+
+  Device::getInstance().registerApp(getAppAsJSON());
 }
 
 void JSApplication::init() {
-  while(!mtx->try_lock()) {
-    poll(NULL,0,1);
-  }
-  // setting app state to initializing
-  app_state_ = APP_STATES::INITIALIZING;
+  DBOUT("init()");
+
+  while(!mtx->try_lock()) { poll(NULL,0,1); }
 
   // creating new duk heap for the js application
   duk_context_ = duk_create_heap_default();
   if (!duk_context_) {
     throw "Duk context could not be created.";
   }
+
+  // setting app state to initializing
+  updateAppState(APP_STATES::INITIALIZING);
 
   DBOUT ("Inserting application");
   // adding this application to static apps
@@ -100,6 +108,11 @@ void JSApplication::init() {
   duk_push_global_object(duk_context_);
   duk_push_c_function(duk_context_, cb_resolve_app_response, 1);
   duk_put_prop_string(duk_context_, -2, "ResolveResponse");
+  duk_pop(duk_context_);
+
+  duk_push_global_object(duk_context_);
+  duk_push_c_function(duk_context_, cb_load_swagger_fragment, 1);
+  duk_put_prop_string(duk_context_, -2, "LoadSwaggerFragment");
   duk_pop(duk_context_);
 
   DBOUT ("Creating new eventloop");
@@ -204,6 +217,13 @@ void JSApplication::init() {
   duk_push_string(duk_context_, source_code_);
   duk_module_node_peval_main(duk_context_, package_json_attr.at("main").c_str());
 
+  // loading swagger fragment
+  duk_push_string(duk_context_, "LoadSwaggerFragment(JSON.stringify(app.external.swagger));");
+  if (duk_peval(duk_context_) != 0) {
+    printf("Failed to evaluate swagger fragment: %s\n", duk_safe_to_string(duk_context_, -1));
+  }
+  duk_pop(duk_context_);
+
   DBOUT ("Inserting application thread");
   // initializing the thread, this must be the last initialization
   ev_thread_ = new thread(&JSApplication::run,this);
@@ -213,12 +233,13 @@ void JSApplication::init() {
 }
 
 void JSApplication::clean() {
-  while(!mtx->try_lock()) {
-    poll(NULL,0,1);
-  }
-    DBOUT ( "clean()" );
+  // updating app state before locking
+  updateAppState(APP_STATES::PAUSED, true);
+
+  while(!mtx->try_lock()) { poll(NULL,0,1); }
+
+  DBOUT ( "clean()" );
   // if the application is running we need to stop the thread
-  app_state_ = APP_STATES::PAUSED;
   eventloop_->setRequestExit(true);
   // waiting for thread to stop the execution (come back from poll)
   DBOUT ("clean(): waiting for thread over" );
@@ -230,9 +251,7 @@ void JSApplication::clean() {
       poll(NULL,0,eventloop_->getCurrentTimeout());
       if(ev_thread_->joinable())
         ev_thread_->join();
-        while(!mtx->try_lock()) {
-          poll(NULL,0,1);
-        }
+        while(!mtx->try_lock()) { poll(NULL,0,1); }
     }
     // ev_thread_->detach();
   } catch (const std::system_error& e) {
@@ -257,8 +276,6 @@ void JSApplication::clean() {
 
   delete eventloop_;
   eventloop_ = 0;
-
-
 
   cout << "clean(): destoying duk heap" << endl;
   duk_destroy_heap(duk_context_);
@@ -368,12 +385,10 @@ bool JSApplication::setAppState(APP_STATES state) {
 bool JSApplication::pause() {
   if(app_state_ == APP_STATES::PAUSED) return true;
 
-  while (!mtx->try_lock()){
-    poll(NULL,0,1);
-  }
+  while (!mtx->try_lock()){ poll(NULL,0,1); }
   DBOUT ( "pause()" );
-  app_state_ = APP_STATES::PAUSED;
   mtx->unlock();
+  updateAppState(APP_STATES::PAUSED, true);
 
   return true;
 }
@@ -381,22 +396,19 @@ bool JSApplication::pause() {
 bool JSApplication::start() {
   if(app_state_ == APP_STATES::RUNNING) return true;
 
-  while (!mtx->try_lock()){
-    poll(NULL,0,1);
-  }
-
-  app_state_ = APP_STATES::RUNNING;
-
+  while (!mtx->try_lock()){ poll(NULL,0,1); }
   mtx->unlock();
+
+  updateAppState(APP_STATES::RUNNING, true);
 
   return true;
 }
 
 void JSApplication::run() {
-  app_state_ = APP_STATES::RUNNING;
+  updateAppState(APP_STATES::RUNNING, true);
   int rc = duk_safe_call(duk_context_, EventLoop::eventloop_run, NULL, 0 /*nargs*/, 1 /*nrets*/);
   if (rc != 0) {
-    app_state_ = APP_STATES::CRASHED;
+    updateAppState(APP_STATES::CRASHED, true);
     fprintf(stderr, "eventloop_run() failed: %s\n", duk_to_string(duk_context_, -1));
     fflush(stderr);
   }
@@ -426,8 +438,16 @@ bool JSApplication::deleteApp() {
   return 0;
 }
 
+void JSApplication::updateAppState(APP_STATES state, bool update_client) {
+  app_state_ = state;
+
+  if(update_client) {
+    // Device::getInstance().updateApp(std::to_string(getId()),getAppAsJSON());
+  }
+}
+
 string JSApplication::getDescriptionAsJSON() {
-  while(!getMutex()->try_lock()){}
+  while(!getMutex()->try_lock()){ poll(NULL,0,1); }
   string full_status;
   duk_context *ctx = getContext();
 
@@ -468,6 +488,81 @@ string JSApplication::getDescriptionAsJSON() {
     duk_push_string(ctx,APP_STATES_CHAR.at(app_state_).c_str());
     duk_put_prop_string(ctx, -2, "state");
   }
+
+  full_status = duk_json_encode(ctx, -1);
+  duk_pop(ctx);
+
+  getMutex()->unlock();
+
+  return full_status;
+}
+
+string JSApplication::getAppAsJSON() {
+  if(!getContext()) return "";
+
+  while(!getMutex()->try_lock()){ poll(NULL,0,1); }
+
+  string full_status;
+  duk_context *ctx = getContext();
+
+  duk_push_object(ctx);
+  /* [... obj ] */
+
+  // name
+  duk_push_string(ctx,name_.c_str());
+  duk_put_prop_string(ctx, -2, "name");
+
+  // version
+  duk_push_string(ctx,version_.c_str());
+  duk_put_prop_string(ctx, -2, "version");
+
+  // description
+  duk_push_string(ctx,description_.c_str());
+  duk_put_prop_string(ctx, -2, "description");
+
+  // author
+  duk_push_string(ctx,description_.c_str());
+  duk_put_prop_string(ctx, -2, "author");
+
+  // licence
+  duk_push_string(ctx,description_.c_str());
+  duk_put_prop_string(ctx, -2, "licence");
+
+  // classes ( apparently references to this do not exist anymore )
+  int arr_idx = duk_push_array(ctx);
+
+  for(int i = 0; i < application_interfaces_.size(); ++i) {
+    string ai_str = application_interfaces_.at(i);
+
+    duk_push_string(ctx, ai_str.c_str());
+    duk_put_prop_index(ctx, arr_idx, i);
+  }
+
+  duk_put_prop_string(ctx, -2, "classes");
+
+  // id
+  if(id_ >= 0) {
+    duk_push_int(ctx, id_);
+    duk_put_prop_string(ctx, -2, "id");
+  }
+
+  // status
+  if(app_state_ >= 0 && app_state_ < 4) {
+    duk_push_string(ctx,APP_STATES_CHAR.at(app_state_).c_str());
+    duk_put_prop_string(ctx, -2, "status");
+  }
+
+  // applicationInterfaces ** Note ** This is not defined by api description O_o
+  // however this seems to replace classes
+  arr_idx = duk_push_array(ctx);
+
+  for(int i = 0; i < application_interfaces_.size(); ++i) {
+    string ai_str = application_interfaces_.at(i);
+
+    duk_push_string(ctx, ai_str.c_str());
+    duk_put_prop_index(ctx, arr_idx, i);
+  }
+  duk_put_prop_string(ctx, -2, "applicationInterfaces");
 
   full_status = duk_json_encode(ctx, -1);
   duk_pop(ctx);
@@ -713,6 +808,19 @@ duk_ret_t JSApplication::cb_resolve_app_response(duk_context *ctx) {
   app_response->setContent(content_body);
 
   app->setResponseObj(app_response);
+
+  return 0;
+}
+
+duk_ret_t JSApplication::cb_load_swagger_fragment(duk_context *ctx) {
+  /* Entry [ ... swagger_as_string ] */
+
+  JSApplication *app = JSApplication::getApplications().at(ctx);
+  const char * sw_frag = duk_require_string(ctx,0);
+  app->swagger_fragment_ = sw_frag;
+
+  duk_pop(ctx);
+  /* [ ... ] */
 
   return 0;
 }

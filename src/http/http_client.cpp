@@ -58,7 +58,7 @@ void HttpClient::run(ClientRequestConfig *config) {
   // connect_info.ssl_connection = LCCSCF_USE_SSL;
 
   connect_info.port = 3000;
-  connect_info.address = crconfig_->getDeviceUrl();
+  connect_info.address = crconfig_->getDeviceHost();
   // connect_info.ssl_connection |= LCCSCF_ALLOW_SELFSIGNED;
 
   connect_info.alpn = "http/1.1";
@@ -155,7 +155,8 @@ int HttpClient::http_client_callback(struct lws *wsi, enum lws_callback_reasons 
     case LWS_CALLBACK_CLIENT_APPEND_HANDSHAKE_HEADER: {
       lwsl_user("LWS_CALLBACK_CLIENT_APPEND_HANDSHAKE_HEADER\n");
 
-      if(dest_buffer && dest_buffer->config && dest_buffer->config->getRequestType() == "POST") {
+      if(dest_buffer && dest_buffer->config &&
+        (dest_buffer->config->getRequestType() == "POST" || dest_buffer->config->getRequestType() == "PUT")) {
         	uint32_t r;
           unsigned char **up = (unsigned char **)in, *uend = (*up) + len;
 
@@ -189,7 +190,8 @@ int HttpClient::http_client_callback(struct lws *wsi, enum lws_callback_reasons 
 
       case LWS_CALLBACK_CLIENT_HTTP_WRITEABLE: {
         lwsl_user("LWS_CALLBACK_CLIENT_HTTP_WRITEABLE\n");
-        if(dest_buffer && dest_buffer->config && dest_buffer->config->getRequestType() == "POST") {
+        if(dest_buffer && dest_buffer->config &&
+          (dest_buffer->config->getRequestType() == "POST" || dest_buffer->config->getRequestType() == "PUT")) {
           /* notice every usage of the boundary starts with -- */
           // string full_payload = string("--") + dest_buffer->boundary + "\xd\xa";
           // full_payload += dest_buffer->config->getRawPayload();
