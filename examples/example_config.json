@@ -1,0 +1,21 @@
+ {
+   "general":{
+     "core_lib_path":"lib"
+   },
+   "device":{
+     "_id":"5b33475f345e565d2497e673",
+     "classes":"",
+     "host":"localhost",
+     "libraries":"",
+     "location":"Some Location",
+     "manufacturer":"",
+     "name":"DeviceName",
+     "port":"7681",
+     "url":"http://localhost:7681/"
+   },
+   "manager-server":{
+     "host":"localhost",
+     "port":"3000",
+     "url":"http://localhost:3000"
+   }
+ }

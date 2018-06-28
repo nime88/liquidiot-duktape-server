@@ -37,6 +37,12 @@ class ClientRequestConfig {
     void setDevicePort(const char * port) { device_port_ = port; }
     const char * getDevicePort() { return device_port_; }
 
+    void setRRHost(const char * host) { rr_host_ = host; }
+    const char * getRRHost() { return rr_host_; }
+
+    void setRRPort(const char * port) { rr_port_ = port; }
+    const char * getRRPort() { return rr_port_; }
+
 
   private:
     string raw_payload_;
@@ -47,6 +53,9 @@ class ClientRequestConfig {
 
     const char * device_host_;
     const char * device_port_;
+
+    const char * rr_host_;
+    const char * rr_port_;
 
     string response_;
     int response_status_;

@@ -14,10 +14,11 @@ add_library (JSApp applications_manager.cpp application.cpp)
 add_library (HttpServer http_server.cpp)
 add_library (Globals globals.cpp)
 add_library (Device device.cpp)
+add_library (Constant constant.cpp)
 
 # linking necessary dependencies
-target_link_libraries(Utility DukTape archive)
-target_link_libraries(JSApp DukTape DukTapeExtra Http EventLoop NodeJS Logs Device)
+target_link_libraries(Utility DukTape Constant archive)
+target_link_libraries(JSApp DukTape DukTapeExtra Http EventLoop NodeJS Logs Device Utility)
 target_link_libraries(HttpServer JSApp Http websockets)
 target_link_libraries(Device DukTape Utility HttpClient)
 target_link_libraries(Globals Device)

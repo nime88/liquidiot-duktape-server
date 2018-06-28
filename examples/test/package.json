@@ -1,0 +1,10 @@
+{
+  "name":"test_application",
+  "version":"1.0.0",
+  "description":"Test application",
+  "main":"main.js",
+  "scripts":"",
+  "license":"ICS",
+  "id":12345,
+  "status":"initializing"
+}

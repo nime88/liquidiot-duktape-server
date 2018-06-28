@@ -21,7 +21,6 @@ mutex *Device::mtx_ = new mutex();
 Device::Device():id_("") {
   // As device_config is read only once we don't store or retain the duktape context
   duk_context_ = duk_create_heap_default();
-  const char* file_path = "device_config.json";
 
   // Next few checks prevent some undefined behaviour thus throwing out of here
   // if they fail
@@ -29,15 +28,16 @@ Device::Device():id_("") {
     throw "Duk context could not be created.";
   }
 
-  if(is_file(file_path) != FILE_TYPE::PATH_TO_FILE) {
-    throw "File " + string(file_path) + " doesn't exist.";
-  }
+  // loading configs
+  map<string,map<string,string> > config = get_config(duk_context_);
 
-  int source_len;
-  char *config_source = load_js_file(file_path,source_len);
+  if(config.find("manager-server") != config.end())
+    manager_server_config_ = config.at("manager-server");
 
-  read_raw_json(duk_context_, config_source, raw_data_);
+  if(config.find("device") != config.end())
+    raw_data_ = config.at("device");
 
+  // reading device data
   if(raw_data_.find("_id") != raw_data_.end()) {
     id_ = raw_data_.at("_id");
   }
@@ -66,9 +66,7 @@ Device::Device():id_("") {
     port_ = raw_data_.at("port");
   }
 
-  printf("Device exists \n");
   bool dexists = deviceExists();
-  printf("Device exists %d\n",dexists);
 
   if(!dexists) {
     if(raw_data_.find("_id") != raw_data_.end()) {
@@ -76,7 +74,6 @@ Device::Device():id_("") {
       raw_data_.erase("_id");
     }
 
-    printf("Sending Device Info\n");
     sendDeviceInfo();
   }
 
@@ -86,15 +83,27 @@ bool Device::sendDeviceInfo() {
   // making sure we have nothing to worry about
   exitClientThread();
 
-  while(getMutex()->try_lock()) { poll(NULL,NULL,1); }
+  while(getMutex()->try_lock()) { poll(NULL,0,1); }
   // creating first connection to
   crconfig_ = new ClientRequestConfig();
 
   crconfig_->setRawPayload(getDeviceInfoAsJSON());
   crconfig_->setRequestType("POST");
   crconfig_->setRequestPath("/devices");
-  crconfig_->setDeviceUrl(url_.c_str());
-  crconfig_->setDeviceHost(host_.c_str());
+
+  if(manager_server_config_.find("host") != manager_server_config_.end()) {
+    crconfig_->setRRHost(manager_server_config_.at("host").c_str());
+  } else {
+    getMutex()->unlock();
+    return false;
+  }
+
+  if(manager_server_config_.find("port") != manager_server_config_.end()) {
+    crconfig_->setRRPort(manager_server_config_.at("port").c_str());
+  } else {
+    getMutex()->unlock();
+    return false;
+  }
 
   if(!http_client_)
     http_client_ = new HttpClient();
@@ -130,8 +139,20 @@ bool Device::deviceExists() {
   string srpath = (string("/devices/id/")+id_);
   const char * rpath = srpath.c_str();
   crconfig_->setRequestPath(rpath);
-  crconfig_->setDeviceUrl(url_.c_str());
-  crconfig_->setDeviceHost(host_.c_str());
+
+  if(manager_server_config_.find("host") != manager_server_config_.end()) {
+    crconfig_->setRRHost(manager_server_config_.at("host").c_str());
+  } else {
+    getMutex()->unlock();
+    return false;
+  }
+
+  if(manager_server_config_.find("port") != manager_server_config_.end()) {
+    crconfig_->setRRPort(manager_server_config_.at("port").c_str());
+  } else {
+    getMutex()->unlock();
+    return false;
+  }
 
   if(!http_client_) {
     http_client_ = new HttpClient();
@@ -155,7 +176,7 @@ bool Device::deviceExists() {
 bool Device::registerAppApi(string class_name, string swagger_fragment) {
   exitClientThread();
 
-  while(getMutex()->try_lock()) { poll(NULL,NULL,1); }
+  while(getMutex()->try_lock()) { poll(NULL,0,1); }
 
   if(!crconfig_) {
     // creating first connection to
@@ -167,8 +188,20 @@ bool Device::registerAppApi(string class_name, string swagger_fragment) {
   string srpath = (string("/apis/")+ class_name);
   const char * rpath = srpath.c_str();
   crconfig_->setRequestPath(rpath);
-  crconfig_->setDeviceUrl(url_.c_str());
-  crconfig_->setDeviceHost(host_.c_str());
+
+  if(manager_server_config_.find("host") != manager_server_config_.end()) {
+    crconfig_->setRRHost(manager_server_config_.at("host").c_str());
+  } else {
+    getMutex()->unlock();
+    return false;
+  }
+
+  if(manager_server_config_.find("port") != manager_server_config_.end()) {
+    crconfig_->setRRPort(manager_server_config_.at("port").c_str());
+  } else {
+    getMutex()->unlock();
+    return false;
+  }
 
   if(!http_client_) {
     http_client_ = new HttpClient();
@@ -189,7 +222,7 @@ bool Device::registerApp(string app_payload) {
 
   exitClientThread();
 
-  while(getMutex()->try_lock()) { poll(NULL,NULL,1); }
+  while(getMutex()->try_lock()) { poll(NULL,0,1); }
 
   if(!crconfig_) {
     // creating first connection to
@@ -201,8 +234,20 @@ bool Device::registerApp(string app_payload) {
   string srpath = (string("/devices/")+ id_ + "/apps");
   const char * rpath = srpath.c_str();
   crconfig_->setRequestPath(rpath);
-  crconfig_->setDeviceUrl(url_.c_str());
-  crconfig_->setDeviceHost(host_.c_str());
+
+  if(manager_server_config_.find("host") != manager_server_config_.end()) {
+    crconfig_->setRRHost(manager_server_config_.at("host").c_str());
+  } else {
+    getMutex()->unlock();
+    return false;
+  }
+
+  if(manager_server_config_.find("port") != manager_server_config_.end()) {
+    crconfig_->setRRPort(manager_server_config_.at("port").c_str());
+  } else {
+    getMutex()->unlock();
+    return false;
+  }
 
   if(!http_client_) {
     http_client_ = new HttpClient();
@@ -223,7 +268,7 @@ bool Device::updateApp(string app_id, string app_payload) {
 
   exitClientThread();
 
-  while(getMutex()->try_lock()) { poll(NULL,NULL,1); }
+  while(getMutex()->try_lock()) { poll(NULL,0,1); }
 
   if(!crconfig_) {
     // creating first connection to
@@ -235,8 +280,20 @@ bool Device::updateApp(string app_id, string app_payload) {
   string srpath = (string("/devices/")+ id_ + "/apps/" + app_id);
   const char * rpath = srpath.c_str();
   crconfig_->setRequestPath(rpath);
-  crconfig_->setDeviceUrl(url_.c_str());
-  crconfig_->setDeviceHost(host_.c_str());
+
+  if(manager_server_config_.find("host") != manager_server_config_.end()) {
+    crconfig_->setRRHost(manager_server_config_.at("host").c_str());
+  } else {
+    getMutex()->unlock();
+    return false;
+  }
+
+  if(manager_server_config_.find("port") != manager_server_config_.end()) {
+    crconfig_->setRRPort(manager_server_config_.at("port").c_str());
+  } else {
+    getMutex()->unlock();
+    return false;
+  }
 
   if(!http_client_) {
     http_client_ = new HttpClient();
@@ -289,7 +346,7 @@ void Device::setDeviceId(string id) {
     temp_id = m.suffix().str();
   }
 
-  while(getMutex()->try_lock()) { poll(NULL,NULL,1); }
+  while(getMutex()->try_lock()) { poll(NULL,0,1); }
   id_ = id;
 
   if(raw_data_.find("_id") != raw_data_.end())
@@ -302,7 +359,7 @@ void Device::setDeviceId(string id) {
 }
 
 void Device::exitClientThread() {
-  while(getMutex()->try_lock()) { poll(NULL,NULL,1); }
+  while(getMutex()->try_lock()) { poll(NULL,0,1); }
   if(http_client_thread_) {
     if(http_client_thread_->joinable())
       http_client_thread_->join();

@@ -47,8 +47,6 @@ class JSApplication {
     // cleans the app from unnecessary stuff
     void clean();
 
-
-
     enum APP_STATES { INITIALIZING=0, CRASHED, RUNNING, PAUSED};
     vector<string> APP_STATES_CHAR = {"initializing","crashed","running","paused"};
 
@@ -56,7 +54,7 @@ class JSApplication {
       return source_code_;
     }
 
-    duk_context* getContext() { return duk_context_;}
+    duk_context* getContext() { return duk_context_; }
 
     int getId() { return id_; }
     string getAppName() { return name_; }
@@ -149,6 +147,8 @@ class JSApplication {
     APP_STATES app_state_;
     vector<string> application_interfaces_;
 
+    map<string,string> raw_package_js_data_;
+
     // other
     AppResponse *app_response_ = 0;
     string swagger_fragment_;
@@ -163,6 +163,9 @@ class JSApplication {
 
 
     duk_idx_t set_task_interval_idx_;
+
+    // gets the info from package.json
+    void parsePackageJS();
 };
 
 #endif

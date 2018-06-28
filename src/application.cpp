@@ -34,7 +34,7 @@ using std::endl;
 #endif
 
 int JSApplication::next_id_ = 0;
-map<string,string> JSApplication::options_ = load_config("config.cfg");
+map<string,string> JSApplication::options_;
 map<duk_context*, JSApplication*> JSApplication::applications_;
 map<duk_context*, thread*> JSApplication::app_threads_;
 mutex *JSApplication::mtx = new mutex();
@@ -51,7 +51,7 @@ JSApplication::JSApplication(const char* path) {
 
   init();
 
-  for(int i = 0; i < application_interfaces_.size(); ++i) {
+  for(unsigned int i = 0; i < application_interfaces_.size(); ++i) {
       Device::getInstance().registerAppApi(application_interfaces_.at(i), swagger_fragment_);
   }
 
@@ -67,6 +67,13 @@ void JSApplication::init() {
   duk_context_ = duk_create_heap_default();
   if (!duk_context_) {
     throw "Duk context could not be created.";
+  }
+
+  if(options_.size() == 0) {
+    map<string, map<string,string> > full_config = get_config(duk_context_);
+
+    if(full_config.find("general") != full_config.end())
+      options_ = full_config.at("general");
   }
 
   // setting app state to initializing
@@ -179,15 +186,8 @@ void JSApplication::init() {
 
   int source_len;
 
-  DBOUT ("JSApplication(): Loading package file");
-  // reading the package.json file to memory
-  string package_file = app_path_ + string("/package.json");
-  package_js_ = load_js_file(package_file.c_str(),source_len);
+  parsePackageJS();
 
-  DBOUT ("JSApplication(): Reading package to attr");
-  map<string,string> package_json_attr = read_package_json(duk_context_, package_js_);
-
-  main_ = package_json_attr.at("main");
   string main_file = app_path_ + "/" + main_;
 
   DBOUT ("JSApplication(): Loading liquidiot file");
@@ -202,10 +202,12 @@ void JSApplication::init() {
   }
 
   DBOUT ("JSApplication(): Creating full source code");
-  string temp_source = string(load_js_file(main_file.c_str(),source_len)) +
+  string temp_source =  string(load_js_file(main_file.c_str(),source_len)) +
     "\napp = {};\n"
     "IoTApp(app);\n"
     "module.exports(app);\n"
+    "if(typeof app != \"undefined\")\n\t"
+    "LoadSwaggerFragment(JSON.stringify(app.external.swagger));"
     "app.internal.start();\n";
 
   // executing initialize code
@@ -215,14 +217,10 @@ void JSApplication::init() {
   DBOUT ("JSApplication(): Making it main node module");
   // pushing this as main module
   duk_push_string(duk_context_, source_code_);
-  duk_module_node_peval_main(duk_context_, package_json_attr.at("main").c_str());
 
-  // loading swagger fragment
-  duk_push_string(duk_context_, "LoadSwaggerFragment(JSON.stringify(app.external.swagger));");
-  if (duk_peval(duk_context_) != 0) {
-    printf("Failed to evaluate swagger fragment: %s\n", duk_safe_to_string(duk_context_, -1));
+  if(duk_module_node_peval_main(duk_context_, main_.c_str()) != 0) {
+    printf("Failed to evaluate main module: %s\n", duk_safe_to_string(duk_context_, -1));
   }
-  duk_pop(duk_context_);
 
   DBOUT ("Inserting application thread");
   // initializing the thread, this must be the last initialization
@@ -531,7 +529,7 @@ string JSApplication::getAppAsJSON() {
   // classes ( apparently references to this do not exist anymore )
   int arr_idx = duk_push_array(ctx);
 
-  for(int i = 0; i < application_interfaces_.size(); ++i) {
+  for(unsigned int i = 0; i < application_interfaces_.size(); ++i) {
     string ai_str = application_interfaces_.at(i);
 
     duk_push_string(ctx, ai_str.c_str());
@@ -556,7 +554,7 @@ string JSApplication::getAppAsJSON() {
   // however this seems to replace classes
   arr_idx = duk_push_array(ctx);
 
-  for(int i = 0; i < application_interfaces_.size(); ++i) {
+  for(unsigned int i = 0; i < application_interfaces_.size(); ++i) {
     string ai_str = application_interfaces_.at(i);
 
     duk_push_string(ctx, ai_str.c_str());
@@ -868,4 +866,41 @@ void JSApplication::getJoinThreads() {
     for (  map<duk_context*, thread*>::const_iterator it=app_threads_.begin(); it!=app_threads_.end(); ++it) {
       it->second->join();
     }
+}
+
+void JSApplication::parsePackageJS() {
+  duk_context *ctx = getContext();
+  int sourceLen;
+
+  if(!ctx) return;
+
+  DBOUT ("parsePackageJS(): Loading package file");
+  // reading the package.json file to memory
+  string package_file = getAppPath() + string("/package.json");
+  package_js_ = load_js_file(package_file.c_str(),sourceLen);
+
+  DBOUT ("parsePackageJS(): Reading package to attr");
+  map<string,string> package_json_attr = read_package_json(duk_context_, package_js_);
+  raw_package_js_data_ = package_json_attr;
+
+  if(package_json_attr.find("name") != package_json_attr.end())
+    name_ = package_json_attr.at("name");
+
+  if(package_json_attr.find("version") != package_json_attr.end())
+    version_ = package_json_attr.at("version");
+
+  if(package_json_attr.find("description") != package_json_attr.end())
+    description_ = package_json_attr.at("description");
+
+  if(package_json_attr.find("author") != package_json_attr.end())
+    author_ = package_json_attr.at("author");
+
+  if(package_json_attr.find("licence") != package_json_attr.end())
+    licence_ = package_json_attr.at("licence");
+
+  if(package_json_attr.find("main") != package_json_attr.end())
+    main_ = package_json_attr.at("main");
+
+  if(package_json_attr.find("id") != package_json_attr.end())
+    id_ = stoi(package_json_attr.at("id"));
 }

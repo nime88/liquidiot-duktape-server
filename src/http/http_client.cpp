@@ -29,7 +29,6 @@ void HttpClient::run(ClientRequestConfig *config) {
   struct lws_context_creation_info info;
   struct lws_client_connect_info connect_info;
   struct lws_context *context;
-  const char *p;
   crconfig_ = config;
 
   int n = 0, logs = LLL_USER | LLL_ERR | LLL_WARN | LLL_NOTICE | LLL_INFO;
@@ -57,8 +56,8 @@ void HttpClient::run(ClientRequestConfig *config) {
   connect_info.context = context;
   // connect_info.ssl_connection = LCCSCF_USE_SSL;
 
-  connect_info.port = 3000;
-  connect_info.address = crconfig_->getDeviceHost();
+  connect_info.port = atoi(crconfig_->getRRPort());
+  connect_info.address = crconfig_->getRRHost();
   // connect_info.ssl_connection |= LCCSCF_ALLOW_SELFSIGNED;
 
   connect_info.alpn = "http/1.1";
@@ -87,9 +86,6 @@ void HttpClient::run(ClientRequestConfig *config) {
 
 int HttpClient::http_client_callback(struct lws *wsi, enum lws_callback_reasons reason, void *user, void *in, size_t len) {
   struct HttpClient::user_buffer_data *dest_buffer = (struct HttpClient::user_buffer_data *)user;
-
-  uint8_t buf[LWS_PRE + 256], *start = &buf[LWS_PRE], *p = start,
-    *end = &buf[sizeof(buf) - 1];
 
   if(dest_buffer && !dest_buffer->config) {
     dest_buffer->config = crconfig_;
@@ -175,8 +171,7 @@ int HttpClient::http_client_callback(struct lws *wsi, enum lws_callback_reasons 
             return 1;
 
           char cl_buffer[20];
-          string pl_str = std::to_string(dest_buffer->config->getRawPayload().length());
-          int pl_len = lws_snprintf(cl_buffer, sizeof(cl_buffer) - 1, pl_str.c_str());
+          int pl_len = lws_snprintf(cl_buffer, sizeof(cl_buffer) - 1, "%d", (unsigned int)dest_buffer->config->getRawPayload().length());
 
           if(lws_add_http_header_by_token(wsi, WSI_TOKEN_HTTP_CONTENT_LENGTH, (unsigned char *)cl_buffer, pl_len, up, uend))
               return 1;

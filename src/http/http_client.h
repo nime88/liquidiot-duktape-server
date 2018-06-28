@@ -21,7 +21,7 @@ class HttpClient {
   	   char boundary[32];
        char body_part;
        string raw_data;
-       int buffer_idx = 0;
+       unsigned int buffer_idx = 0;
        ClientRequestConfig *config;
     };
 

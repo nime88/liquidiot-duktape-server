@@ -79,6 +79,7 @@ class Device {
     static mutex *mtx_;
 
     map<string,string> raw_data_;
+    map<string,string> manager_server_config_;
 
     string id_;
     string name_;
