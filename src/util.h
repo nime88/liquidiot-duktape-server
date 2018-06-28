@@ -22,6 +22,7 @@ using std::vector;
 // gets the full config data structu
 // duk_context is needed for parsing
 extern map<string, map<string,string> >get_config(duk_context *ctx);
+extern void save_config(duk_context *ctx, map<string, map<string,string> > new_config);
 
 extern map<string,string> read_package_json(duk_context *ctx, const char* package_js_src);
 extern map<string,vector<string> > read_liquidiot_json(duk_context *ctx, const char* package_js_src);

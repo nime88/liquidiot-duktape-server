@@ -2,6 +2,7 @@
 
 #include "file_ops.h"
 #include "util.h"
+#include "constant.h"
 
 #include <fstream>
 #include <algorithm>
@@ -39,7 +40,7 @@ Device::Device():id_("") {
 
   // reading device data
   if(raw_data_.find("_id") != raw_data_.end()) {
-    id_ = raw_data_.at("_id");
+    setDeviceId(raw_data_.at("_id"));
   }
 
   if(raw_data_.find("name") != raw_data_.end()) {
@@ -134,7 +135,7 @@ bool Device::deviceExists() {
     crconfig_ = new ClientRequestConfig();
   }
 
-  crconfig_->setRawPayload(getDeviceInfoAsJSON());
+  crconfig_->setRawPayload("");
   crconfig_->setRequestType("GET");
   string srpath = (string("/devices/id/")+id_);
   const char * rpath = srpath.c_str();
@@ -171,6 +172,50 @@ bool Device::deviceExists() {
     resp.end(), ' '), resp.end());
 
   return resp != "null" && crconfig_->getResponseStatus() == 200;
+}
+
+bool Device::appExists(string app_id) {
+  exitClientThread();
+
+  while(getMutex()->try_lock()) { poll(NULL,0,1); }
+
+  if(!crconfig_) {
+    // creating first connection to
+    crconfig_ = new ClientRequestConfig();
+  }
+
+  crconfig_->setRawPayload("");
+  crconfig_->setRequestType("GET");
+  string srpath = (string("/devices/") + id_ + string("/apps/") + app_id + string("/api"));
+  const char * rpath = srpath.c_str();
+  crconfig_->setRequestPath(rpath);
+
+  if(manager_server_config_.find("host") != manager_server_config_.end()) {
+    crconfig_->setRRHost(manager_server_config_.at("host").c_str());
+  } else {
+    getMutex()->unlock();
+    return false;
+  }
+
+  if(manager_server_config_.find("port") != manager_server_config_.end()) {
+    crconfig_->setRRPort(manager_server_config_.at("port").c_str());
+  } else {
+    getMutex()->unlock();
+    return false;
+  }
+
+  if(!http_client_) {
+    http_client_ = new HttpClient();
+  }
+
+  http_client_thread_ = new thread(&HttpClient::run,http_client_,crconfig_);
+
+  if(http_client_thread_->joinable())
+    http_client_thread_->join();
+
+  getMutex()->unlock();
+
+  return crconfig_->getResponseStatus() == 200;
 }
 
 bool Device::registerAppApi(string class_name, string swagger_fragment) {
@@ -264,8 +309,6 @@ bool Device::registerApp(string app_payload) {
 }
 
 bool Device::updateApp(string app_id, string app_payload) {
-  if(id_.length() == 0) return false;
-
   exitClientThread();
 
   while(getMutex()->try_lock()) { poll(NULL,0,1); }
@@ -277,7 +320,7 @@ bool Device::updateApp(string app_id, string app_payload) {
 
   crconfig_->setRawPayload(app_payload);
   crconfig_->setRequestType("PUT");
-  string srpath = (string("/devices/")+ id_ + "/apps/" + app_id);
+  string srpath = (string("/devices/") + id_ + "/apps/" + app_id);
   const char * rpath = srpath.c_str();
   crconfig_->setRequestPath(rpath);
 
@@ -310,12 +353,10 @@ bool Device::updateApp(string app_id, string app_payload) {
 }
 
 void Device::saveSettings() {
-  string settings = getDeviceInfoAsJSON();
-
-  ofstream dev_file;
-  dev_file.open ("device_config.json");
-  dev_file << settings;
-  dev_file.close();
+  map<string,map<string,string> > config = get_config(getContext());
+  config.erase("device");
+  config.insert(pair<string,map<string,string> >("device",raw_data_));
+  save_config(getContext(),config);
 }
 
 string Device::getDeviceInfoAsJSON() {

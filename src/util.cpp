@@ -52,6 +52,30 @@ map<string, map<string,string> >get_config(duk_context *ctx) {
   return config;
 }
 
+void save_config(duk_context *ctx, map<string, map<string,string> > new_config) {
+  /* [...] */
+  duk_push_object(ctx);
+
+  for(map<string, map<string,string> >::iterator out_it = new_config.begin(); out_it != new_config.end(); out_it++) {
+      /* [... conf_obj ] */
+      int in_idx = duk_push_object(ctx);
+      for(map<string,string>::iterator inner_it = out_it->second.begin(); inner_it != out_it->second.end(); ++inner_it) {
+        /* [... conf_obj ] */
+        duk_push_string(ctx, inner_it->second.c_str());
+        duk_put_prop_string(ctx, in_idx, inner_it->first.c_str());
+      }
+      duk_put_prop_string(ctx, -2, out_it->first.c_str());
+  }
+
+  string full_config = duk_json_encode(ctx, -1);
+  duk_pop(ctx);
+
+  std::ofstream dev_file;
+  dev_file.open (Constant::CONFIG_PATH);
+  dev_file << full_config;
+  dev_file.close();
+}
+
 map<string,string> read_package_json(duk_context *ctx, const char* js_src) {
   map<string,string> attr;
 

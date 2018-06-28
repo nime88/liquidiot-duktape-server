@@ -2,7 +2,7 @@
 #define CONSTANTS_H_INCLUDED
 
 namespace Constant {
-  const char * CONFIG_PATH = "config.json";
+  static const char * CONFIG_PATH = "config.json";
 };
 
 #endif

@@ -55,7 +55,11 @@ JSApplication::JSApplication(const char* path) {
       Device::getInstance().registerAppApi(application_interfaces_.at(i), swagger_fragment_);
   }
 
-  Device::getInstance().registerApp(getAppAsJSON());
+  string app_payload = getAppAsJSON();
+  bool app_is = Device::getInstance().appExists(std::to_string(getId()));
+  
+  if(!app_is)
+    Device::getInstance().registerApp(app_payload);
 }
 
 void JSApplication::init() {

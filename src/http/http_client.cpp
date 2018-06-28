@@ -31,12 +31,13 @@ void HttpClient::run(ClientRequestConfig *config) {
   struct lws_context *context;
   crconfig_ = config;
 
-  int n = 0, logs = LLL_USER | LLL_ERR | LLL_WARN | LLL_NOTICE | LLL_INFO;
+  int n = 0, logs = LLL_USER | LLL_ERR | LLL_WARN | LLL_NOTICE;
+  // Add: LLL_INFO for debug
 
   signal(SIGINT, sigint_handler);
 
   lws_set_log_level(logs, NULL);
-  lwsl_user("LWS minimal http client\n");
+  lwsl_user("Starting http client for the RR server.\n");
 
   memset(&info, 0, sizeof info); /* otherwise uninitialized garbage */
   info.options = LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT;
@@ -101,10 +102,8 @@ int HttpClient::http_client_callback(struct lws *wsi, enum lws_callback_reasons 
     }
 
     case LWS_CALLBACK_CLOSED_CLIENT_HTTP: {
-      lwsl_user("LWS_CALLBACK_CLOSED_CLIENT_HTTP\n");
       client_wsi = NULL;
       status_ = lws_http_client_http_response(wsi);
-      lwsl_user("Status: %d\n", status_);
       lws_cancel_service(lws_get_context(wsi));
       break;
     }
@@ -113,12 +112,10 @@ int HttpClient::http_client_callback(struct lws *wsi, enum lws_callback_reasons 
 
     case LWS_CALLBACK_ESTABLISHED_CLIENT_HTTP: {
       status_ = lws_http_client_http_response(wsi);
-      lwsl_user("Connected with server response: %d\n", status_);
       break;
     }
 
     case LWS_CALLBACK_RECEIVE_CLIENT_HTTP_READ: {
-      lwsl_user("RECEIVE_CLIENT_HTTP_READ: read %d\n", (int)len);
       dest_buffer->raw_data = (char *)in;
       dest_buffer->raw_data.erase(std::remove(dest_buffer->raw_data.begin(),
         dest_buffer->raw_data.end(), '\"'), dest_buffer->raw_data.end());
@@ -128,7 +125,6 @@ int HttpClient::http_client_callback(struct lws *wsi, enum lws_callback_reasons 
     }
 
     case LWS_CALLBACK_RECEIVE_CLIENT_HTTP: {
-      lwsl_user("LWS_CALLBACK_RECEIVE_CLIENT_HTTP");
       char buffer[1024 + LWS_PRE];
       char *px = buffer + LWS_PRE;
       int lenx = sizeof(buffer) - LWS_PRE;
@@ -140,7 +136,6 @@ int HttpClient::http_client_callback(struct lws *wsi, enum lws_callback_reasons 
     }
 
     case LWS_CALLBACK_COMPLETED_CLIENT_HTTP: {
-      lwsl_user("LWS_CALLBACK_COMPLETED_CLIENT_HTTP\n");
       client_wsi = NULL;
 
       lws_cancel_service(lws_get_context(wsi));
@@ -149,7 +144,6 @@ int HttpClient::http_client_callback(struct lws *wsi, enum lws_callback_reasons 
 
     /* ...callbacks related to generating the POST... */
     case LWS_CALLBACK_CLIENT_APPEND_HANDSHAKE_HEADER: {
-      lwsl_user("LWS_CALLBACK_CLIENT_APPEND_HANDSHAKE_HEADER\n");
 
       if(dest_buffer && dest_buffer->config &&
         (dest_buffer->config->getRequestType() == "POST" || dest_buffer->config->getRequestType() == "PUT")) {
@@ -158,13 +152,7 @@ int HttpClient::http_client_callback(struct lws *wsi, enum lws_callback_reasons 
 
           dest_buffer->len = dest_buffer->config->getRawPayload().length();
 
-          /* generate a random boundary string */
-          lws_get_random(lws_get_context(wsi), &r, sizeof(r));
-          lws_snprintf(dest_buffer->boundary, sizeof(dest_buffer->boundary) - 1,
-              "---boundary-%08x", r);
-
           char buffer[1000];
-          // int blen = lws_snprintf(buffer, sizeof(buffer) - 1, "application/json; boundary=%s", dest_buffer->boundary);
           int blen = lws_snprintf(buffer, sizeof(buffer) - 1, "application/json");
 
           if (lws_add_http_header_by_token(wsi, WSI_TOKEN_HTTP_CONTENT_TYPE, (unsigned char *)buffer, blen, up, uend))
@@ -184,13 +172,8 @@ int HttpClient::http_client_callback(struct lws *wsi, enum lws_callback_reasons 
       }
 
       case LWS_CALLBACK_CLIENT_HTTP_WRITEABLE: {
-        lwsl_user("LWS_CALLBACK_CLIENT_HTTP_WRITEABLE\n");
         if(dest_buffer && dest_buffer->config &&
           (dest_buffer->config->getRequestType() == "POST" || dest_buffer->config->getRequestType() == "PUT")) {
-          /* notice every usage of the boundary starts with -- */
-          // string full_payload = string("--") + dest_buffer->boundary + "\xd\xa";
-          // full_payload += dest_buffer->config->getRawPayload();
-          // full_payload += string("--") + dest_buffer->boundary + "--\xd\xa";
 
           string full_payload = dest_buffer->config->getRawPayload();
 

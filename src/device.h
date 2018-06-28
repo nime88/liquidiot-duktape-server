@@ -58,6 +58,7 @@ class Device {
 
     bool sendDeviceInfo();
     bool deviceExists();
+    bool appExists(string app_id);
     bool registerAppApi(string class_name, string swagger_fragment);
     bool registerApp(string app_payload);
     bool updateApp(string app_id, string app_payload);
