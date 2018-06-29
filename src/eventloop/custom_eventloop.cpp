@@ -97,7 +97,7 @@ int EventLoop::eventloop_run(duk_context *ctx, void *udata) {
       poll(NULL,0,MIN_WAIT);
     }
 
-    if(interrupted) {
+    if(interrupted || eventloop->exit_requested_) {
       // DBOUT( "eventloop_run(): Asked for termination");
       JSApplication::getMutex()->unlock();
       break;
@@ -111,11 +111,6 @@ int EventLoop::eventloop_run(duk_context *ctx, void *udata) {
 
     // DBOUT( "eventloop_run(): Expiring timers");
     expire_timers(ctx);
-
-    if (eventloop->exit_requested_) {
-      JSApplication::getMutex()->unlock();
-      break;
-    }
 
     if(timers->size() == 0) {
       timeout = (int) MAX_WAIT;

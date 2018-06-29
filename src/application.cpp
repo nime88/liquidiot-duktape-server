@@ -260,7 +260,7 @@ void JSApplication::clean() {
         ev_thread_->join();
         while(!mtx->try_lock()) { poll(NULL,0,1); }
     }
-    // ev_thread_->detach();
+      // ev_thread_->detach();
   } catch (const std::system_error& e) {
     std::cout << "Caught a system_error\n";
     if(e.code() == std::errc::invalid_argument)

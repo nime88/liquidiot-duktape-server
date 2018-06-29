@@ -5,6 +5,7 @@
 #include "constant.h"
 
 #include <sys/fcntl.h>
+#include <cstdio>
 
 const char * const PostRequest::post_param_names[] = {
   "filekey",
@@ -58,7 +59,7 @@ int PostRequest::handleHttpRequest(struct lws *wsi, void* buffer_data, void* in,
 int PostRequest::generateResponse(struct lws *wsi, void* buffer_data, uint8_t *start, uint8_t *p, uint8_t *end) {
   struct user_buffer_data *dest_buffer = (struct user_buffer_data*)buffer_data;
 
-  if (lws_add_http_common_headers(wsi, HTTP_STATUS_OK, Constant::String::REQ_TYPE_TEXT_HTML, dest_buffer->len, &p, end))
+  if (lws_add_http_common_headers(wsi, HTTP_STATUS_OK, Constant::String::REQ_TYPE_APP_JSON, dest_buffer->len, &p, end))
     return 1;
 
   if (lws_finalize_write_http_header(wsi, start, &p, end))
@@ -179,28 +180,42 @@ int PostRequest::calculateHttpRequest(void* buffer_data, void* in) {
   int id = parseIdFromURL(dest_buffer->request_url);
 
   if(id == -1) {
+    string temp_file = string(string(Constant::Paths::TEMP_FOLDER) + "/" + string(dest_buffer->filename));
     // we have the file in file system now so we can just extract it
-    string ext_filename = extract_file(string(string(Constant::Paths::TEMP_FOLDER) + "/" + string(dest_buffer->filename)).c_str(), 0);
+    string ext_filename = extract_file(temp_file.c_str(), 0);
     strcpy(dest_buffer->ext_filename,ext_filename.c_str());
-    lwsl_user("%s: extracted, written to applicaitons/%s\n", __func__, dest_buffer->ext_filename);
+    lwsl_user("%s: extracted, written to %s/%s\n", __func__,Constant::Paths::APPLICATIONS_ROOT, dest_buffer->ext_filename);
+
+    if( is_file(temp_file.c_str()) == FILE_TYPE::PATH_TO_FILE && remove( temp_file.c_str() ) != 0 )
+      lwsl_user("Failed to delete file: %s\n",temp_file.c_str());
+    else
+      lwsl_user("Deleted file %s\n",temp_file.c_str());
   }
 
   if(id >= 0) {
+    string temp_file = string(Constant::Paths::TEMP_FOLDER) + "/" + string(dest_buffer->filename);
+
     for (  map<duk_context*, JSApplication*>::const_iterator it=apps.begin(); it!=apps.end(); ++it) {
       // if the application already exists, simply assign it
       if(id == it->second->getId()) {
         app = it->second;
         // copying contents to updated app
-        string ext_filename = extract_file(string( string(Constant::Paths::TEMP_FOLDER) + "/" + string(dest_buffer->filename)).c_str(), app->getAppPath().c_str());
+        string ext_filename = extract_file(temp_file.c_str(), app->getAppPath().c_str());
         strcpy(dest_buffer->ext_filename,ext_filename.c_str());
         lwsl_user("%s: extracted, written to applicaitons/%s\n", __func__, dest_buffer->ext_filename);
+
+        if( is_file(temp_file.c_str()) == FILE_TYPE::PATH_TO_FILE && remove( temp_file.c_str() ) != 0 )
+          lwsl_user("Failed to delete file: %s\n",temp_file.c_str());
+        else
+          lwsl_user("Deleted file %s\n",temp_file.c_str());
+
         break;
       }
     }
   } else if(id == -1) {
     for (  map<duk_context*, JSApplication*>::const_iterator it=apps.begin(); it!=apps.end(); ++it) {
       // if the application already exists, simply assign it
-      if(it->second->getAppPath() == "applications/" + string(dest_buffer->ext_filename)) {
+      if(it->second->getAppPath() == string(Constant::Paths::APPLICATIONS_ROOT) + "/" + string(dest_buffer->ext_filename)) {
         app = it->second;
         break;
       }
@@ -213,8 +228,7 @@ int PostRequest::calculateHttpRequest(void* buffer_data, void* in) {
     app = new JSApplication(temp_path.c_str());
   } else if(app) {
     // we have to reload the app if it's already running
-    while(!app->getMutex()->try_lock()) {}
-    app->getMutex()->unlock();
+    lwsl_user("Reloading app\n");
     app->reload();
   }
 
