@@ -3,6 +3,8 @@
 
  #include <libwebsockets.h>
 
+ #include "constant.h"
+
  class HttpServer {
   public:
     HttpServer(){}
@@ -25,10 +27,10 @@
 
     const struct lws_http_mount mount_rest_ = {
      /* .mount_next */		NULL,		/* linked-list "next" */
-     /* .mountpoint */		"/app",		/* mountpoint URL */
+     /* .mountpoint */		Constant::Paths::APP_MOUNT_POINT,		/* mountpoint URL */
      /* .origin */			NULL,
      /* .def */			NULL,
-     /* .protocol */  "http",/* Protocol used */
+     /* .protocol */  Constant::String::PROTOCOL_HTTP,/* Protocol used */
      /* .cgienv */			NULL,
      /* .extra_mimetypes */		NULL,
      /* .interpret */		NULL,
@@ -47,8 +49,8 @@
     const struct lws_http_mount mount_ = {
      /* .mount_next */		&mount_rest_,		/* linked-list "next" */
      /* .mountpoint */		"/",		/* mountpoint URL */
-     /* .origin */			"./http-files", /* serve from dir */
-     /* .def */			"index.html",	/* default filename */
+     /* .origin */			Constant::Paths::HTTP_FILE_ROOT, /* serve from dir */
+     /* .def */			Constant::Paths::INDEX_FILE_NAME,	/* default filename */
      /* .protocol */			NULL,
      /* .cgienv */			NULL,
      /* .extra_mimetypes */		NULL,

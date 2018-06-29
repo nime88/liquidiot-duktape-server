@@ -18,12 +18,13 @@ add_library (Constant constant.cpp)
 
 # linking necessary dependencies
 target_link_libraries(Utility DukTape Constant archive)
-target_link_libraries(JSApp DukTape DukTapeExtra Http EventLoop NodeJS Logs Device Utility)
-target_link_libraries(HttpServer JSApp Http websockets)
+target_link_libraries(JSApp DukTape DukTapeExtra Constant Http EventLoop NodeJS Logs Device Utility)
+target_link_libraries(HttpServer Constant Utility JSApp Http websockets)
 target_link_libraries(Device DukTape Constant Utility HttpClient)
 target_link_libraries(Globals Device)
 
 # making libraries accessable
+target_include_directories (Constant PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_include_directories (Utility PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_include_directories (JSApp PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_include_directories (HttpServer PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

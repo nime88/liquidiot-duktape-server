@@ -9,12 +9,14 @@
 
 using std::string;
 
+#include "constant.h"
+
 class AppLog : public std::streambuf, public std::ostream {
   public:
     AppLog(const char* path) : std::ostream(this) {
       // std::ofstream(path)
       string tmp = path;
-      tmp += "/logs.txt";
+      tmp += Constant::Paths::LOG_PATH;
       file_.open(tmp.c_str(), std::ofstream::app);
       path_ = path;
     }
@@ -34,7 +36,7 @@ class AppLog : public std::streambuf, public std::ostream {
       std::chrono::system_clock::time_point now = std::chrono::system_clock::now();
       std::time_t now_c = std::chrono::system_clock::to_time_t(now);
 
-      tmp << std::put_time(std::localtime(&now_c), "[%a %b %d %H:%M:%S %Y]");
+      tmp << std::put_time(std::localtime(&now_c), Constant::String::LOG_TIMESTAMP);
 
       return tmp.str();
     }

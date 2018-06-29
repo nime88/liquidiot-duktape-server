@@ -2,6 +2,7 @@
 
 #include "application.h"
 #include "file_ops.h"
+#include "constant.h"
 
 #include <sys/fcntl.h>
 
@@ -57,7 +58,7 @@ int PostRequest::handleHttpRequest(struct lws *wsi, void* buffer_data, void* in,
 int PostRequest::generateResponse(struct lws *wsi, void* buffer_data, uint8_t *start, uint8_t *p, uint8_t *end) {
   struct user_buffer_data *dest_buffer = (struct user_buffer_data*)buffer_data;
 
-  if (lws_add_http_common_headers(wsi, HTTP_STATUS_OK, "text/html", dest_buffer->len, &p, end))
+  if (lws_add_http_common_headers(wsi, HTTP_STATUS_OK, Constant::String::REQ_TYPE_TEXT_HTML, dest_buffer->len, &p, end))
     return 1;
 
   if (lws_finalize_write_http_header(wsi, start, &p, end))
@@ -76,7 +77,7 @@ int PostRequest::generateFailResponse(struct lws *wsi, void* buffer_data, uint8_
 
   /* prepare and write http headers */
   if (lws_add_http_common_headers(wsi, HTTP_STATUS_NOT_FOUND,
-          "text/html", dest_buffer->len, &p, end)) {
+          Constant::String::REQ_TYPE_TEXT_HTML, dest_buffer->len, &p, end)) {
     return 1;
   }
   if (lws_finalize_write_http_header(wsi, start, &p, end)) {
@@ -129,7 +130,7 @@ int PostRequest::parsePostFormCB(void *data, const char *name, const char *filen
       lws_filename_purify_inplace(dest_buffer->filename);
 
       /* open a file of that name for write in the cwd */
-      std::string path = "tmp/" + std::string(dest_buffer->filename);
+      std::string path = string(Constant::Paths::TEMP_FOLDER) + "/" + std::string(dest_buffer->filename);
       dest_buffer->fd = open(path.c_str(), O_CREAT | O_TRUNC | O_RDWR, 0600);
       if (dest_buffer->fd == LWS_INVALID_FILE) {
         lwsl_notice("Failed to open output file %s\n",
@@ -179,7 +180,7 @@ int PostRequest::calculateHttpRequest(void* buffer_data, void* in) {
 
   if(id == -1) {
     // we have the file in file system now so we can just extract it
-    string ext_filename = extract_file(string("tmp/" + string(dest_buffer->filename)).c_str(), 0);
+    string ext_filename = extract_file(string(string(Constant::Paths::TEMP_FOLDER) + "/" + string(dest_buffer->filename)).c_str(), 0);
     strcpy(dest_buffer->ext_filename,ext_filename.c_str());
     lwsl_user("%s: extracted, written to applicaitons/%s\n", __func__, dest_buffer->ext_filename);
   }
@@ -190,7 +191,7 @@ int PostRequest::calculateHttpRequest(void* buffer_data, void* in) {
       if(id == it->second->getId()) {
         app = it->second;
         // copying contents to updated app
-        string ext_filename = extract_file(string("tmp/" + string(dest_buffer->filename)).c_str(), app->getAppPath().c_str());
+        string ext_filename = extract_file(string( string(Constant::Paths::TEMP_FOLDER) + "/" + string(dest_buffer->filename)).c_str(), app->getAppPath().c_str());
         strcpy(dest_buffer->ext_filename,ext_filename.c_str());
         lwsl_user("%s: extracted, written to applicaitons/%s\n", __func__, dest_buffer->ext_filename);
         break;
@@ -208,7 +209,7 @@ int PostRequest::calculateHttpRequest(void* buffer_data, void* in) {
 
   // creating new one if not found on previous
   if(!app && id == -1) {
-    string temp_path = "applications/" + string(dest_buffer->ext_filename);
+    string temp_path = string(Constant::Paths::APPLICATIONS_ROOT) + "/" + string(dest_buffer->ext_filename);
     app = new JSApplication(temp_path.c_str());
   } else if(app) {
     // we have to reload the app if it's already running

@@ -32,47 +32,47 @@ Device::Device():id_("") {
   // loading configs
   map<string,map<string,string> > config = get_config(duk_context_);
 
-  if(config.find("manager-server") != config.end())
-    manager_server_config_ = config.at("manager-server");
+  if(config.find(Constant::Attributes::MANAGER_SERVER) != config.end())
+    manager_server_config_ = config.at(Constant::Attributes::MANAGER_SERVER);
 
-  if(config.find("device") != config.end())
-    raw_data_ = config.at("device");
+  if(config.find(Constant::Attributes::DEVICE) != config.end())
+    raw_data_ = config.at(Constant::Attributes::DEVICE);
 
   // reading device data
-  if(raw_data_.find("_id") != raw_data_.end()) {
-    setDeviceId(raw_data_.at("_id"));
+  if(raw_data_.find(Constant::Attributes::DEVICE_ID) != raw_data_.end()) {
+    setDeviceId(raw_data_.at(Constant::Attributes::DEVICE_ID));
   }
 
-  if(raw_data_.find("name") != raw_data_.end()) {
-    name_ = raw_data_.at("name");
+  if(raw_data_.find(Constant::Attributes::DEVICE_NAME) != raw_data_.end()) {
+    name_ = raw_data_.at(Constant::Attributes::DEVICE_NAME);
   }
 
-  if(raw_data_.find("manufacturer") != raw_data_.end()) {
-    manufacturer_ = raw_data_.at("manufacturer");
+  if(raw_data_.find(Constant::Attributes::DEVICE_MANUFACTURER) != raw_data_.end()) {
+    manufacturer_ = raw_data_.at(Constant::Attributes::DEVICE_MANUFACTURER);
   }
 
-  if(raw_data_.find("location") != raw_data_.end()) {
-    location_ = raw_data_.at("location");
+  if(raw_data_.find(Constant::Attributes::DEVICE_LOCATION) != raw_data_.end()) {
+    location_ = raw_data_.at(Constant::Attributes::DEVICE_LOCATION);
   }
 
-  if(raw_data_.find("url") != raw_data_.end()) {
-    url_ = raw_data_.at("url");
+  if(raw_data_.find(Constant::Attributes::DEVICE_URL) != raw_data_.end()) {
+    url_ = raw_data_.at(Constant::Attributes::DEVICE_URL);
   }
 
-  if(raw_data_.find("host") != raw_data_.end()) {
-    host_ = raw_data_.at("host");
+  if(raw_data_.find(Constant::Attributes::DEVICE_HOST) != raw_data_.end()) {
+    host_ = raw_data_.at(Constant::Attributes::DEVICE_HOST);
   }
 
-  if(raw_data_.find("port") != raw_data_.end()) {
-    port_ = raw_data_.at("port");
+  if(raw_data_.find(Constant::Attributes::DEVICE_PORT) != raw_data_.end()) {
+    port_ = raw_data_.at(Constant::Attributes::DEVICE_PORT);
   }
 
   bool dexists = deviceExists();
 
   if(!dexists) {
-    if(raw_data_.find("_id") != raw_data_.end()) {
+    if(raw_data_.find(Constant::Attributes::DEVICE_ID) != raw_data_.end()) {
       id_ = "";
-      raw_data_.erase("_id");
+      raw_data_.erase(Constant::Attributes::DEVICE_ID);
     }
 
     sendDeviceInfo();
@@ -92,15 +92,15 @@ bool Device::sendDeviceInfo() {
   crconfig_->setRequestType("POST");
   crconfig_->setRequestPath("/devices");
 
-  if(manager_server_config_.find("host") != manager_server_config_.end()) {
-    crconfig_->setRRHost(manager_server_config_.at("host").c_str());
+  if(manager_server_config_.find(Constant::Attributes::RR_HOST) != manager_server_config_.end()) {
+    crconfig_->setRRHost(manager_server_config_.at(Constant::Attributes::RR_HOST).c_str());
   } else {
     getMutex()->unlock();
     return false;
   }
 
-  if(manager_server_config_.find("port") != manager_server_config_.end()) {
-    crconfig_->setRRPort(manager_server_config_.at("port").c_str());
+  if(manager_server_config_.find(Constant::Attributes::RR_PORT) != manager_server_config_.end()) {
+    crconfig_->setRRPort(manager_server_config_.at(Constant::Attributes::RR_PORT).c_str());
   } else {
     getMutex()->unlock();
     return false;
@@ -109,7 +109,6 @@ bool Device::sendDeviceInfo() {
   if(!http_client_)
     http_client_ = new HttpClient();
 
-  printf("Just making sure\n");
   http_client_thread_ = new thread(&HttpClient::run,http_client_,crconfig_);
 
   if(http_client_thread_->joinable())
@@ -141,15 +140,15 @@ bool Device::deviceExists() {
   const char * rpath = srpath.c_str();
   crconfig_->setRequestPath(rpath);
 
-  if(manager_server_config_.find("host") != manager_server_config_.end()) {
-    crconfig_->setRRHost(manager_server_config_.at("host").c_str());
+  if(manager_server_config_.find(Constant::Attributes::RR_HOST) != manager_server_config_.end()) {
+    crconfig_->setRRHost(manager_server_config_.at(Constant::Attributes::RR_HOST).c_str());
   } else {
     getMutex()->unlock();
     return false;
   }
 
-  if(manager_server_config_.find("port") != manager_server_config_.end()) {
-    crconfig_->setRRPort(manager_server_config_.at("port").c_str());
+  if(manager_server_config_.find(Constant::Attributes::RR_PORT) != manager_server_config_.end()) {
+    crconfig_->setRRPort(manager_server_config_.at(Constant::Attributes::RR_PORT).c_str());
   } else {
     getMutex()->unlock();
     return false;
@@ -190,15 +189,15 @@ bool Device::appExists(string app_id) {
   const char * rpath = srpath.c_str();
   crconfig_->setRequestPath(rpath);
 
-  if(manager_server_config_.find("host") != manager_server_config_.end()) {
-    crconfig_->setRRHost(manager_server_config_.at("host").c_str());
+  if(manager_server_config_.find(Constant::Attributes::RR_HOST) != manager_server_config_.end()) {
+    crconfig_->setRRHost(manager_server_config_.at(Constant::Attributes::RR_HOST).c_str());
   } else {
     getMutex()->unlock();
     return false;
   }
 
-  if(manager_server_config_.find("port") != manager_server_config_.end()) {
-    crconfig_->setRRPort(manager_server_config_.at("port").c_str());
+  if(manager_server_config_.find(Constant::Attributes::RR_PORT) != manager_server_config_.end()) {
+    crconfig_->setRRPort(manager_server_config_.at(Constant::Attributes::RR_PORT).c_str());
   } else {
     getMutex()->unlock();
     return false;
@@ -234,15 +233,15 @@ bool Device::registerAppApi(string class_name, string swagger_fragment) {
   const char * rpath = srpath.c_str();
   crconfig_->setRequestPath(rpath);
 
-  if(manager_server_config_.find("host") != manager_server_config_.end()) {
-    crconfig_->setRRHost(manager_server_config_.at("host").c_str());
+  if(manager_server_config_.find(Constant::Attributes::RR_HOST) != manager_server_config_.end()) {
+    crconfig_->setRRHost(manager_server_config_.at(Constant::Attributes::RR_HOST).c_str());
   } else {
     getMutex()->unlock();
     return false;
   }
 
-  if(manager_server_config_.find("port") != manager_server_config_.end()) {
-    crconfig_->setRRPort(manager_server_config_.at("port").c_str());
+  if(manager_server_config_.find(Constant::Attributes::RR_PORT) != manager_server_config_.end()) {
+    crconfig_->setRRPort(manager_server_config_.at(Constant::Attributes::RR_PORT).c_str());
   } else {
     getMutex()->unlock();
     return false;
@@ -280,15 +279,15 @@ bool Device::registerApp(string app_payload) {
   const char * rpath = srpath.c_str();
   crconfig_->setRequestPath(rpath);
 
-  if(manager_server_config_.find("host") != manager_server_config_.end()) {
-    crconfig_->setRRHost(manager_server_config_.at("host").c_str());
+  if(manager_server_config_.find(Constant::Attributes::RR_HOST) != manager_server_config_.end()) {
+    crconfig_->setRRHost(manager_server_config_.at(Constant::Attributes::RR_HOST).c_str());
   } else {
     getMutex()->unlock();
     return false;
   }
 
-  if(manager_server_config_.find("port") != manager_server_config_.end()) {
-    crconfig_->setRRPort(manager_server_config_.at("port").c_str());
+  if(manager_server_config_.find(Constant::Attributes::RR_PORT) != manager_server_config_.end()) {
+    crconfig_->setRRPort(manager_server_config_.at(Constant::Attributes::RR_PORT).c_str());
   } else {
     getMutex()->unlock();
     return false;
@@ -324,15 +323,15 @@ bool Device::updateApp(string app_id, string app_payload) {
   const char * rpath = srpath.c_str();
   crconfig_->setRequestPath(rpath);
 
-  if(manager_server_config_.find("host") != manager_server_config_.end()) {
-    crconfig_->setRRHost(manager_server_config_.at("host").c_str());
+  if(manager_server_config_.find(Constant::Attributes::RR_HOST) != manager_server_config_.end()) {
+    crconfig_->setRRHost(manager_server_config_.at(Constant::Attributes::RR_HOST).c_str());
   } else {
     getMutex()->unlock();
     return false;
   }
 
-  if(manager_server_config_.find("port") != manager_server_config_.end()) {
-    crconfig_->setRRPort(manager_server_config_.at("port").c_str());
+  if(manager_server_config_.find(Constant::Attributes::RR_PORT) != manager_server_config_.end()) {
+    crconfig_->setRRPort(manager_server_config_.at(Constant::Attributes::RR_PORT).c_str());
   } else {
     getMutex()->unlock();
     return false;
@@ -354,8 +353,8 @@ bool Device::updateApp(string app_id, string app_payload) {
 
 void Device::saveSettings() {
   map<string,map<string,string> > config = get_config(getContext());
-  config.erase("device");
-  config.insert(pair<string,map<string,string> >("device",raw_data_));
+  config.erase(Constant::Attributes::DEVICE);
+  config.insert(pair<string,map<string,string> >(Constant::Attributes::DEVICE,raw_data_));
   save_config(getContext(),config);
 }
 
@@ -390,10 +389,10 @@ void Device::setDeviceId(string id) {
   while(getMutex()->try_lock()) { poll(NULL,0,1); }
   id_ = id;
 
-  if(raw_data_.find("_id") != raw_data_.end())
-    raw_data_.at("_id") = id_;
+  if(raw_data_.find(Constant::Attributes::DEVICE_ID) != raw_data_.end())
+    raw_data_.at(Constant::Attributes::DEVICE_ID) = id_;
   else
-    raw_data_.insert(pair<string,string>("_id",id_));
+    raw_data_.insert(pair<string,string>(Constant::Attributes::DEVICE_ID,id_));
 
   saveSettings();
   getMutex()->unlock();

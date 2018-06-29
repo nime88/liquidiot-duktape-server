@@ -110,8 +110,8 @@ map<string,vector<string> > read_liquidiot_json(duk_context *ctx, const char* js
   duk_push_string(ctx, js_src);
   duk_json_decode(ctx, -1);
 
-  if(duk_has_prop_string(ctx, -1, "deviceCapabilities")) {
-    duk_get_prop_string(ctx, -1, "deviceCapabilities");
+  if(duk_has_prop_string(ctx, -1, Constant::Attributes::LIOT_DEV_CAP)) {
+    duk_get_prop_string(ctx, -1, Constant::Attributes::LIOT_DEV_CAP);
 
     duk_idx_t index = 0;
     while(duk_get_prop_index(ctx,-1,index)) {
@@ -122,13 +122,13 @@ map<string,vector<string> > read_liquidiot_json(duk_context *ctx, const char* js
 
     duk_pop(ctx);
 
-    attr.insert(pair<string,vector<string> >("deviceCapabilities", dc_vec));
+    attr.insert(pair<string,vector<string> >(Constant::Attributes::LIOT_DEV_CAP, dc_vec));
   }
 
   duk_pop(ctx);
 
-  if(duk_has_prop_string(ctx, -1, "applicationInterfaces")) {
-    duk_get_prop_string(ctx, -1, "applicationInterfaces");
+  if(duk_has_prop_string(ctx, -1, Constant::Attributes::LIOT_APP_INTERFACES)) {
+    duk_get_prop_string(ctx, -1, Constant::Attributes::LIOT_APP_INTERFACES);
 
     duk_idx_t index = 0;
     while(duk_get_prop_index(ctx,-1,index)) {
@@ -139,7 +139,7 @@ map<string,vector<string> > read_liquidiot_json(duk_context *ctx, const char* js
 
     duk_pop(ctx);
 
-    attr.insert(pair<string,vector<string> >("applicationInterfaces", ai_vec));
+    attr.insert(pair<string,vector<string> >(Constant::Attributes::LIOT_APP_INTERFACES, ai_vec));
   }
 
   duk_pop_2(ctx);

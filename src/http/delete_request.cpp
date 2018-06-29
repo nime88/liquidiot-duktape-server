@@ -40,7 +40,7 @@ int DeleteRequest::generateResponse(struct lws *wsi, void* buffer_data, uint8_t 
   struct user_buffer_data *dest_buffer = (struct user_buffer_data*)buffer_data;
 
   /* prepare and write http headers */
-  if(lws_add_http_common_headers(wsi, HTTP_STATUS_OK, "text/html", dest_buffer->len, &p, end)) {
+  if(lws_add_http_common_headers(wsi, HTTP_STATUS_OK, Constant::String::REQ_TYPE_TEXT_HTML, dest_buffer->len, &p, end)) {
     return 1;
   }
 
@@ -56,7 +56,7 @@ int DeleteRequest::generateResponse(struct lws *wsi, void* buffer_data, uint8_t 
 int DeleteRequest::generateFailResponse(struct lws *wsi, void* buffer_data, uint8_t *start, uint8_t *p, uint8_t *end) {
   struct user_buffer_data *dest_buffer = (struct user_buffer_data*)buffer_data;
   /* prepare and write http headers */
-  if (lws_add_http_common_headers(wsi, HTTP_STATUS_NOT_FOUND, "text/html", dest_buffer->len, &p, end)) {
+  if (lws_add_http_common_headers(wsi, HTTP_STATUS_NOT_FOUND, Constant::String::REQ_TYPE_TEXT_HTML, dest_buffer->len, &p, end)) {
     return 1;
   }
 

@@ -6,6 +6,7 @@ using std::regex;
 #include <iostream>
 
 #include "app_response.h"
+#include "constant.h"
 
 int AppRequest::handleHttpRequest(struct lws *wsi, void* buffer_data, void* in, uint8_t *start, uint8_t *p, uint8_t *end, size_t len, enum lws_callback_reasons reason) {
   struct user_buffer_data *dest_buffer = (struct user_buffer_data*)buffer_data;
@@ -31,14 +32,12 @@ int AppRequest::handleHttpRequest(struct lws *wsi, void* buffer_data, void* in, 
   switch (reason) {
     case LWS_CALLBACK_HTTP: {
 
-
       // content-length WSI_TOKEN_HTTP_CONTENT_LENGTH
       if(lws_hdr_total_length(wsi, WSI_TOKEN_HTTP_CONTENT_LENGTH)) {
         char buf_cl[100];
         // if there is body content we store it and function accordingly
         lws_hdr_copy(wsi, buf_cl,100,WSI_TOKEN_HTTP_CONTENT_LENGTH);
-        headers_.insert(pair<string,string>("content-length",buf_cl));
-        std::cout << "Content length: " << buf_cl << std::endl;
+        headers_.insert(pair<string,string>(Constant::Attributes::AR_HEAD_CONTENT_LENGTH,buf_cl));
       }
 
       // content-type WSI_TOKEN_HTTP_CONTENT_TYPE
@@ -46,7 +45,7 @@ int AppRequest::handleHttpRequest(struct lws *wsi, void* buffer_data, void* in, 
         char buf_ct[1000];
         // if there is body content we store it and function accordingly
         lws_hdr_copy(wsi, buf_ct,1000,WSI_TOKEN_HTTP_CONTENT_TYPE);
-        headers_.insert(pair<string,string>("content-type",buf_ct));
+        headers_.insert(pair<string,string>(Constant::Attributes::AR_HEAD_CONTENT_TYPE,buf_ct));
       }
 
       // connection WSI_TOKEN_CONNECTION
@@ -54,7 +53,7 @@ int AppRequest::handleHttpRequest(struct lws *wsi, void* buffer_data, void* in, 
         char buf_con[100];
         // if there is body content we store it and function accordingly
         lws_hdr_copy(wsi, buf_con, 100, WSI_TOKEN_CONNECTION);
-        headers_.insert(pair<string,string>("connection",buf_con));
+        headers_.insert(pair<string,string>(Constant::Attributes::AR_HEAD_CONNECTION,buf_con));
       }
 
       // host WSI_TOKEN_HOST
@@ -62,7 +61,7 @@ int AppRequest::handleHttpRequest(struct lws *wsi, void* buffer_data, void* in, 
         char buf_host[1000];
         // if there is body content we store it and function accordingly
         lws_hdr_copy(wsi, buf_host, 1000, WSI_TOKEN_HOST);
-        headers_.insert(pair<string,string>("host",buf_host));
+        headers_.insert(pair<string,string>(Constant::Attributes::AR_HEAD_HOST,buf_host));
       }
 
       // protocol WSI_TOKEN_PROTOCOL
@@ -78,11 +77,11 @@ int AppRequest::handleHttpRequest(struct lws *wsi, void* buffer_data, void* in, 
         body_args_ = parseUrlArgs(wsi,buffer_data);
       }
 
-      if(getRequestType() == getRequestTypeByName("POST") && headers_.find("content-length") != headers_.end()) {
+      if(getRequestType() == getRequestTypeByName("POST") && headers_.find(Constant::Attributes::AR_HEAD_CONTENT_LENGTH) != headers_.end()) {
         return 0;
       }
 
-      if(headers_.find("content-length") == headers_.end() && app_) {
+      if(headers_.find(Constant::Attributes::AR_HEAD_CONTENT_LENGTH) == headers_.end() && app_) {
         AppResponse *response = app_->getResponse(this);
 
         if(response) {
@@ -123,7 +122,7 @@ int AppRequest::handleHttpRequest(struct lws *wsi, void* buffer_data, void* in, 
     case LWS_CALLBACK_HTTP_BODY_COMPLETION: {
       // cout << "Full input" << endl << input_body_.substr(0,stoi(headers_.at("content-length"))) << endl;
       // cout << "The length: " << input_body_.length() << endl;
-      body_args_ = parseBodyAttributes(input_body_.substr(0,stoi(headers_.at("content-length"))));
+      body_args_ = parseBodyAttributes(input_body_.substr(0,stoi(headers_.at(Constant::Attributes::AR_HEAD_CONTENT_LENGTH))));
       AppResponse *response = app_->getResponse(this);
 
       if(response) {
@@ -157,7 +156,7 @@ int AppRequest::generateResponse(struct lws *wsi, void* buffer_data, uint8_t *st
   struct user_buffer_data *dest_buffer = (struct user_buffer_data*)buffer_data;
 
   /* prepare and write http headers */
-  if(lws_add_http_common_headers(wsi, HTTP_STATUS_OK, "text/html", dest_buffer->len, &p, end)) {
+  if(lws_add_http_common_headers(wsi, HTTP_STATUS_OK, Constant::String::REQ_TYPE_TEXT_HTML, dest_buffer->len, &p, end)) {
     return 1;
   }
 
@@ -173,7 +172,7 @@ int AppRequest::generateResponse(struct lws *wsi, void* buffer_data, uint8_t *st
 int AppRequest::generateFailResponse(struct lws *wsi, void* buffer_data, uint8_t *start, uint8_t *p, uint8_t *end) {
   struct user_buffer_data *dest_buffer = (struct user_buffer_data*)buffer_data;
   /* prepare and write http headers */
-  if (lws_add_http_common_headers(wsi, HTTP_STATUS_NOT_FOUND, "text/html", dest_buffer->len, &p, end)) {
+  if (lws_add_http_common_headers(wsi, HTTP_STATUS_NOT_FOUND, Constant::String::REQ_TYPE_TEXT_HTML, dest_buffer->len, &p, end)) {
     return 1;
   }
 

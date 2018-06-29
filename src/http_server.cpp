@@ -12,9 +12,12 @@ extern "C" {
 
 #include <regex>
 #include <string>
+#include <map>
+
 using std::regex;
 using std::string;
 using std::smatch;
+using std::map;
 
 #include "application.h"
 #include "urls.h"
@@ -23,16 +26,17 @@ using std::smatch;
 #include "delete_request.h"
 #include "put_request.h"
 #include "app_request.h"
+#include "util.h"
 
 struct lws_protocols HttpServer::protocols[] = {
   /* name, callback, per_session_data_size, rx_buffer_size, id, user, tx_packet_size */
-  { "http", rest_api_callback, sizeof(struct HttpRequest::user_buffer_data), HttpRequest::BUFFER_SIZE, 1, new struct HttpRequest::user_buffer_data, 0},
+  { Constant::String::PROTOCOL_HTTP, rest_api_callback, sizeof(struct HttpRequest::user_buffer_data), HttpRequest::BUFFER_SIZE, 1, new struct HttpRequest::user_buffer_data, 0},
   { NULL, NULL, 0, 0, 0, NULL, 0 } /* terminator */
 };
 
 int HttpServer::run() {
   // const char *p;
-  int n = 0, logs = LLL_USER | LLL_ERR | LLL_WARN | LLL_NOTICE | LLL_PARSER
+  int n = 0, logs = LLL_USER | LLL_ERR | LLL_WARN | LLL_NOTICE
     /* for LLL_ verbosity above NOTICE to be built into lws,
      * lws must have been configured and built with
      * -DCMAKE_BUILD_TYPE=DEBUG instead of =RELEASE */
@@ -42,15 +46,32 @@ int HttpServer::run() {
 
   signal(SIGINT, sigint_handler);
 
-  // if ((p = lws_cmdline_option(argc, argv, "-d")))
-  // logs = atoi(p);
-
   lws_set_log_level(logs, NULL);
-  lwsl_user("LWS minimal http server | visit http://localhost:7681\n");
+  lwsl_user("Starting http server at http://localhost:7681\n");
 
   memset(&info_, 0, sizeof info_); /* otherwise uninitialized garbage */
 
-  info_.port = 7681;
+  // loading some configs
+  duk_context *ctx = duk_create_heap_default();
+
+  if (!ctx) {
+    throw "Duk context could not be created.";
+  }
+
+  map<string,map<string,string> > config = get_config(ctx);
+  duk_destroy_heap(ctx);
+  ctx = 0;
+
+  map<string,string> dev_config;
+
+  if(config.find(Constant::Attributes::DEVICE) != config.end()) {
+    dev_config = config.at(Constant::Attributes::DEVICE);
+  } else throw "No device defined in config";
+
+  if(dev_config.find(Constant::Attributes::DEVICE_PORT) != dev_config.end()) {
+    info_.port = stoi(dev_config.at(Constant::Attributes::DEVICE_PORT));
+  } else throw "No port defined at device config";
+
   info_.mounts = &mount_;
   info_.protocols = protocols;
   info_.error_document_404 = "/404.html";
@@ -163,9 +184,6 @@ int HttpServer::app_rest_api(struct lws *wsi, enum lws_callback_reasons reason, 
 
   if(cont >= 0)
     return cont;
-      // TODO find "class" or function to be called app->generateResponse(string function)
-      // TODO maybe create respose and request libs to keep documentation easier
-      // TODO probably just imagine implementation/interface for others to use
 
   return lws_callback_http_dummy(wsi, reason, user, in, len);
 }

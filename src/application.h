@@ -6,6 +6,7 @@ class AppRequest;
 #include "app_request.h"
 class AppResponse;
 #include "app_response.h"
+#include "constant.h"
 
 #if defined (__cplusplus)
 extern "C" {
@@ -23,12 +24,14 @@ extern "C" {
 
 #include <string>
 #include <vector>
+#include <array>
 #include <map>
 #include <thread>
 #include <mutex>
 
 using std::string;
 using std::vector;
+using std::array;
 using std::map;
 using std::thread;
 using std::mutex;
@@ -47,8 +50,8 @@ class JSApplication {
     // cleans the app from unnecessary stuff
     void clean();
 
-    enum APP_STATES { INITIALIZING=0, CRASHED, RUNNING, PAUSED};
-    vector<string> APP_STATES_CHAR = {"initializing","crashed","running","paused"};
+    enum APP_STATES { INITIALIZING=0, CRASHED, RUNNING, PAUSED };
+    static const array<string,4> APP_STATES_CHAR;
 
     const char* getJSSource() {
       return source_code_;

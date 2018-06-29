@@ -12,6 +12,7 @@ extern "C" {
 #endif
 
 #include "device.h"
+#include "constant.h"
 
 #include <algorithm>
 
@@ -21,7 +22,7 @@ struct lws *HttpClient::client_wsi;
 ClientRequestConfig *HttpClient::crconfig_;
 
 const struct lws_protocols HttpClient::protocols[] = {
-  { "http", http_client_callback, sizeof(struct HttpClient::user_buffer_data), HttpClient::BUFFER_SIZE, 1, new struct HttpClient::user_buffer_data, 0},
+  { Constant::String::PROTOCOL_HTTP, http_client_callback, sizeof(struct HttpClient::user_buffer_data), HttpClient::BUFFER_SIZE, 1, new struct HttpClient::user_buffer_data, 0},
   { NULL, NULL, 0, 0, 0, NULL, 0 } /* terminator */
 };
 
@@ -147,13 +148,12 @@ int HttpClient::http_client_callback(struct lws *wsi, enum lws_callback_reasons 
 
       if(dest_buffer && dest_buffer->config &&
         (dest_buffer->config->getRequestType() == "POST" || dest_buffer->config->getRequestType() == "PUT")) {
-        	uint32_t r;
           unsigned char **up = (unsigned char **)in, *uend = (*up) + len;
 
           dest_buffer->len = dest_buffer->config->getRawPayload().length();
 
           char buffer[1000];
-          int blen = lws_snprintf(buffer, sizeof(buffer) - 1, "application/json");
+          int blen = lws_snprintf(buffer, sizeof(buffer) - 1, "%s", Constant::String::REQ_TYPE_APP_JSON);
 
           if (lws_add_http_header_by_token(wsi, WSI_TOKEN_HTTP_CONTENT_TYPE, (unsigned char *)buffer, blen, up, uend))
             return 1;

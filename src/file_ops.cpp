@@ -13,6 +13,8 @@ using std::ifstream;
 using std::pair;
 using std::istringstream;
 
+#include "constant.h"
+
 // #define NDEBUG
 
 #ifdef NDEBUG
@@ -151,7 +153,7 @@ string extract(const char *filename, int do_extract, int flags, const char* extr
 
       // separating if we have designated extract path or not
       if(!extract_path)
-        fullOutputPath = "applications/" + string(currentFile);
+        fullOutputPath = string(Constant::Paths::APPLICATIONS_ROOT) + "/" + string(currentFile);
       else {
         fullOutputPath = string(extract_path) + "/" + string(currentFile);
         size_t found;

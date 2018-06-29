@@ -6,6 +6,8 @@
 using std::cout;
 using std::endl;
 
+#include "constant.h"
+
 AppManager* AppManager::instance_ = 0;
 
 AppManager* AppManager::getInstance() {
@@ -22,7 +24,7 @@ vector<string> AppManager::listApplicationNames() {
   DIR *dir;
   struct dirent *ent;
 
-  if ((dir = opendir ("applications")) != NULL) {
+  if ((dir = opendir (Constant::Paths::APPLICATIONS_ROOT)) != NULL) {
     // clearing old application names
     names.clear();
 
@@ -51,7 +53,7 @@ void AppManager::loadApplications() {
   unsigned int num_app = app_names_.size();
   for(unsigned int i = 0; i < num_app; ++i) {
     std::cout << "Loading app... " << app_names_.at(i) << std::endl;
-    std::string path = "applications/" + app_names_.at(i);
+    std::string path = string(Constant::Paths::APPLICATIONS_ROOT) + "/" + app_names_.at(i);
     JSApplication* temp_app = new JSApplication(path.c_str());
     if(temp_app) {
       addApp(temp_app);

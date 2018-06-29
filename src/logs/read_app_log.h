@@ -6,12 +6,14 @@
 
 using std::string;
 
+#include "constant.h"
+
 class ReadAppLog {
   public:
     ReadAppLog(const char* path) {
       // std::ofstream(path)
       string tmp = path;
-      tmp += "/logs.txt";
+      tmp += Constant::Paths::LOG_PATH;
       file_.open(tmp.c_str());
       path_ = path;
     }
