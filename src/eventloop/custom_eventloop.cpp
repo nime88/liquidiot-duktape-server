@@ -5,6 +5,7 @@
 #include <cmath>
 
 #include "application.h"
+#include "app_log.h"
 
 #if defined (__cplusplus)
 extern "C" {
@@ -19,6 +20,8 @@ extern "C" {
 // #define NDEBUG
 
 #ifdef NDEBUG
+    #include <iostream>
+    using std::cout;
     #define DBOUT( x ) cout << x  << "\n"
 #else
     #define DBOUT( x )
@@ -83,28 +86,28 @@ int EventLoop::eventloop_run(duk_context *ctx, void *udata) {
   (void) udata;
 
   // DBOUT( "eventloop_run(): Data initialized");
-  while(!JSApplication::getMutex()->try_lock()){
+  while(!JSApplication::getStaticMutex()->try_lock()){
     poll(NULL,0,MIN_WAIT);
   }
   duk_push_global_object(ctx);
   duk_get_prop_string(ctx, -1, "EventLoop");
-  JSApplication::getMutex()->unlock();
+  JSApplication::getStaticMutex()->unlock();
 
   DBOUT( "eventloop_run(): Got EventLoop property");
 
   for(;;) {
-    while (!JSApplication::getMutex()->try_lock()){
+    while (!JSApplication::getStaticMutex()->try_lock()){
       poll(NULL,0,MIN_WAIT);
     }
 
     if(interrupted || eventloop->exit_requested_) {
       // DBOUT( "eventloop_run(): Asked for termination");
-      JSApplication::getMutex()->unlock();
+      JSApplication::getStaticMutex()->unlock();
       break;
     }
 
     if(app->getAppState() == JSApplication::APP_STATES::PAUSED) {
-      JSApplication::getMutex()->unlock();
+      JSApplication::getStaticMutex()->unlock();
       poll(NULL,0,MIN_WAIT);
       continue;
     }
@@ -143,7 +146,7 @@ int EventLoop::eventloop_run(duk_context *ctx, void *udata) {
     // DBOUT( "eventloop_run(): Timers, diff " << diff);
     // DBOUT( "eventloop_run(): Starting poll() wait for " << timeout << " millis");
 
-    JSApplication::getMutex()->unlock();
+    JSApplication::getStaticMutex()->unlock();
     poll(NULL,0,timeout);
 
   }
@@ -202,8 +205,23 @@ int EventLoop::expire_timers(duk_context *ctx) {
         duk_get_prop(ctx, -2);
         rc = duk_pcall(ctx, 0 /*nargs*/);  /* -> [ ... stash eventTimers retval ] */
         if(rc != 0) {
-          fprintf(stderr, "expire_timers(): js callback failed: %s\n", duk_to_string(ctx, -1));
-          fflush(stderr);
+          if (duk_is_error(ctx, -1)) {
+            /* Accessing .stack might cause an error to be thrown, so wrap this
+             * access in a duk_safe_call() if it matters.
+             */
+             duk_get_prop_string(ctx, -1, "stack");
+             JSApplication *app = JSApplication::getApplications().at(ctx);
+             AppLog(app->getAppPath().c_str()) <<
+               AppLog::getTimeStamp() << " [" << Constant::String::LOG_ERROR << "] " <<
+               duk_safe_to_string(ctx, -1) << "\n";
+
+             duk_pop(ctx);
+          } else {
+            JSApplication *app = JSApplication::getApplications().at(ctx);
+            AppLog(app->getAppPath().c_str()) <<
+              AppLog::getTimeStamp() << " [" << Constant::String::LOG_ERROR << "] " <<
+              duk_safe_to_string(ctx, -1) << "\n";
+          }
         }
         duk_pop(ctx);
         it->second.expiring = 0;

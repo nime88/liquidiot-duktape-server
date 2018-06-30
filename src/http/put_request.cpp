@@ -121,7 +121,7 @@ int PutRequest::calculateHttpRequest(void* buffer_data, void* in) {
   JSApplication *app = 0;
 
   for (  map<duk_context*, JSApplication*>::const_iterator it=apps.begin(); it!=apps.end(); ++it) {
-    if(it->second->getId() == id) {
+    if(it->second->getAppId() == id) {
       app = it->second;
       break;
     }

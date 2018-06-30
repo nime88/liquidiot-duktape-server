@@ -21,8 +21,7 @@ target_include_directories(DukTape PUBLIC ${LIQUID_IOT_SERVER_SOURCE_DIR}/${DUKT
 set( DUKTAPE_EXTRAS_DIR "../duktape-2.2.1/extras/")
 set( DUKTAPE_MODULE_NODE "${LIQUID_IOT_SERVER_SOURCE_DIR}/${DUKTAPE_EXTRAS_DIR}/module-node")
 set( DUKTAPE_PRINT_ALERT "${LIQUID_IOT_SERVER_SOURCE_DIR}/${DUKTAPE_EXTRAS_DIR}/print-alert")
-set( DUKTAPE_CONSOLE "${LIQUID_IOT_SERVER_SOURCE_DIR}/${DUKTAPE_EXTRAS_DIR}/console")
-add_library(DukTapeExtra ${DUKTAPE_MODULE_NODE}/duk_module_node.c ${DUKTAPE_PRINT_ALERT}/duk_print_alert.c ${DUKTAPE_CONSOLE}/duk_console.c)
+add_library(DukTapeExtra ${DUKTAPE_MODULE_NODE}/duk_module_node.c ${DUKTAPE_PRINT_ALERT}/duk_print_alert.c)
 target_link_libraries(DukTapeExtra DukTape)
 target_include_directories(DukTapeExtra PUBLIC ${DUKTAPE_MODULE_NODE} ${DUKTAPE_PRINT_ALERT} ${DUKTAPE_CONSOLE})
 

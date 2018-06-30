@@ -197,7 +197,7 @@ int PostRequest::calculateHttpRequest(void* buffer_data, void* in) {
 
     for (  map<duk_context*, JSApplication*>::const_iterator it=apps.begin(); it!=apps.end(); ++it) {
       // if the application already exists, simply assign it
-      if(id == it->second->getId()) {
+      if(id == it->second->getAppId()) {
         app = it->second;
         // copying contents to updated app
         string ext_filename = extract_file(temp_file.c_str(), app->getAppPath().c_str());

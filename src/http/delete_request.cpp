@@ -92,7 +92,7 @@ int DeleteRequest::calculateHttpRequest(void* buffer_data, void* in) {
     }
   } else if(id >= 0) {
     for (  map<duk_context*, JSApplication*>::const_iterator it=apps.begin(); it!=apps.end(); ++it) {
-      if(id == it->second->getId()) {
+      if(id == it->second->getAppId()) {
         deleted_apps += it->second->deleteApp();
         if(deleted_apps) {
           dest_buffer->large_str = "Application " + to_string(id) + " was deleted successfully.";

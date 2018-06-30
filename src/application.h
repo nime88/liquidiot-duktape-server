@@ -7,6 +7,7 @@ class AppRequest;
 class AppResponse;
 #include "app_response.h"
 #include "constant.h"
+#include "mod_duk_console.h"
 
 #if defined (__cplusplus)
 extern "C" {
@@ -15,7 +16,6 @@ extern "C" {
   #include <poll.h>
   #include "duktape.h"
   #include "duk_print_alert.h"
-  #include "duk_console.h"
   #include "duk_module_node.h"
 
 #if defined (__cplusplus)
@@ -36,6 +36,7 @@ using std::map;
 using std::thread;
 using std::mutex;
 
+
 class JSApplication {
   public:
     JSApplication(const char* path);
@@ -53,22 +54,79 @@ class JSApplication {
     enum APP_STATES { INITIALIZING=0, CRASHED, RUNNING, PAUSED };
     static const array<string,4> APP_STATES_CHAR;
 
-    const char* getJSSource() {
-      return source_code_;
-    }
+    /* ******************* */
+    /* Setters and Getters */
+    /* ******************* */
 
-    duk_context* getContext() { return duk_context_; }
+    inline duk_context* getContext() { return duk_context_; }
 
-    int getId() { return id_; }
-    string getAppName() { return name_; }
-    string getAppPath() { return app_path_; }
-    string getLogs();
-    string getLogsAsJSON();
+    inline thread* getEventLoopThread() { return ev_thread_; }
+    bool createEventLoopThread();
+    bool deleteEventLoopThread();
+
+    inline EventLoop* getEventLoop() { return eventloop_; }
+    EventLoop* createEventLoop();
+    bool deleteEventLoop();
+
+    inline char* getPackageJSON() { return package_json_; }
+    inline void setPackageJSON( char* package_json ) { package_json_ = package_json; }
+
+    inline const char* getJSSource() { return source_code_; }
+    void setJSSource(const char * source, int source_len);
+
+    inline const string& getAppPath() { return app_path_; }
+    inline void setAppPath(const string& path) { app_path_ = path; }
+
+    inline const string& getAppName() { return name_; }
+    void setAppName(const string& name);
+
+    inline const string& getAppVersion() { return version_; }
+    void setAppVersion(const string& version);
+
+    inline const string& getAppDescription() { return description_; }
+    void setAppDesciption(const string& description);
+
+    inline const string& getAppAuthor() { return author_; }
+    void setAppAuthor(const string& author);
+
+    inline const string& getAppLicence() { return licence_; }
+    void setAppLicence(const string& licence);
+
+    inline const string& getAppMain() { return main_; }
+    void setAppMain(const string& main);
+
+    inline int getAppId() { return id_; }
+    void setAppId(const string& id);
+
+    inline APP_STATES getAppState() { return app_state_; }
+    bool setAppState(APP_STATES state);
+
+    inline const vector<string>& getAppInterfaces() { return application_interfaces_; }
+    inline void setAppInterfaces(const vector<string> &ais) { application_interfaces_ = ais; }
+
+    inline const map<string,string>& getRawPackageJSONData() { return raw_package_json_data_; }
+    void setRawPackageJSONDataField(const string& key, const string& value);
+    inline void setRawPackageJSONData(const map<string,string>& data) { raw_package_json_data_ = data; }
 
     AppResponse* getResponse(AppRequest *request);
+    void setResponseObj(AppResponse *response);
 
-    APP_STATES getAppState() { return app_state_; }
-    bool setAppState(APP_STATES state);
+    inline const string& getSwaggerFragment() { return swagger_fragment_; }
+    inline void setSwaggerFragment(const string& fragment) { swagger_fragment_ = fragment; }
+
+    static inline const map<string,string>& getOptions() { return options_; }
+    static inline void setOptions(const map<string,string>& options) { options_ = options; }
+
+    static inline const map<duk_context*, JSApplication*>& getApplications() { return applications_; }
+    static void addApplication(JSApplication *app);
+
+    static inline const map<duk_context*, thread*>& getApplicationThreads() { return app_threads_; }
+    static void addApplicationThread(JSApplication *app);
+
+    inline static mutex* getStaticMutex() { return static_mutex_; }
+
+    string getLogs();
+    string getLogsAsJSON();
 
     bool pause();
     bool start();
@@ -87,18 +145,11 @@ class JSApplication {
     string getAppAsJSON();
 
     bool hasAI(const string &ai) {
-      for (string &s : application_interfaces_) {
+      for (const string &s : getAppInterfaces()) {
         if (s == ai) return true;
       }
 
       return false;
-    }
-
-    void setResponseObj(AppResponse *response) {
-      // locking thread as it's possible that this is called ny something else
-      while (!mtx->try_lock()){ poll(NULL,0,1); }
-      app_response_ = response;
-      mtx->unlock();
     }
 
     static duk_ret_t cb_resolve_module(duk_context *ctx);
@@ -111,32 +162,32 @@ class JSApplication {
 
     static bool applicationExists(const char* path);
     static vector<string> listApplicationNames();
-    static map<duk_context*, JSApplication*> getApplications() { return applications_; }
+
     static JSApplication* getApplicationById(int id) {
-      while (!mtx->try_lock()){
+      while (!getStaticMutex()->try_lock()){
         poll(NULL,0,1);
       }
-      for (  map<duk_context*, JSApplication*>::const_iterator it=applications_.begin(); it!=applications_.end(); ++it) {
-        if (it->second->getId() == id) {
-          mtx->unlock();
+      for (  map<duk_context*, JSApplication*>::const_iterator it=getApplications().begin(); it!=getApplications().end(); ++it) {
+        if (it->second->getAppId() == id) {
+          getStaticMutex()->unlock();
           return it->second;
         }
       }
-      mtx->unlock();
+      getStaticMutex()->unlock();
       return 0;
     }
 
-    static mutex* getMutex() { return mtx; }
+
     static void getJoinThreads();
 
 
 
   private:
-    thread *ev_thread_;
-    EventLoop *eventloop_;
+    thread *ev_thread_ = 0;
+    EventLoop *eventloop_ = 0;
     duk_context *duk_context_ = 0;
-    char* package_js_;
-    char* source_code_;
+    char* package_json_ = 0;
+    char* source_code_ = 0;
     string app_path_;
 
     // outside app references
@@ -150,7 +201,7 @@ class JSApplication {
     APP_STATES app_state_;
     vector<string> application_interfaces_;
 
-    map<string,string> raw_package_js_data_;
+    map<string,string> raw_package_json_data_;
 
     // other
     AppResponse *app_response_ = 0;
@@ -162,7 +213,11 @@ class JSApplication {
     static map<string,string> options_;
     static map<duk_context*, JSApplication*> applications_;
     static map<duk_context*, thread*> app_threads_;
-    static mutex *mtx;
+
+    // mutexes
+    static mutex *static_mutex_;
+    mutex *app_mutex_ = 0;
+    mutex *duktape_mutex_ = 0;
 
 
     duk_idx_t set_task_interval_idx_;

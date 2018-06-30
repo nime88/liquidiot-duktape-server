@@ -8,6 +8,13 @@ const char * Constant::String::RUNNING = "running";
 const char * Constant::String::PAUSED = "paused";
 const char * Constant::String::PROTOCOL_HTTP = "http";
 const char * Constant::String::LOG_TIMESTAMP = "[%a %b %d %H:%M:%S %Y]";
+const char * Constant::String::LOG_ASSERT_ERROR = "AssertionError";
+const char * Constant::String::LOG_NORMAL = "Log";
+const char * Constant::String::LOG_TRACE_ERROR = "Trace";
+const char * Constant::String::LOG_INFO = "Info";
+const char * Constant::String::LOG_WARNING = "Warn";
+const char * Constant::String::LOG_ERROR = "Error";
+const char * Constant::String::LOG_FATAL_ERROR = "SystemError";
 const char * Constant::String::REQ_TYPE_TEXT_HTML = "text/html";
 const char * Constant::String::REQ_TYPE_APP_JSON = "application/json";
 

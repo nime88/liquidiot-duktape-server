@@ -20,6 +20,13 @@ public:
 
       // logs
       static const char * LOG_TIMESTAMP;
+      static const char * LOG_ASSERT_ERROR;
+      static const char * LOG_NORMAL;
+      static const char * LOG_TRACE_ERROR;
+      static const char * LOG_INFO;
+      static const char * LOG_WARNING;
+      static const char * LOG_ERROR;
+      static const char * LOG_FATAL_ERROR;
 
       // misc http
       static const char * REQ_TYPE_TEXT_HTML;
