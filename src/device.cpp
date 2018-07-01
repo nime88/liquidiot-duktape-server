@@ -16,8 +16,7 @@ using std::pair;
 using std::ofstream;
 using std::regex;
 
-Device *Device::instance_ = 0;
-mutex *Device::mtx_ = new mutex();
+recursive_mutex *Device::mtx_ = new recursive_mutex();
 
 Device::Device():id_("") {
   // As device_config is read only once we don't store or retain the duktape context
@@ -84,7 +83,7 @@ bool Device::sendDeviceInfo() {
   // making sure we have nothing to worry about
   exitClientThread();
 
-  while(getMutex()->try_lock()) { poll(NULL,0,1); }
+  while(!getMutex()->try_lock()) { poll(NULL,0,1); }
   // creating first connection to
   crconfig_ = new ClientRequestConfig();
 
@@ -127,7 +126,7 @@ bool Device::sendDeviceInfo() {
 bool Device::deviceExists() {
   exitClientThread();
 
-  while(getMutex()->try_lock()) { poll(NULL,0,1); }
+  while(!getMutex()->try_lock()) { poll(NULL,0,1); }
 
   if(!crconfig_) {
     // creating first connection to
@@ -176,7 +175,7 @@ bool Device::deviceExists() {
 bool Device::appExists(string app_id) {
   exitClientThread();
 
-  while(getMutex()->try_lock()) { poll(NULL,0,1); }
+  while(!getMutex()->try_lock()) { poll(NULL,0,1); }
 
   if(!crconfig_) {
     // creating first connection to
@@ -220,7 +219,7 @@ bool Device::appExists(string app_id) {
 bool Device::registerAppApi(string class_name, string swagger_fragment) {
   exitClientThread();
 
-  while(getMutex()->try_lock()) { poll(NULL,0,1); }
+  while(!getMutex()->try_lock()) { poll(NULL,0,1); }
 
   if(!crconfig_) {
     // creating first connection to
@@ -266,7 +265,7 @@ bool Device::registerApp(string app_payload) {
 
   exitClientThread();
 
-  while(getMutex()->try_lock()) { poll(NULL,0,1); }
+  while(!getMutex()->try_lock()) { poll(NULL,0,1); }
 
   if(!crconfig_) {
     // creating first connection to
@@ -310,7 +309,7 @@ bool Device::registerApp(string app_payload) {
 bool Device::updateApp(string app_id, string app_payload) {
   exitClientThread();
 
-  while(getMutex()->try_lock()) { poll(NULL,0,1); }
+  while(!getMutex()->try_lock()) { poll(NULL,0,1); }
 
   if(!crconfig_) {
     // creating first connection to
@@ -386,7 +385,7 @@ void Device::setDeviceId(string id) {
     temp_id = m.suffix().str();
   }
 
-  while(getMutex()->try_lock()) { poll(NULL,0,1); }
+  while(!getMutex()->try_lock()) { poll(NULL,0,1); }
   id_ = id;
 
   if(raw_data_.find(Constant::Attributes::DEVICE_ID) != raw_data_.end())
@@ -399,7 +398,7 @@ void Device::setDeviceId(string id) {
 }
 
 void Device::exitClientThread() {
-  while(getMutex()->try_lock()) { poll(NULL,0,1); }
+  while(!getMutex()->try_lock()) { poll(NULL,0,1); }
   if(http_client_thread_) {
     if(http_client_thread_->joinable())
       http_client_thread_->join();

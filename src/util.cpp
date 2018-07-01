@@ -93,6 +93,10 @@ map<string,string> read_package_json(duk_context *ctx, const char* js_src) {
       string key = duk_to_string(ctx, -2);
       string value = duk_to_string(ctx, -1);
       attr.insert(pair<string,string>(key,value));
+    } else if(duk_check_type(ctx, -1, DUK_TYPE_NUMBER)) {
+      string key = duk_to_string(ctx, -2);
+      int value = duk_to_number(ctx, -1);
+      attr.insert(pair<string,string>(key,std::to_string(value)));
     }
     duk_pop_2(ctx);
   }

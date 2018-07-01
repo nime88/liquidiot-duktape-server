@@ -21,14 +21,14 @@ using std::string;
 using std::map;
 using std::vector;
 using std::thread;
-using std::mutex;
+using std::recursive_mutex;
 
 #include "client_request_config.h"
 #include "http_client.h"
 
 class Device {
   public:
-    static Device& getInstance() {
+    inline static Device& getInstance() {
       static Device instance;
 
       return instance;
@@ -73,11 +73,10 @@ class Device {
 
     void setDeviceId(string id);
 
-    static mutex* getMutex() { return mtx_; }
+    static recursive_mutex* getMutex() { return mtx_; }
 
   private:
-    static Device *instance_;
-    static mutex *mtx_;
+    static recursive_mutex *mtx_;
 
     map<string,string> raw_data_;
     map<string,string> manager_server_config_;

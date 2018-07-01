@@ -11,9 +11,17 @@ using std::string;
 
 class AppManager {
   public:
+
     // app manager is singleton instance to make some stuff more accessable
     // from different threads
-    static AppManager* getInstance();
+    inline static AppManager& getInstance() {
+      static AppManager instance;
+
+      return instance;
+    }
+
+    AppManager(AppManager const&) = delete;
+    void operator=(AppManager const&) = delete;
 
     // lists and regenerates all the applications folder names
     static vector<string> listApplicationNames();

@@ -35,6 +35,7 @@ using std::array;
 using std::map;
 using std::thread;
 using std::mutex;
+using std::recursive_mutex;
 
 
 class JSApplication {
@@ -119,11 +120,21 @@ class JSApplication {
 
     static inline const map<duk_context*, JSApplication*>& getApplications() { return applications_; }
     static void addApplication(JSApplication *app);
+    // effectively deletes the app
+    static bool deleteApplication(JSApplication *app);
 
     static inline const map<duk_context*, thread*>& getApplicationThreads() { return app_threads_; }
     static void addApplicationThread(JSApplication *app);
 
-    inline static mutex* getStaticMutex() { return static_mutex_; }
+    inline static recursive_mutex& getStaticMutex() { return static_mutex_; }
+    inline recursive_mutex& getAppMutex() { return app_mutex_; }
+    inline recursive_mutex& getDuktapeMutex() { return duktape_mutex_; }
+
+    static int getNextId(bool generate_new);
+
+    /* ***** */
+    /* Other */
+    /* ***** */
 
     string getLogs();
     string getLogsAsJSON();
@@ -134,8 +145,7 @@ class JSApplication {
     void run();
     // reloads the app from files
     void reload();
-    // effectively deletes the app
-    bool deleteApp();
+
 
     void updateAppState(APP_STATES state) { updateAppState(state,false); }
     void updateAppState(APP_STATES state, bool update_client);
@@ -164,23 +174,22 @@ class JSApplication {
     static vector<string> listApplicationNames();
 
     static JSApplication* getApplicationById(int id) {
-      while (!getStaticMutex()->try_lock()){
-        poll(NULL,0,1);
-      }
-      for (  map<duk_context*, JSApplication*>::const_iterator it=getApplications().begin(); it!=getApplications().end(); ++it) {
-        if (it->second->getAppId() == id) {
-          getStaticMutex()->unlock();
-          return it->second;
+      {
+        std::lock_guard<recursive_mutex> static_lock(getStaticMutex());
+        for (  map<duk_context*, JSApplication*>::const_iterator it=getApplications().begin(); it!=getApplications().end(); ++it) {
+          if (it->second->getAppId() == id) {
+            return it->second;
+          }
         }
       }
-      getStaticMutex()->unlock();
       return 0;
     }
 
 
     static void getJoinThreads();
 
-
+    JSApplication(JSApplication const&) = delete;
+    void operator=(JSApplication const&) = delete;
 
   private:
     thread *ev_thread_ = 0;
@@ -215,9 +224,9 @@ class JSApplication {
     static map<duk_context*, thread*> app_threads_;
 
     // mutexes
-    static mutex *static_mutex_;
-    mutex *app_mutex_ = 0;
-    mutex *duktape_mutex_ = 0;
+    static recursive_mutex static_mutex_;
+    recursive_mutex app_mutex_;
+    recursive_mutex duktape_mutex_;
 
 
     duk_idx_t set_task_interval_idx_;

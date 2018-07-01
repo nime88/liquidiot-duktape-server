@@ -82,7 +82,7 @@ int DeleteRequest::calculateHttpRequest(void* buffer_data, void* in) {
     int app_amount = apps.size();
 
     for (  map<duk_context*, JSApplication*>::const_iterator it=apps.begin(); it!=apps.end(); ++it) {
-      deleted_apps += it->second->deleteApp();
+      deleted_apps += JSApplication::deleteApplication(it->second);
     }
 
     if(deleted_apps == app_amount) {
@@ -93,7 +93,7 @@ int DeleteRequest::calculateHttpRequest(void* buffer_data, void* in) {
   } else if(id >= 0) {
     for (  map<duk_context*, JSApplication*>::const_iterator it=apps.begin(); it!=apps.end(); ++it) {
       if(id == it->second->getAppId()) {
-        deleted_apps += it->second->deleteApp();
+        deleted_apps += JSApplication::deleteApplication(it->second);
         if(deleted_apps) {
           dest_buffer->large_str = "Application " + to_string(id) + " was deleted successfully.";
         }

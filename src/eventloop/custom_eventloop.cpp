@@ -59,19 +59,23 @@ EventLoop::EventLoop(duk_context *ctx) {
 }
 
 void EventLoop::evloopRegister(duk_context *ctx) {
+  JSApplication *app = JSApplication::getApplications().at(ctx);
 
-  /* Set global 'EventLoop'. */
-  duk_push_global_object(ctx);
-  duk_push_object(ctx);
-  duk_put_function_list(ctx, -1, eventloop_funcs);
-  duk_put_prop_string(ctx, -2, "EventLoop");
-  duk_pop(ctx);
+  {
+    std::lock_guard<recursive_mutex> duktape_lock(app->getDuktapeMutex());
+    /* Set global 'EventLoop'. */
+    duk_push_global_object(ctx);
+    duk_push_object(ctx);
+    duk_put_function_list(ctx, -1, eventloop_funcs);
+    duk_put_prop_string(ctx, -2, "EventLoop");
+    duk_pop(ctx);
 
-  /* Initialize global stash 'eventTimers'. */
-  duk_push_global_stash(ctx);
-  duk_push_object(ctx);
-  duk_put_prop_string(ctx, -2, TIMERS_SLOT_NAME);
-  duk_pop(ctx);
+    /* Initialize global stash 'eventTimers'. */
+    duk_push_global_stash(ctx);
+    duk_push_object(ctx);
+    duk_put_prop_string(ctx, -2, TIMERS_SLOT_NAME);
+    duk_pop(ctx);
+  }
 }
 
 int EventLoop::eventloop_run(duk_context *ctx, void *udata) {
@@ -86,69 +90,65 @@ int EventLoop::eventloop_run(duk_context *ctx, void *udata) {
   (void) udata;
 
   // DBOUT( "eventloop_run(): Data initialized");
-  while(!JSApplication::getStaticMutex()->try_lock()){
-    poll(NULL,0,MIN_WAIT);
+  {
+    std::lock_guard<recursive_mutex> duktape_lock(app->getDuktapeMutex());
+    duk_push_global_object(ctx);
+    duk_get_prop_string(ctx, -1, "EventLoop");
   }
-  duk_push_global_object(ctx);
-  duk_get_prop_string(ctx, -1, "EventLoop");
-  JSApplication::getStaticMutex()->unlock();
 
   DBOUT( "eventloop_run(): Got EventLoop property");
 
   for(;;) {
-    while (!JSApplication::getStaticMutex()->try_lock()){
-      poll(NULL,0,MIN_WAIT);
-    }
-
-    if(interrupted || eventloop->exit_requested_) {
-      // DBOUT( "eventloop_run(): Asked for termination");
-      JSApplication::getStaticMutex()->unlock();
-      break;
-    }
-
-    if(app->getAppState() == JSApplication::APP_STATES::PAUSED) {
-      JSApplication::getStaticMutex()->unlock();
-      poll(NULL,0,MIN_WAIT);
-      continue;
-    }
-
-    // DBOUT( "eventloop_run(): Expiring timers");
-    expire_timers(ctx);
-
-    if(timers->size() == 0) {
-      timeout = (int) MAX_WAIT;
-    }
-
-    now = get_now();
-
-    timeout = (int)MAX_WAIT;
-    diff = MAX_WAIT;
-
-    for (map<int, TimerStruct>::iterator it = timers->begin(); it != timers->end(); ++it) {
-      diff = it->second.target - now;
-      diff = floor(diff);
-      if (diff < MIN_WAIT) {
-        diff = MIN_WAIT;
-      } else if (diff > MAX_WAIT) {
-          diff = MAX_WAIT;
+    {
+      std::lock_guard<recursive_mutex> app_lock(app->getAppMutex());
+      if(interrupted || eventloop->exit_requested_) {
+        DBOUT( "eventloop_run(): Asked for termination");
+        break;
       }
 
-      timeout = diff < timeout ? diff : timeout;  /* clamping ensures that fits */
+      if(app->getAppState() == JSApplication::APP_STATES::PAUSED) {
+        poll(NULL,0,MIN_WAIT);
+        continue;
+      }
+
+      DBOUT( "eventloop_run(): Expiring timers");
+      expire_timers(ctx);
+
+      if(timers->size() == 0) {
+        timeout = (int) MAX_WAIT;
+      }
+
+      now = get_now();
+
+      timeout = (int)MAX_WAIT;
+      diff = MAX_WAIT;
+
+      for (map<int, TimerStruct>::iterator it = timers->begin(); it != timers->end(); ++it) {
+        diff = it->second.target - now;
+        diff = floor(diff);
+        if (diff < MIN_WAIT) {
+          diff = MIN_WAIT;
+        } else if (diff > MAX_WAIT) {
+            diff = MAX_WAIT;
+        }
+
+        timeout = diff < timeout ? diff : timeout;  /* clamping ensures that fits */
+      }
+
+      timeout = floor(diff / 2) < MIN_WAIT ? MIN_WAIT : floor(diff / 2);
+      // updating current timeout
+      eventloop->setCurrentTimeout(timeout);
+
+      // handling sigint event
+      signal(SIGINT, sigint_handler);
+
+      // DBOUT( "eventloop_run(): Timers, diff " << diff);
+      // DBOUT( "eventloop_run(): Starting poll() wait for " << timeout << " millis");
     }
-
-    timeout = floor(diff / 2) < MIN_WAIT ? MIN_WAIT : floor(diff / 2);
-    // updating current timeout
-    eventloop->setCurrentTimeout(timeout);
-
-    // handling sigint event
-    signal(SIGINT, sigint_handler);
-
-    // DBOUT( "eventloop_run(): Timers, diff " << diff);
-    // DBOUT( "eventloop_run(): Starting poll() wait for " << timeout << " millis");
-
-    JSApplication::getStaticMutex()->unlock();
+    // unlocking app mutexes if for some reason they are not released by lock guard
+    app->getAppMutex().unlock();
+    app->getDuktapeMutex().unlock();
     poll(NULL,0,timeout);
-
   }
 
   DBOUT( "eventloop_run(): Run was executed successfully");
@@ -158,6 +158,8 @@ int EventLoop::eventloop_run(duk_context *ctx, void *udata) {
 
 int EventLoop::expire_timers(duk_context *ctx) {
   if(!ctx) return 0;
+
+  JSApplication *app = JSApplication::getApplications().at(ctx);
 
   DBOUT( "expire_timers(): Starting expire timers");
   int sanity = MAX_EXPIRIES;
@@ -169,81 +171,85 @@ int EventLoop::expire_timers(duk_context *ctx) {
   DBOUT( "expire_timers(): Successfully initialized variables");
   DBOUT( "expire_timers(): " << ctx << " - " << timers->size());
 
-  duk_push_global_stash(ctx);
-  duk_get_prop_string(ctx, -1, TIMERS_SLOT_NAME);
-  /* [ ... stash eventTimers ] */
+  {
+    std::lock_guard<recursive_mutex> duktape_lock(app->getDuktapeMutex());
+    duk_push_global_stash(ctx);
+    duk_get_prop_string(ctx, -1, TIMERS_SLOT_NAME);
+    /* [ ... stash eventTimers ] */
 
-  DBOUT( "expire_timers(): Reading timers form heap slot successful");
+    DBOUT( "expire_timers(): Reading timers form heap slot successful");
 
-  for(;sanity > 0 && (MAX_EXPIRIES-sanity) < (int)timers->size(); --sanity) {
-    // exit has been requested...
-    if (eventloop->exit_requested_) {
-      break;
-    }
+    for(;sanity > 0 && (MAX_EXPIRIES-sanity) < (int)timers->size(); --sanity) {
+        // exit has been requested...
+        if (eventloop->exit_requested_) {
+          break;
+        }
 
-    // if there is nothing to expire
-    if(timers->size() == 0) {
-      break;
-    }
+        // if there is nothing to expire
+        if(timers->size() == 0) {
+          break;
+        }
 
-    DBOUT( "expire_timers(): Loop, there are " << timers->size() << " timers");
-    // find expired timers and mark them
-    for (map<int, TimerStruct>::iterator it = timers->begin(); it != timers->end(); ++it) {
-      if(it->second.removed) {
-        // duk_push_number(ctx, (double) it->second.id);
-        // duk_del_prop(ctx, -2);
-        // timers->erase(it);
-        break;
-      }
+        DBOUT( "expire_timers(): Loop, there are " << timers->size() << " timers");
+        // find expired timers and mark them
+        for (map<int, TimerStruct>::iterator it = timers->begin(); it != timers->end(); ++it) {
+          if(it->second.removed) {
+            // duk_push_number(ctx, (double) it->second.id);
+            // duk_del_prop(ctx, -2);
+            // timers->erase(it);
+            break;
+          }
 
-      if(it->second.target < now) {
-        it->second.expiring = 1;
-        it->second.target = now + it->second.delay;
-      } else if(it->second.target > now && it->second.expiring == 1) {
-        // executing callback
-        duk_push_number(ctx, (double) it->second.id);
-        duk_get_prop(ctx, -2);
-        rc = duk_pcall(ctx, 0 /*nargs*/);  /* -> [ ... stash eventTimers retval ] */
-        if(rc != 0) {
-          if (duk_is_error(ctx, -1)) {
-            /* Accessing .stack might cause an error to be thrown, so wrap this
-             * access in a duk_safe_call() if it matters.
-             */
-             duk_get_prop_string(ctx, -1, "stack");
-             JSApplication *app = JSApplication::getApplications().at(ctx);
-             AppLog(app->getAppPath().c_str()) <<
-               AppLog::getTimeStamp() << " [" << Constant::String::LOG_ERROR << "] " <<
-               duk_safe_to_string(ctx, -1) << "\n";
+          if(it->second.target < now) {
+            it->second.expiring = 1;
+            it->second.target = now + it->second.delay;
+          } else if(it->second.target > now && it->second.expiring == 1) {
+            {
+              std::lock_guard<recursive_mutex> duktape_lock(app->getDuktapeMutex());
+              // executing callback
+              duk_push_number(ctx, (double) it->second.id);
+              duk_get_prop(ctx, -2);
+              rc = duk_pcall(ctx, 0 /*nargs*/);  /* -> [ ... stash eventTimers retval ] */
+              if(rc != 0) {
+                if (duk_is_error(ctx, -1)) {
+                  /* Accessing .stack might cause an error to be thrown, so wrap this
+                   * access in a duk_safe_call() if it matters.
+                   */
+                   duk_get_prop_string(ctx, -1, "stack");
+                   JSApplication *app = JSApplication::getApplications().at(ctx);
+                   AppLog(app->getAppPath().c_str()) <<
+                     AppLog::getTimeStamp() << " [" << Constant::String::LOG_ERROR << "] " <<
+                     duk_safe_to_string(ctx, -1) << "\n";
 
-             duk_pop(ctx);
+                   duk_pop(ctx);
+                } else {
+                  JSApplication *app = JSApplication::getApplications().at(ctx);
+                  AppLog(app->getAppPath().c_str()) <<
+                    AppLog::getTimeStamp() << " [" << Constant::String::LOG_ERROR << "] " <<
+                    duk_safe_to_string(ctx, -1) << "\n";
+                }
+              }
+              duk_pop(ctx);
+              it->second.expiring = 0;
+
+              // checking oneshot
+              if(it->second.oneshot) {
+                it->second.removed = 1;
+              }
+            }
+            // breaking to avoid too long callback executions on one run
+            break;
           } else {
-            JSApplication *app = JSApplication::getApplications().at(ctx);
-            AppLog(app->getAppPath().c_str()) <<
-              AppLog::getTimeStamp() << " [" << Constant::String::LOG_ERROR << "] " <<
-              duk_safe_to_string(ctx, -1) << "\n";
+            it->second.expiring = 0;
           }
         }
-        duk_pop(ctx);
-        it->second.expiring = 0;
 
-        // checking oneshot
-        if(it->second.oneshot) {
-          it->second.removed = 1;
-        }
-
-        // breaking to avoid too long callback executions on one run
-        break;
-      } else {
-        it->second.expiring = 0;
-      }
+        DBOUT( "expire_timers(): Loop, trying to pop last 2");
+        duk_pop_2(ctx);  /* -> [ ... ] */
     }
-
-    DBOUT( "expire_timers(): Loop, trying to pop last 2");
-    duk_pop_2(ctx);  /* -> [ ... ] */
   }
 
   DBOUT( "expire_timers(): Expired timers successfully");
-
   return 0;
 }
 

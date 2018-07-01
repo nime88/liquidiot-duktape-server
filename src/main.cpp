@@ -22,7 +22,7 @@ int main(int argc, char *argv[]) {
    */
 
   // creates and stores all the applications
-  AppManager *app_manager = AppManager::getInstance();
+  AppManager::getInstance();
 
   // Http server
   HttpServer *server = new HttpServer();
@@ -34,7 +34,7 @@ int main(int argc, char *argv[]) {
   JSApplication::getJoinThreads();
   servert->join();
 
-  app_manager->stopApps();
+  AppManager::getInstance().stopApps();
 
   return 0;
 }
