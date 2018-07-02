@@ -23,15 +23,10 @@ class AppManager {
     AppManager(AppManager const&) = delete;
     void operator=(AppManager const&) = delete;
 
-    // lists and regenerates all the applications folder names
-    static vector<string> listApplicationNames();
-
     // loads the applications to usable "executables"
     void loadApplications();
 
-    void addApp(JSApplication* app);
-
-    vector<JSApplication*> getApps() {
+    const vector<JSApplication*>& getApps() {
       return apps_;
     }
 
@@ -45,9 +40,6 @@ class AppManager {
     }
 
   private:
-    static AppManager *instance_;
-
-    vector<string> app_names_;
     vector<JSApplication*> apps_;
 
     // constructor is private so it can't be instantiated outside of this class

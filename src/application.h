@@ -171,7 +171,7 @@ class JSApplication {
     static duk_ret_t cb_load_swagger_fragment(duk_context *ctx);
 
     static bool applicationExists(const char* path);
-    static vector<string> listApplicationNames();
+    static const vector<string>& listApplicationNames();
 
     static JSApplication* getApplicationById(int id) {
       {
@@ -222,6 +222,7 @@ class JSApplication {
     static map<string,string> options_;
     static map<duk_context*, JSApplication*> applications_;
     static map<duk_context*, thread*> app_threads_;
+    static vector<string> app_names_;
 
     // mutexes
     static recursive_mutex static_mutex_;

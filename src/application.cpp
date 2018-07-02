@@ -44,6 +44,7 @@ int JSApplication::next_id_ = 0;
 map<string,string> JSApplication::options_;
 map<duk_context*, JSApplication*> JSApplication::applications_;
 map<duk_context*, thread*> JSApplication::app_threads_;
+vector<string> JSApplication::app_names_;
 recursive_mutex JSApplication::static_mutex_;
 
 JSApplication::JSApplication(const char* path) {
@@ -1091,32 +1092,30 @@ bool JSApplication::applicationExists(const char* path) {
   return false;
 }
 
-vector<string> JSApplication::listApplicationNames() {
-  vector<string> names;
+const vector<string>& JSApplication::listApplicationNames() {
 
   DIR *dir;
   struct dirent *ent;
 
   if ((dir = opendir (Constant::Paths::APPLICATIONS_ROOT)) != NULL) {
     // clearing old application names
-    names.clear();
+    app_names_.clear();
 
     /* print all the files and directories within directory */
     while ((ent = readdir (dir)) != NULL) {
       string temp_name = ent->d_name;
       if(temp_name != "." && temp_name != "..") {
-        names.push_back(ent->d_name);
+        app_names_.push_back(ent->d_name);
       }
     }
     closedir (dir);
   } else {
     /* could not open directory */
     // perror ("");
-    return names;
+    return app_names_;
   }
 
-  return names;
-
+  return app_names_;
 }
 
 void JSApplication::getJoinThreads() {

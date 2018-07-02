@@ -16,9 +16,9 @@ using std::pair;
 using std::ofstream;
 using std::regex;
 
-recursive_mutex *Device::mtx_ = new recursive_mutex();
+recursive_mutex Device::mtx_;
 
-Device::Device():id_("") {
+Device::Device() {
   // As device_config is read only once we don't store or retain the duktape context
   duk_context_ = duk_create_heap_default();
 
@@ -32,91 +32,165 @@ Device::Device():id_("") {
   map<string,map<string,string> > config = get_config(duk_context_);
 
   if(config.find(Constant::Attributes::MANAGER_SERVER) != config.end())
-    manager_server_config_ = config.at(Constant::Attributes::MANAGER_SERVER);
+    setManagerServerConfig(config.at(Constant::Attributes::MANAGER_SERVER));
 
   if(config.find(Constant::Attributes::DEVICE) != config.end())
-    raw_data_ = config.at(Constant::Attributes::DEVICE);
+    setRawData(config.at(Constant::Attributes::DEVICE));
 
   // reading device data
-  if(raw_data_.find(Constant::Attributes::DEVICE_ID) != raw_data_.end()) {
-    setDeviceId(raw_data_.at(Constant::Attributes::DEVICE_ID));
+  if(getRawData().find(Constant::Attributes::DEVICE_ID) != getRawData().end()) {
+    setDevId(getRawData().at(Constant::Attributes::DEVICE_ID));
   }
 
-  if(raw_data_.find(Constant::Attributes::DEVICE_NAME) != raw_data_.end()) {
-    name_ = raw_data_.at(Constant::Attributes::DEVICE_NAME);
+  if(getRawData().find(Constant::Attributes::DEVICE_NAME) != getRawData().end()) {
+    setDevName(getRawData().at(Constant::Attributes::DEVICE_NAME));
   }
 
-  if(raw_data_.find(Constant::Attributes::DEVICE_MANUFACTURER) != raw_data_.end()) {
-    manufacturer_ = raw_data_.at(Constant::Attributes::DEVICE_MANUFACTURER);
+  if(getRawData().find(Constant::Attributes::DEVICE_MANUFACTURER) != getRawData().end()) {
+    setDevManufacturer(getRawData().at(Constant::Attributes::DEVICE_MANUFACTURER));
   }
 
-  if(raw_data_.find(Constant::Attributes::DEVICE_LOCATION) != raw_data_.end()) {
-    location_ = raw_data_.at(Constant::Attributes::DEVICE_LOCATION);
+  if(getRawData().find(Constant::Attributes::DEVICE_LOCATION) != getRawData().end()) {
+    setDevLocation(getRawData().at(Constant::Attributes::DEVICE_LOCATION));
   }
 
-  if(raw_data_.find(Constant::Attributes::DEVICE_URL) != raw_data_.end()) {
-    url_ = raw_data_.at(Constant::Attributes::DEVICE_URL);
+  if(getRawData().find(Constant::Attributes::DEVICE_URL) != getRawData().end()) {
+    setDevUrl(getRawData().at(Constant::Attributes::DEVICE_URL));
   }
 
-  if(raw_data_.find(Constant::Attributes::DEVICE_HOST) != raw_data_.end()) {
-    host_ = raw_data_.at(Constant::Attributes::DEVICE_HOST);
+  if(getRawData().find(Constant::Attributes::DEVICE_HOST) != getRawData().end()) {
+    setDevHost(getRawData().at(Constant::Attributes::DEVICE_HOST));
   }
 
-  if(raw_data_.find(Constant::Attributes::DEVICE_PORT) != raw_data_.end()) {
-    port_ = raw_data_.at(Constant::Attributes::DEVICE_PORT);
+  if(getRawData().find(Constant::Attributes::DEVICE_PORT) != getRawData().end()) {
+    setDevPort(getRawData().at(Constant::Attributes::DEVICE_PORT));
   }
 
   bool dexists = deviceExists();
 
   if(!dexists) {
-    if(raw_data_.find(Constant::Attributes::DEVICE_ID) != raw_data_.end()) {
-      id_ = "";
-      raw_data_.erase(Constant::Attributes::DEVICE_ID);
-    }
+    setDevId("");
+    deleteDataField(Constant::Attributes::DEVICE_ID);
 
     sendDeviceInfo();
   }
 
 }
 
+void Device::setRawDataField(const string& key, const string& value) {
+  if(getRawData().find(key) != getRawData().end()) {
+    std::lock_guard<recursive_mutex> device_lock(getMutex());
+    raw_data_.at(key) = value;
+    return;
+  }
+
+  std::lock_guard<recursive_mutex> device_lock(getMutex());
+  raw_data_.insert(pair<string,string>(key,value));
+}
+
+void Device::deleteDataField(const string& key) {
+  if(getRawData().find(key) != getRawData().end()) {
+    std::lock_guard<recursive_mutex> device_lock(getMutex());
+    raw_data_.erase(key);
+  }
+}
+
+ClientRequestConfig* Device::getCRConfig() {
+  std::lock_guard<recursive_mutex> device_lock(getMutex());
+  thread::id this_id = std::this_thread::get_id();
+
+  if(getCRConfigs().find(this_id) != getCRConfigs().end()) {
+    return getCRConfigs().at(this_id);
+  } else crconfigs_.insert(pair<thread::id,ClientRequestConfig*>(this_id,new ClientRequestConfig()));
+
+  return getCRConfigs().at(this_id);
+}
+
+HttpClient* Device::getHttpClient() {
+  std::lock_guard<recursive_mutex> device_lock(getMutex());
+  thread::id this_id = std::this_thread::get_id();
+
+  if(getHttpClients().find(this_id) != getHttpClients().end()) {
+    return getHttpClients().at(this_id);
+  } else http_clients_.insert(pair<thread::id,HttpClient*>(this_id,new HttpClient()));
+
+  if(getHttpClients().find(this_id) != getHttpClients().end()) {
+    return getHttpClients().at(this_id);
+  }
+
+  return 0;
+}
+
+thread* Device::getHttpClientThread() {
+  std::lock_guard<recursive_mutex> device_lock(getMutex());
+  thread::id this_id = std::this_thread::get_id();
+
+  if(getHttpClientThreads().find(this_id) != getHttpClientThreads().end()) {
+    return getHttpClientThreads().at(this_id);
+  }
+
+  return 0;
+}
+
+void Device::spawnHttpClientThread() {
+  std::lock_guard<recursive_mutex> device_lock(getMutex());
+  thread::id this_id = std::this_thread::get_id();
+
+  if(getHttpClientThreads().find(this_id) != getHttpClientThreads().end() && !getHttpClientThreads().at(this_id)) {
+    http_client_threads_.at(this_id) = new thread(&HttpClient::run, getHttpClient(), getCRConfig());
+    return;
+  } else if(getHttpClientThreads().find(this_id) != getHttpClientThreads().end()) {
+    thread *clthread = getHttpClientThreads().at(this_id);
+    if(clthread) {
+      if(clthread->joinable()) {
+        try {
+          clthread->join();
+          delete clthread;
+        } catch(std::system_error e) {
+          clthread->detach();
+          clthread = 0;
+        }
+      }
+
+      http_client_threads_.at(this_id) = 0;
+    }
+
+    http_client_threads_.at(this_id) = new thread(&HttpClient::run, getHttpClient(), getCRConfig());
+    return;
+  }
+
+  http_client_threads_.insert(pair<thread::id,thread*>(this_id, new thread(&HttpClient::run, getHttpClient(), getCRConfig())));
+  return;
+}
+
 bool Device::sendDeviceInfo() {
   // making sure we have nothing to worry about
   exitClientThread();
+  std::lock_guard<recursive_mutex> device_lock(getMutex());
 
-  while(!getMutex()->try_lock()) { poll(NULL,0,1); }
-  // creating first connection to
-  crconfig_ = new ClientRequestConfig();
+  getCRConfig()->setRawPayload(getDeviceInfoAsJSON());
+  getCRConfig()->setRequestType("POST");
+  getCRConfig()->setRequestPath("/devices");
 
-  crconfig_->setRawPayload(getDeviceInfoAsJSON());
-  crconfig_->setRequestType("POST");
-  crconfig_->setRequestPath("/devices");
-
-  if(manager_server_config_.find(Constant::Attributes::RR_HOST) != manager_server_config_.end()) {
-    crconfig_->setRRHost(manager_server_config_.at(Constant::Attributes::RR_HOST).c_str());
+  if(getManagerServerConfig().find(Constant::Attributes::RR_HOST) != getManagerServerConfig().end()) {
+    getCRConfig()->setRRHost(getManagerServerConfig().at(Constant::Attributes::RR_HOST).c_str());
   } else {
-    getMutex()->unlock();
     return false;
   }
 
-  if(manager_server_config_.find(Constant::Attributes::RR_PORT) != manager_server_config_.end()) {
-    crconfig_->setRRPort(manager_server_config_.at(Constant::Attributes::RR_PORT).c_str());
+  if(getManagerServerConfig().find(Constant::Attributes::RR_PORT) != getManagerServerConfig().end()) {
+    getCRConfig()->setRRPort(getManagerServerConfig().at(Constant::Attributes::RR_PORT).c_str());
   } else {
-    getMutex()->unlock();
     return false;
   }
 
-  if(!http_client_)
-    http_client_ = new HttpClient();
+  spawnHttpClientThread();
 
-  http_client_thread_ = new thread(&HttpClient::run,http_client_,crconfig_);
+  if(getHttpClientThread()->joinable())
+    getHttpClientThread()->join();
 
-  if(http_client_thread_->joinable())
-    http_client_thread_->join();
-
-  getMutex()->unlock();
-
-  if(crconfig_->getResponseStatus()  == 200) {
-    setDeviceId(crconfig_->getResponse());
+  if(getCRConfig()->getResponseStatus()  == 200) {
+    cleanDeviceId(getCRConfig()->getResponse());
     return true;
   }
 
@@ -125,235 +199,169 @@ bool Device::sendDeviceInfo() {
 
 bool Device::deviceExists() {
   exitClientThread();
+  std::lock_guard<recursive_mutex> device_lock(getMutex());
 
-  while(!getMutex()->try_lock()) { poll(NULL,0,1); }
-
-  if(!crconfig_) {
-    // creating first connection to
-    crconfig_ = new ClientRequestConfig();
-  }
-
-  crconfig_->setRawPayload("");
-  crconfig_->setRequestType("GET");
-  string srpath = (string("/devices/id/")+id_);
+  getCRConfig()->setRawPayload("");
+  getCRConfig()->setRequestType("GET");
+  string srpath = (string("/devices/id/")+getDevId());
   const char * rpath = srpath.c_str();
-  crconfig_->setRequestPath(rpath);
+  getCRConfig()->setRequestPath(rpath);
 
-  if(manager_server_config_.find(Constant::Attributes::RR_HOST) != manager_server_config_.end()) {
-    crconfig_->setRRHost(manager_server_config_.at(Constant::Attributes::RR_HOST).c_str());
+  if(getManagerServerConfig().find(Constant::Attributes::RR_HOST) != getManagerServerConfig().end()) {
+    getCRConfig()->setRRHost(getManagerServerConfig().at(Constant::Attributes::RR_HOST).c_str());
   } else {
-    getMutex()->unlock();
     return false;
   }
 
-  if(manager_server_config_.find(Constant::Attributes::RR_PORT) != manager_server_config_.end()) {
-    crconfig_->setRRPort(manager_server_config_.at(Constant::Attributes::RR_PORT).c_str());
+  if(getManagerServerConfig().find(Constant::Attributes::RR_PORT) != getManagerServerConfig().end()) {
+    getCRConfig()->setRRPort(getManagerServerConfig().at(Constant::Attributes::RR_PORT).c_str());
   } else {
-    getMutex()->unlock();
     return false;
   }
 
-  if(!http_client_) {
-    http_client_ = new HttpClient();
-  }
+  spawnHttpClientThread();
 
-  http_client_thread_ = new thread(&HttpClient::run,http_client_,crconfig_);
-
-  if(http_client_thread_->joinable())
-    http_client_thread_->join();
-
-  getMutex()->unlock();
+  if(getHttpClientThread()->joinable())
+    getHttpClientThread()->join();
 
   // cleaning the response out of spaces
-  string resp = crconfig_->getResponse();
+  string resp = getCRConfig()->getResponse();
   resp.erase(std::remove(resp.begin(),
     resp.end(), ' '), resp.end());
 
-  return resp != "null" && crconfig_->getResponseStatus() == 200;
+  return resp != "null" && getCRConfig()->getResponseStatus() == 200;
 }
 
 bool Device::appExists(string app_id) {
+  cout << "appExists()\n";
   exitClientThread();
+  std::lock_guard<recursive_mutex> device_lock(getMutex());
+  cout << "appExists(): locked\n";
 
-  while(!getMutex()->try_lock()) { poll(NULL,0,1); }
-
-  if(!crconfig_) {
-    // creating first connection to
-    crconfig_ = new ClientRequestConfig();
-  }
-
-  crconfig_->setRawPayload("");
-  crconfig_->setRequestType("GET");
-  string srpath = (string("/devices/") + id_ + string("/apps/") + app_id + string("/api"));
+  getCRConfig()->setRawPayload("");
+  getCRConfig()->setRequestType("GET");
+  string srpath = (string("/devices/") + getDevId() + string("/apps/") + app_id + string("/api"));
   const char * rpath = srpath.c_str();
-  crconfig_->setRequestPath(rpath);
+  getCRConfig()->setRequestPath(rpath);
 
-  if(manager_server_config_.find(Constant::Attributes::RR_HOST) != manager_server_config_.end()) {
-    crconfig_->setRRHost(manager_server_config_.at(Constant::Attributes::RR_HOST).c_str());
+  if(getManagerServerConfig().find(Constant::Attributes::RR_HOST) != getManagerServerConfig().end()) {
+    getCRConfig()->setRRHost(getManagerServerConfig().at(Constant::Attributes::RR_HOST).c_str());
   } else {
-    getMutex()->unlock();
     return false;
   }
 
-  if(manager_server_config_.find(Constant::Attributes::RR_PORT) != manager_server_config_.end()) {
-    crconfig_->setRRPort(manager_server_config_.at(Constant::Attributes::RR_PORT).c_str());
+  if(getManagerServerConfig().find(Constant::Attributes::RR_PORT) != getManagerServerConfig().end()) {
+    getCRConfig()->setRRPort(getManagerServerConfig().at(Constant::Attributes::RR_PORT).c_str());
   } else {
-    getMutex()->unlock();
     return false;
   }
 
-  if(!http_client_) {
-    http_client_ = new HttpClient();
-  }
+  spawnHttpClientThread();
+  cout << "appExists(): spawned threads\n";
 
-  http_client_thread_ = new thread(&HttpClient::run,http_client_,crconfig_);
+  if(getHttpClientThread()->joinable())
+    getHttpClientThread()->join();
 
-  if(http_client_thread_->joinable())
-    http_client_thread_->join();
-
-  getMutex()->unlock();
-
-  return crconfig_->getResponseStatus() == 200;
+  cout << "appExists(): return\n";
+  return getCRConfig()->getResponseStatus() == 200;
 }
 
 bool Device::registerAppApi(string class_name, string swagger_fragment) {
   exitClientThread();
+  std::lock_guard<recursive_mutex> device_lock(getMutex());
 
-  while(!getMutex()->try_lock()) { poll(NULL,0,1); }
-
-  if(!crconfig_) {
-    // creating first connection to
-    crconfig_ = new ClientRequestConfig();
-  }
-
-  crconfig_->setRawPayload(swagger_fragment);
-  crconfig_->setRequestType("PUT");
+  getCRConfig()->setRawPayload(swagger_fragment);
+  getCRConfig()->setRequestType("PUT");
   string srpath = (string("/apis/")+ class_name);
   const char * rpath = srpath.c_str();
-  crconfig_->setRequestPath(rpath);
+  getCRConfig()->setRequestPath(rpath);
 
-  if(manager_server_config_.find(Constant::Attributes::RR_HOST) != manager_server_config_.end()) {
-    crconfig_->setRRHost(manager_server_config_.at(Constant::Attributes::RR_HOST).c_str());
+  if(getManagerServerConfig().find(Constant::Attributes::RR_HOST) != getManagerServerConfig().end()) {
+    getCRConfig()->setRRHost(getManagerServerConfig().at(Constant::Attributes::RR_HOST).c_str());
   } else {
-    getMutex()->unlock();
     return false;
   }
 
-  if(manager_server_config_.find(Constant::Attributes::RR_PORT) != manager_server_config_.end()) {
-    crconfig_->setRRPort(manager_server_config_.at(Constant::Attributes::RR_PORT).c_str());
+  if(getManagerServerConfig().find(Constant::Attributes::RR_PORT) != getManagerServerConfig().end()) {
+    getCRConfig()->setRRPort(getManagerServerConfig().at(Constant::Attributes::RR_PORT).c_str());
   } else {
-    getMutex()->unlock();
     return false;
   }
 
-  if(!http_client_) {
-    http_client_ = new HttpClient();
-  }
+  spawnHttpClientThread();
 
-  http_client_thread_ = new thread(&HttpClient::run,http_client_,crconfig_);
+  if(getHttpClientThread()->joinable())
+    getHttpClientThread()->join();
 
-  if(http_client_thread_->joinable())
-    http_client_thread_->join();
-
-  getMutex()->unlock();
-
-  return crconfig_->getResponseStatus() == 200;
+  return getCRConfig()->getResponseStatus() == 200;
 }
 
 bool Device::registerApp(string app_payload) {
-  if(id_.length() == 0) return false;
+  if(getDevId().length() == 0) return false;
 
   exitClientThread();
+  std::lock_guard<recursive_mutex> device_lock(getMutex());
 
-  while(!getMutex()->try_lock()) { poll(NULL,0,1); }
-
-  if(!crconfig_) {
-    // creating first connection to
-    crconfig_ = new ClientRequestConfig();
-  }
-
-  crconfig_->setRawPayload(app_payload);
-  crconfig_->setRequestType("POST");
-  string srpath = (string("/devices/")+ id_ + "/apps");
+  getCRConfig()->setRawPayload(app_payload);
+  getCRConfig()->setRequestType("POST");
+  string srpath = (string("/devices/")+ getDevId() + "/apps");
   const char * rpath = srpath.c_str();
-  crconfig_->setRequestPath(rpath);
+  getCRConfig()->setRequestPath(rpath);
 
-  if(manager_server_config_.find(Constant::Attributes::RR_HOST) != manager_server_config_.end()) {
-    crconfig_->setRRHost(manager_server_config_.at(Constant::Attributes::RR_HOST).c_str());
+  if(getManagerServerConfig().find(Constant::Attributes::RR_HOST) != getManagerServerConfig().end()) {
+    getCRConfig()->setRRHost(getManagerServerConfig().at(Constant::Attributes::RR_HOST).c_str());
   } else {
-    getMutex()->unlock();
     return false;
   }
 
-  if(manager_server_config_.find(Constant::Attributes::RR_PORT) != manager_server_config_.end()) {
-    crconfig_->setRRPort(manager_server_config_.at(Constant::Attributes::RR_PORT).c_str());
+  if(getManagerServerConfig().find(Constant::Attributes::RR_PORT) != getManagerServerConfig().end()) {
+    getCRConfig()->setRRPort(getManagerServerConfig().at(Constant::Attributes::RR_PORT).c_str());
   } else {
-    getMutex()->unlock();
     return false;
   }
 
-  if(!http_client_) {
-    http_client_ = new HttpClient();
-  }
+  spawnHttpClientThread();
 
-  http_client_thread_ = new thread(&HttpClient::run,http_client_,crconfig_);
+  if(getHttpClientThread()->joinable())
+    getHttpClientThread()->join();
 
-  if(http_client_thread_->joinable())
-    http_client_thread_->join();
-
-  getMutex()->unlock();
-
-  return crconfig_->getResponseStatus() == 200;
+  return getCRConfig()->getResponseStatus() == 200;
 }
 
 bool Device::updateApp(string app_id, string app_payload) {
   exitClientThread();
+  std::lock_guard<recursive_mutex> device_lock(getMutex());
 
-  while(!getMutex()->try_lock()) { poll(NULL,0,1); }
-
-  if(!crconfig_) {
-    // creating first connection to
-    crconfig_ = new ClientRequestConfig();
-  }
-
-  crconfig_->setRawPayload(app_payload);
-  crconfig_->setRequestType("PUT");
-  string srpath = (string("/devices/") + id_ + "/apps/" + app_id);
+  getCRConfig()->setRawPayload(app_payload);
+  getCRConfig()->setRequestType("PUT");
+  string srpath = (string("/devices/") + getDevId() + "/apps/" + app_id);
   const char * rpath = srpath.c_str();
-  crconfig_->setRequestPath(rpath);
+  getCRConfig()->setRequestPath(rpath);
 
-  if(manager_server_config_.find(Constant::Attributes::RR_HOST) != manager_server_config_.end()) {
-    crconfig_->setRRHost(manager_server_config_.at(Constant::Attributes::RR_HOST).c_str());
+  if(getManagerServerConfig().find(Constant::Attributes::RR_HOST) != getManagerServerConfig().end()) {
+    getCRConfig()->setRRHost(getManagerServerConfig().at(Constant::Attributes::RR_HOST).c_str());
   } else {
-    getMutex()->unlock();
     return false;
   }
 
-  if(manager_server_config_.find(Constant::Attributes::RR_PORT) != manager_server_config_.end()) {
-    crconfig_->setRRPort(manager_server_config_.at(Constant::Attributes::RR_PORT).c_str());
+  if(getManagerServerConfig().find(Constant::Attributes::RR_PORT) != getManagerServerConfig().end()) {
+    getCRConfig()->setRRPort(getManagerServerConfig().at(Constant::Attributes::RR_PORT).c_str());
   } else {
-    getMutex()->unlock();
     return false;
   }
 
-  if(!http_client_) {
-    http_client_ = new HttpClient();
-  }
+  spawnHttpClientThread();
 
-  http_client_thread_ = new thread(&HttpClient::run,http_client_,crconfig_);
+  if(getHttpClientThread()->joinable())
+    getHttpClientThread()->join();
 
-  if(http_client_thread_->joinable())
-    http_client_thread_->join();
-
-  getMutex()->unlock();
-
-  return crconfig_->getResponseStatus() == 200;
+  return getCRConfig()->getResponseStatus() == 200;
 }
 
 void Device::saveSettings() {
   map<string,map<string,string> > config = get_config(getContext());
   config.erase(Constant::Attributes::DEVICE);
-  config.insert(pair<string,map<string,string> >(Constant::Attributes::DEVICE,raw_data_));
+  config.insert(pair<string,map<string,string> >(Constant::Attributes::DEVICE,getRawData()));
   save_config(getContext(),config);
 }
 
@@ -362,7 +370,7 @@ string Device::getDeviceInfoAsJSON() {
 
   duk_push_object(ctx);
 
-  for ( map<string,string>::iterator it = raw_data_.begin(); it != raw_data_.end(); ++it) {
+  for ( map<string,string>::const_iterator it = getRawData().begin(); it != getRawData().end(); ++it) {
     duk_push_string(ctx,it->second.c_str());
     duk_put_prop_string(ctx, -2, it->first.c_str());
   }
@@ -374,36 +382,32 @@ string Device::getDeviceInfoAsJSON() {
   return full_info;
 }
 
-void Device::setDeviceId(string id) {
+void Device::cleanDeviceId(const string& id) {
   // cleaning id
   std::smatch m;
   std::regex e( R"(^([A-Za-z0-9]+))" );
 
   string temp_id = id;
+  string res_id;
   while (std::regex_search (temp_id,m,e, std::regex_constants::match_any)) {
-    id = m[1];
+    res_id = m[1];
     temp_id = m.suffix().str();
   }
 
-  while(!getMutex()->try_lock()) { poll(NULL,0,1); }
-  id_ = id;
+  std::lock_guard<recursive_mutex> device_lock(getMutex());
 
-  if(raw_data_.find(Constant::Attributes::DEVICE_ID) != raw_data_.end())
-    raw_data_.at(Constant::Attributes::DEVICE_ID) = id_;
-  else
-    raw_data_.insert(pair<string,string>(Constant::Attributes::DEVICE_ID,id_));
-
+  setDevId(res_id);
+  setRawDataField(Constant::Attributes::DEVICE_ID, getDevId());
   saveSettings();
-  getMutex()->unlock();
 }
 
 void Device::exitClientThread() {
-  while(!getMutex()->try_lock()) { poll(NULL,0,1); }
-  if(http_client_thread_) {
-    if(http_client_thread_->joinable())
-      http_client_thread_->join();
-    delete http_client_thread_;
-    http_client_thread_ = 0;
+  std::lock_guard<recursive_mutex> device_lock(getMutex());
+  thread* http_ct = getHttpClientThread();
+  if(http_ct) {
+    if(http_ct->joinable())
+      http_ct->join();
+    delete http_ct;
+    http_ct = 0;
   }
-  getMutex()->unlock();
 }

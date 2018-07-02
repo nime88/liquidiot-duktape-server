@@ -12,14 +12,10 @@ extern "C" {
 #endif
 
 #include "device.h"
-#include "constant.h"
 
 #include <algorithm>
 
 const size_t HttpClient::BUFFER_SIZE = 256;
-int HttpClient::status_;
-struct lws *HttpClient::client_wsi;
-ClientRequestConfig *HttpClient::crconfig_;
 
 const struct lws_protocols HttpClient::protocols[] = {
   { Constant::String::PROTOCOL_HTTP, http_client_callback, sizeof(struct HttpClient::user_buffer_data), HttpClient::BUFFER_SIZE, 1, new struct HttpClient::user_buffer_data, 0},
@@ -46,6 +42,9 @@ void HttpClient::run(ClientRequestConfig *config) {
 	info.protocols = protocols;
   info.gid = -1;
   info.uid = -1;
+
+  data_->client = this;
+  info.user = data_;
 
   context = lws_create_context(&info);
 
@@ -89,8 +88,25 @@ void HttpClient::run(ClientRequestConfig *config) {
 int HttpClient::http_client_callback(struct lws *wsi, enum lws_callback_reasons reason, void *user, void *in, size_t len) {
   struct HttpClient::user_buffer_data *dest_buffer = (struct HttpClient::user_buffer_data *)user;
 
+  if(dest_buffer && !dest_buffer->client) {
+    struct HttpClient::user_buffer_data *external = (struct HttpClient::user_buffer_data *)lws_context_user(lws_get_context(wsi));
+    dest_buffer->client = external->client;
+  }
+
   if(dest_buffer && !dest_buffer->config) {
-    dest_buffer->config = crconfig_;
+    dest_buffer->config = dest_buffer->client->getCRConfig();
+  }
+
+  if(reason == LWS_CALLBACK_PROTOCOL_DESTROY ) {
+    struct HttpClient::user_buffer_data *external = (struct HttpClient::user_buffer_data *)lws_context_user(lws_get_context(wsi));
+    if(dest_buffer) {
+      dest_buffer->config = 0;
+      dest_buffer->client->client_wsi = NULL;
+      dest_buffer->client = 0;
+    }
+    external->config = 0;
+    external->client->client_wsi = NULL;
+    return 0;
   }
 
   switch (reason) {
@@ -98,13 +114,13 @@ int HttpClient::http_client_callback(struct lws *wsi, enum lws_callback_reasons 
     /* because we are protocols[0] ... */
     case LWS_CALLBACK_CLIENT_CONNECTION_ERROR: {
       lwsl_err("CLIENT_CONNECTION_ERROR: %s\n", in ? (char *)in : "(null)");
-      client_wsi = NULL;
+      dest_buffer->client->client_wsi = NULL;
       break;
     }
 
     case LWS_CALLBACK_CLOSED_CLIENT_HTTP: {
-      client_wsi = NULL;
-      status_ = lws_http_client_http_response(wsi);
+      dest_buffer->client->client_wsi = NULL;
+      dest_buffer->client->status_ = lws_http_client_http_response(wsi);
       lws_cancel_service(lws_get_context(wsi));
       break;
     }
@@ -112,7 +128,7 @@ int HttpClient::http_client_callback(struct lws *wsi, enum lws_callback_reasons 
     /* ...callbacks related to receiving the result... */
 
     case LWS_CALLBACK_ESTABLISHED_CLIENT_HTTP: {
-      status_ = lws_http_client_http_response(wsi);
+      dest_buffer->client->status_ = lws_http_client_http_response(wsi);
       break;
     }
 
@@ -120,8 +136,8 @@ int HttpClient::http_client_callback(struct lws *wsi, enum lws_callback_reasons 
       dest_buffer->raw_data = (char *)in;
       dest_buffer->raw_data.erase(std::remove(dest_buffer->raw_data.begin(),
         dest_buffer->raw_data.end(), '\"'), dest_buffer->raw_data.end());
-      crconfig_->setResponse(dest_buffer->raw_data);
-      crconfig_->setResponseStatus(status_);
+      dest_buffer->client->getCRConfig()->setResponse(dest_buffer->raw_data);
+      dest_buffer->client->getCRConfig()->setResponseStatus(dest_buffer->client->status_);
       return 0; /* don't passthru */
     }
 
@@ -137,7 +153,7 @@ int HttpClient::http_client_callback(struct lws *wsi, enum lws_callback_reasons 
     }
 
     case LWS_CALLBACK_COMPLETED_CLIENT_HTTP: {
-      client_wsi = NULL;
+      dest_buffer->client->client_wsi = NULL;
 
       lws_cancel_service(lws_get_context(wsi));
       break;
