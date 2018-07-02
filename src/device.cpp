@@ -233,10 +233,8 @@ bool Device::deviceExists() {
 }
 
 bool Device::appExists(string app_id) {
-  cout << "appExists()\n";
   exitClientThread();
   std::lock_guard<recursive_mutex> device_lock(getMutex());
-  cout << "appExists(): locked\n";
 
   getCRConfig()->setRawPayload("");
   getCRConfig()->setRequestType("GET");
@@ -257,12 +255,10 @@ bool Device::appExists(string app_id) {
   }
 
   spawnHttpClientThread();
-  cout << "appExists(): spawned threads\n";
 
   if(getHttpClientThread()->joinable())
     getHttpClientThread()->join();
 
-  cout << "appExists(): return\n";
   return getCRConfig()->getResponseStatus() == 200;
 }
 
@@ -331,11 +327,10 @@ bool Device::registerApp(string app_payload) {
 bool Device::updateApp(string app_id, string app_payload) {
   exitClientThread();
   std::lock_guard<recursive_mutex> device_lock(getMutex());
-
   getCRConfig()->setRawPayload(app_payload);
   getCRConfig()->setRequestType("PUT");
-  string srpath = (string("/devices/") + getDevId() + "/apps/" + app_id);
-  const char * rpath = srpath.c_str();
+  char rpath[100];
+  snprintf(rpath,100,Constant::Paths::UPDATE_APP_INFO_URL,Constant::Paths::DEV_ROOT_URL,getDevId().c_str(),stoi(app_id));
   getCRConfig()->setRequestPath(rpath);
 
   if(getManagerServerConfig().find(Constant::Attributes::RR_HOST) != getManagerServerConfig().end()) {

@@ -108,6 +108,8 @@ public:
       static const char * INDEX_FILE_NAME;
       static const char * FILE_404;
       static const char * APP_MOUNT_POINT;
+      static const char * DEV_ROOT_URL;
+      static const char * UPDATE_APP_INFO_URL;
 
       // logs
       static const char * LOG_PATH;

@@ -699,7 +699,7 @@ void JSApplication::updateAppState(APP_STATES state, bool update_client) {
 
   if(update_client) {
     // TODO
-    // Device::getInstance().updateApp(std::to_string(getId()),getAppAsJSON());
+    Device::getInstance().updateApp(to_string(getAppId()),getAppAsJSON());
   }
 }
 
