@@ -69,6 +69,7 @@ class AppRequest : public HttpRequest {
     }
 
   private:
+
     request_types request_type_ = request_types::UNDEFINED;
     map<string,string> body_args_;
     JSApplication *app_;

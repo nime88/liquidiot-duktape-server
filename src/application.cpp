@@ -378,7 +378,8 @@ EventLoop* JSApplication::createEventLoop() {
 
   {
     std::lock_guard<recursive_mutex> app_lock(getAppMutex());
-    eventloop_ = new EventLoop(getContext());
+    EventLoop::createNewEventLoop(getContext(),0);
+    eventloop_ = EventLoop::getEventLoop(getContext());
   }
 
   return getEventLoop();

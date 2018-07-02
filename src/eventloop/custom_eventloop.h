@@ -41,9 +41,19 @@ class EventLoop {
 
     static duk_function_list_entry eventloop_funcs[];
 
+    /* ******************* */
+    /* Setters and Getters */
+    /* ******************* */
+
+    static inline const map<duk_context*,map<int, TimerStruct>*>& getAllTimers() { return all_timers_; }
+    static map<int, TimerStruct>* getTimers(duk_context *ctx);
+    static void createNewTimers(duk_context *ctx);
+
+    static inline const map<duk_context*,EventLoop*>& getAllEventLoops() { return all_eventloops_; }
+    static EventLoop* getEventLoop(duk_context *ctx);
+    static void createNewEventLoop(duk_context *ctx, EventLoop *event_loop);
+
   private:
-    duk_context *ctx_;
-    map<int,TimerStruct> *timers_;
     bool exit_requested_ = 0;
     int current_timeout_ = 0;
 

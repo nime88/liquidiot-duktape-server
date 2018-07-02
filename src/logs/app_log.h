@@ -17,17 +17,17 @@ class AppLog : public std::streambuf, public std::ostream {
       // std::ofstream(path)
       string tmp = path;
       tmp += Constant::Paths::LOG_PATH;
-      file_.open(tmp.c_str(), std::ofstream::app);
-      path_ = path;
+      getFile().open(tmp.c_str(), std::ofstream::app);
+      setPath(path);
     }
 
     ~AppLog() {
-      file_.close();
+      getFile().close();
     }
 
     std::streambuf::int_type overflow(std::streambuf::int_type c)
     {
-      file_ << (char)c;
+      getFile() << (char)c;
       return 0;
     }
 
@@ -40,6 +40,14 @@ class AppLog : public std::streambuf, public std::ostream {
 
       return tmp.str();
     }
+
+    /* ******************* */
+    /* Setters and Getters */
+    /* ******************* */
+
+    void setPath(const char* path) { path_ = path; }
+
+    inline std::ofstream& getFile() { return file_; }
 
 
   private:

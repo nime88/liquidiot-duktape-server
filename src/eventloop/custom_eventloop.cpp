@@ -46,16 +46,10 @@ duk_function_list_entry EventLoop::eventloop_funcs[] = {
 };
 
 EventLoop::EventLoop(duk_context *ctx) {
-  ctx_ = ctx;
-  evloopRegister(ctx_);
+  evloopRegister(ctx);
 
-  // creating pointer to timers
-  timers_ = new map<int,TimerStruct>();
-
-  // adding this to global eventloops
-  EventLoop::all_eventloops_.insert(pair<duk_context*,EventLoop*>(ctx_,this));
   // adding timers to global timers
-  EventLoop::all_timers_.insert(pair<duk_context*,map<int, TimerStruct>*>(ctx_,timers_));
+  createNewTimers(ctx);
 }
 
 void EventLoop::evloopRegister(duk_context *ctx) {
@@ -80,8 +74,8 @@ void EventLoop::evloopRegister(duk_context *ctx) {
 
 int EventLoop::eventloop_run(duk_context *ctx, void *udata) {
   DBOUT( "eventloop_run(): Starting");
-  EventLoop *eventloop = EventLoop::all_eventloops_.at(ctx);
-  map<int,TimerStruct> *timers = EventLoop::all_timers_.at(ctx);
+  EventLoop *eventloop = getAllEventLoops().at(ctx);
+  map<int,TimerStruct> *timers = getAllTimers().at(ctx);
   JSApplication *app = JSApplication::getApplications().at(ctx);
   double now;
   double diff;
@@ -165,8 +159,8 @@ int EventLoop::expire_timers(duk_context *ctx) {
   int sanity = MAX_EXPIRIES;
   double now = get_now();
   int rc;
-  EventLoop *eventloop = EventLoop::all_eventloops_.at(ctx);
-  map<int,TimerStruct> *timers = EventLoop::all_timers_.at(ctx);
+  EventLoop *eventloop = getAllEventLoops().at(ctx);
+  map<int,TimerStruct> *timers = getAllTimers().at(ctx);
 
   DBOUT( "expire_timers(): Successfully initialized variables");
   DBOUT( "expire_timers(): " << ctx << " - " << timers->size());
@@ -258,7 +252,7 @@ int EventLoop::create_timer(duk_context *ctx) {
   double now = get_now();
   double delay;
   bool oneshot;
-  map<int, TimerStruct> *timers = EventLoop::all_timers_.at(ctx);
+  map<int, TimerStruct> *timers = getAllTimers().at(ctx);
   TimerStruct timer;
 
   DBOUT( "Loading data successful" );
@@ -323,7 +317,6 @@ int EventLoop::create_timer(duk_context *ctx) {
 
 int EventLoop::delete_timer(duk_context *ctx) {
   double timer_id;
-  map<int,TimerStruct> *timers_ = EventLoop::all_timers_.at(ctx);
   bool found = 0;
 
   /* indexes:
@@ -333,7 +326,7 @@ int EventLoop::delete_timer(duk_context *ctx) {
   timer_id = (double) duk_require_number(ctx, 0);
 
   // removing timer from existence
-  found = timers_->erase((int)timer_id);
+  found = getTimers(ctx)->erase((int)timer_id);
 
   /* The C++ state is now up-to-date, but we still need to delete
    * the timer callback state from the global 'stash'.
@@ -349,9 +342,44 @@ int EventLoop::delete_timer(duk_context *ctx) {
 }
 
 int EventLoop::request_exit(duk_context *ctx) {
-  EventLoop *eventloop = EventLoop::all_eventloops_.at(ctx);
+  EventLoop *eventloop = getAllEventLoops().at(ctx);
   eventloop->setRequestExit(1);
   return 0;
+}
+
+map<int, EventLoop::TimerStruct>* EventLoop::getTimers(duk_context *ctx) {
+  if(getAllTimers().find(ctx) != getAllTimers().end()) {
+    return getAllTimers().at(ctx);
+  }
+
+  return 0;
+}
+
+void EventLoop::createNewTimers(duk_context *ctx) {
+  if(getAllTimers().find(ctx) != getAllTimers().end()) {
+    return;
+  }
+
+  EventLoop::all_timers_.insert(pair<duk_context*,map<int, TimerStruct>*>(ctx,new map<int,TimerStruct>()));
+}
+
+EventLoop* EventLoop::getEventLoop(duk_context *ctx) {
+  if(getAllEventLoops().find(ctx) != getAllEventLoops().end()) {
+    return getAllEventLoops().at(ctx);
+  }
+
+  return 0;
+}
+
+void EventLoop::createNewEventLoop(duk_context *ctx, EventLoop *event_loop) {
+  if(getAllEventLoops().find(ctx) != getAllEventLoops().end()) {
+    return;
+  }
+
+  if(event_loop)
+    EventLoop::all_eventloops_.insert(pair<duk_context*,EventLoop*>(ctx,event_loop));
+  else
+    EventLoop::all_eventloops_.insert(pair<duk_context*,EventLoop*>(ctx,new EventLoop(ctx)));
 }
 
 /* Get Javascript compatible 'now' timestamp (millisecs since 1970). */
