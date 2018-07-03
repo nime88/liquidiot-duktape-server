@@ -63,5 +63,7 @@ const char * Constant::Paths::INDEX_FILE_NAME = "index.html";
 const char * Constant::Paths::FILE_404 = "/404.html";
 const char * Constant::Paths::APP_MOUNT_POINT = "/app";
 const char * Constant::Paths::DEV_ROOT_URL = "devices";
+const char * Constant::Paths::REGISTER_APP_URL = "/%s/%s/apps";
 const char * Constant::Paths::UPDATE_APP_INFO_URL = "/%s/%s/apps/%d";
+const char * Constant::Paths::DELETE_APP_URL = "/%s/%s/apps/%d";
 const char * Constant::Paths::LOG_PATH = "/logs.txt";

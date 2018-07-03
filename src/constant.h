@@ -109,7 +109,9 @@ public:
       static const char * FILE_404;
       static const char * APP_MOUNT_POINT;
       static const char * DEV_ROOT_URL;
+      static const char * REGISTER_APP_URL;
       static const char * UPDATE_APP_INFO_URL;
+      static const char * DELETE_APP_URL;
 
       // logs
       static const char * LOG_PATH;

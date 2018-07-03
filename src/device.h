@@ -34,7 +34,6 @@ class Device {
     }
 
     ~Device() {
-
       //dont need duktape anymore
       duk_destroy_heap(duk_context_);
       duk_context_ = 0;
@@ -140,6 +139,7 @@ class Device {
     bool registerAppApi(string class_name, string swagger_fragment);
     bool registerApp(string app_payload);
     bool updateApp(string app_id, string app_payload);
+    bool deleteApp(string app_id);
 
     /** Functions that use the client end **/
 

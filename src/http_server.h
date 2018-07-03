@@ -8,6 +8,10 @@
  class HttpServer {
   public:
     HttpServer(){}
+
+    ~HttpServer() {}
+
+
     int run();
 
     static int rest_api_callback(struct lws *wsi, enum lws_callback_reasons reason,

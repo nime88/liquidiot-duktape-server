@@ -234,7 +234,8 @@ bool Device::deviceExists() {
   if(getHttpClientThread()->joinable())
     getHttpClientThread()->join();
 
-  // cleaning the response out of spaces
+  // cleaning the response out of spaces because for some reason response value
+  // from the RR manager has some extra spaces
   string resp = getCRConfig()->getResponse();
   resp.erase(std::remove(resp.begin(),
     resp.end(), ' '), resp.end());
@@ -314,8 +315,9 @@ bool Device::registerApp(string app_payload) {
 
   getCRConfig()->setRawPayload(app_payload);
   getCRConfig()->setRequestType("POST");
-  string srpath = (string("/devices/")+ getDevId() + "/apps");
-  const char * rpath = srpath.c_str();
+
+  char rpath[100];
+  snprintf(rpath,100,Constant::Paths::REGISTER_APP_URL,Constant::Paths::DEV_ROOT_URL,getDevId().c_str());
   getCRConfig()->setRequestPath(rpath);
   DBOUT( "registerApp(): request path:" << rpath );
 
@@ -349,6 +351,38 @@ bool Device::updateApp(string app_id, string app_payload) {
   snprintf(rpath,100,Constant::Paths::UPDATE_APP_INFO_URL,Constant::Paths::DEV_ROOT_URL,getDevId().c_str(),stoi(app_id));
   getCRConfig()->setRequestPath(rpath);
   DBOUT( "updateApp(): request path:" << rpath );
+
+  if(getManagerServerConfig().find(Constant::Attributes::RR_HOST) != getManagerServerConfig().end()) {
+    getCRConfig()->setRRHost(getManagerServerConfig().at(Constant::Attributes::RR_HOST).c_str());
+  } else {
+    return false;
+  }
+
+  if(getManagerServerConfig().find(Constant::Attributes::RR_PORT) != getManagerServerConfig().end()) {
+    getCRConfig()->setRRPort(getManagerServerConfig().at(Constant::Attributes::RR_PORT).c_str());
+  } else {
+    return false;
+  }
+
+  spawnHttpClientThread();
+
+  if(getHttpClientThread()->joinable())
+    getHttpClientThread()->join();
+
+  return getCRConfig()->getResponseStatus() == 200;
+}
+
+bool Device::deleteApp(string app_id) {
+  DBOUT( "deleteApp(): app id:" << app_id );
+  exitClientThread();
+  std::lock_guard<recursive_mutex> device_lock(getMutex());
+
+  getCRConfig()->setRawPayload("");
+  getCRConfig()->setRequestType("DELETE");
+  char rpath[100];
+  snprintf(rpath,100,Constant::Paths::DELETE_APP_URL,Constant::Paths::DEV_ROOT_URL,getDevId().c_str(),stoi(app_id));
+  getCRConfig()->setRequestPath(rpath);
+  DBOUT( "deleteApp(): request path:" << rpath );
 
   if(getManagerServerConfig().find(Constant::Attributes::RR_HOST) != getManagerServerConfig().end()) {
     getCRConfig()->setRRHost(getManagerServerConfig().at(Constant::Attributes::RR_HOST).c_str());

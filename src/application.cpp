@@ -24,10 +24,10 @@ using std::to_string;
 #include "file_ops.h"
 #include "logs/app_log.h"
 #include "logs/read_app_log.h"
-#include "device.h"
 #include "duk_util.h"
+#include "globals.h"
 
-#define NDEBUG
+// #define NDEBUG
 
 #ifdef NDEBUG
     #define DBOUT( x ) cout << x  << "\n"
@@ -291,9 +291,6 @@ void JSApplication::init() {
 }
 
 void JSApplication::clean() {
-  // updating app state before locking
-  updateAppState(APP_STATES::PAUSED, true);
-
   {
     std::lock_guard<recursive_mutex> app_lock(getAppMutex());
 
@@ -316,9 +313,9 @@ void JSApplication::clean() {
         std::cerr << "the error description is " << e.what() << '\n';
     }
 
-    cout << "clean(): killing thread was successful" << endl;
+    DBOUT ( "clean(): killing thread was successful");
 
-    cout << "clean(): thread waiting over and calling terminate" << endl;
+    DBOUT ( "clean(): thread waiting over and calling terminate" );
 
     {
       std::lock_guard<recursive_mutex> duktape_lock(getDuktapeMutex());
@@ -337,13 +334,13 @@ void JSApplication::clean() {
 
     deleteEventLoop();
 
-    cout << "clean(): destoying duk heap" << endl;
+    DBOUT ( "clean(): destoying duk heap" );
     {
       std::lock_guard<recursive_mutex> duktape_lock(getDuktapeMutex());
       duk_destroy_heap(getContext());
     }
 
-    cout << "clean(): cleaning the app out" << getContext() << endl;
+    DBOUT ( "clean(): cleaning the app out" << getContext() );
     {
       std::lock_guard<recursive_mutex> static_lock(getStaticMutex());
       applications_.erase(getContext());
@@ -578,6 +575,8 @@ bool JSApplication::deleteApplication(JSApplication *app) {
     std::lock_guard<recursive_mutex> static_lock(getStaticMutex());
     applications_.erase(app->getContext());
   }
+  app->pause();
+  Device::getInstance().deleteApp(std::to_string(app->getAppId()));
   app->clean();
   if(delete_files(app->getAppPath().c_str()))
     return 1;
@@ -684,6 +683,12 @@ void JSApplication::run() {
       fflush(stderr);
     }
     duk_pop(getContext());
+  }
+
+  if(interrupted) {
+    pause();
+    // if runtime is terminating deleting app from the manager
+    Device::getInstance().deleteApp(std::to_string(getAppId()));
   }
 }
 

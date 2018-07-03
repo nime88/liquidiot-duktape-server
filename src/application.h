@@ -8,6 +8,7 @@ class AppResponse;
 #include "app_response.h"
 #include "constant.h"
 #include "mod_duk_console.h"
+#include "device.h"
 
 #if defined (__cplusplus)
 extern "C" {
