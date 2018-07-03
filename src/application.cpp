@@ -71,6 +71,9 @@ JSApplication::JSApplication(const char* path) {
       Device::getInstance().registerApp(app_payload);
     }
   }
+
+  pause();
+  start();
 }
 
 void JSApplication::init() {
@@ -96,7 +99,7 @@ void JSApplication::init() {
     }
 
     // setting app state to initializing
-    updateAppState(APP_STATES::INITIALIZING);
+    updateAppState(APP_STATES::INITIALIZING, false);
 
     DBOUT ("Inserting application");
     // adding this application to static apps
@@ -670,7 +673,7 @@ bool JSApplication::start() {
 }
 
 void JSApplication::run() {
-  updateAppState(APP_STATES::RUNNING, true);
+  updateAppState(APP_STATES::RUNNING, false);
 
   {
     std::lock_guard<recursive_mutex> duktape_lock(getDuktapeMutex());
@@ -695,10 +698,12 @@ void JSApplication::reload() {
 }
 
 void JSApplication::updateAppState(APP_STATES state, bool update_client) {
+  DBOUT("updateAppState(): setting state to " + APP_STATES_CHAR[state]);
   setAppState(state);
 
   if(update_client) {
     // TODO
+    DBOUT("updateAppState(): updating RR manager");
     Device::getInstance().updateApp(to_string(getAppId()),getAppAsJSON());
   }
 }

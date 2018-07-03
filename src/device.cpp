@@ -18,6 +18,14 @@ using std::regex;
 
 recursive_mutex Device::mtx_;
 
+#define NDEBUG
+
+#ifdef NDEBUG
+    #define DBOUT( x ) cout << x  << "\n"
+#else
+    #define DBOUT( x )
+#endif
+
 Device::Device() {
   // As device_config is read only once we don't store or retain the duktape context
   duk_context_ = duk_create_heap_default();
@@ -171,6 +179,7 @@ bool Device::sendDeviceInfo() {
   getCRConfig()->setRawPayload(getDeviceInfoAsJSON());
   getCRConfig()->setRequestType("POST");
   getCRConfig()->setRequestPath("/devices");
+  DBOUT( "sendDeviceInfo(): request path:" << "/devices" );
 
   if(getManagerServerConfig().find(Constant::Attributes::RR_HOST) != getManagerServerConfig().end()) {
     getCRConfig()->setRRHost(getManagerServerConfig().at(Constant::Attributes::RR_HOST).c_str());
@@ -206,6 +215,7 @@ bool Device::deviceExists() {
   string srpath = (string("/devices/id/")+getDevId());
   const char * rpath = srpath.c_str();
   getCRConfig()->setRequestPath(rpath);
+  DBOUT( "deviceExists(): request path:" << rpath );
 
   if(getManagerServerConfig().find(Constant::Attributes::RR_HOST) != getManagerServerConfig().end()) {
     getCRConfig()->setRRHost(getManagerServerConfig().at(Constant::Attributes::RR_HOST).c_str());
@@ -233,6 +243,7 @@ bool Device::deviceExists() {
 }
 
 bool Device::appExists(string app_id) {
+  DBOUT( "appExists(): app id:" << app_id );
   exitClientThread();
   std::lock_guard<recursive_mutex> device_lock(getMutex());
 
@@ -241,6 +252,7 @@ bool Device::appExists(string app_id) {
   string srpath = (string("/devices/") + getDevId() + string("/apps/") + app_id + string("/api"));
   const char * rpath = srpath.c_str();
   getCRConfig()->setRequestPath(rpath);
+  DBOUT( "appExists(): request path:" << rpath );
 
   if(getManagerServerConfig().find(Constant::Attributes::RR_HOST) != getManagerServerConfig().end()) {
     getCRConfig()->setRRHost(getManagerServerConfig().at(Constant::Attributes::RR_HOST).c_str());
@@ -263,6 +275,7 @@ bool Device::appExists(string app_id) {
 }
 
 bool Device::registerAppApi(string class_name, string swagger_fragment) {
+  DBOUT( "registerAppApi(): class_name:" << class_name );
   exitClientThread();
   std::lock_guard<recursive_mutex> device_lock(getMutex());
 
@@ -271,6 +284,7 @@ bool Device::registerAppApi(string class_name, string swagger_fragment) {
   string srpath = (string("/apis/")+ class_name);
   const char * rpath = srpath.c_str();
   getCRConfig()->setRequestPath(rpath);
+  DBOUT( "registerAppApi(): request path:" << rpath );
 
   if(getManagerServerConfig().find(Constant::Attributes::RR_HOST) != getManagerServerConfig().end()) {
     getCRConfig()->setRRHost(getManagerServerConfig().at(Constant::Attributes::RR_HOST).c_str());
@@ -303,6 +317,7 @@ bool Device::registerApp(string app_payload) {
   string srpath = (string("/devices/")+ getDevId() + "/apps");
   const char * rpath = srpath.c_str();
   getCRConfig()->setRequestPath(rpath);
+  DBOUT( "registerApp(): request path:" << rpath );
 
   if(getManagerServerConfig().find(Constant::Attributes::RR_HOST) != getManagerServerConfig().end()) {
     getCRConfig()->setRRHost(getManagerServerConfig().at(Constant::Attributes::RR_HOST).c_str());
@@ -325,6 +340,7 @@ bool Device::registerApp(string app_payload) {
 }
 
 bool Device::updateApp(string app_id, string app_payload) {
+  DBOUT( "updateApp(): app id:" << app_id );
   exitClientThread();
   std::lock_guard<recursive_mutex> device_lock(getMutex());
   getCRConfig()->setRawPayload(app_payload);
@@ -332,6 +348,7 @@ bool Device::updateApp(string app_id, string app_payload) {
   char rpath[100];
   snprintf(rpath,100,Constant::Paths::UPDATE_APP_INFO_URL,Constant::Paths::DEV_ROOT_URL,getDevId().c_str(),stoi(app_id));
   getCRConfig()->setRequestPath(rpath);
+  DBOUT( "updateApp(): request path:" << rpath );
 
   if(getManagerServerConfig().find(Constant::Attributes::RR_HOST) != getManagerServerConfig().end()) {
     getCRConfig()->setRRHost(getManagerServerConfig().at(Constant::Attributes::RR_HOST).c_str());
