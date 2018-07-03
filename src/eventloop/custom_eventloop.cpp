@@ -133,16 +133,16 @@ int EventLoop::eventloop_run(duk_context *ctx, void *udata) {
       // updating current timeout
       eventloop->setCurrentTimeout(timeout);
 
-      // handling sigint event
-      signal(SIGINT, sigint_handler);
-
-      // DBOUT( "eventloop_run(): Timers, diff " << diff);
-      // DBOUT( "eventloop_run(): Starting poll() wait for " << timeout << " millis");
+      DBOUT( "eventloop_run(): Timers, diff " << diff);
     }
     // unlocking app mutexes if for some reason they are not released by lock guard
     app->getAppMutex().unlock();
     app->getDuktapeMutex().unlock();
+
+    DBOUT( "eventloop_run(): Starting poll() wait for " << timeout << " millis");
     poll(NULL,0,timeout);
+    // handling sigint event
+    signal(SIGINT, sigint_handler);
   }
 
   DBOUT( "eventloop_run(): Run was executed successfully");

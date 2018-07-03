@@ -4,9 +4,11 @@
 #if defined (__cplusplus)
 extern "C" {
 #endif
+  #include <signal.h>
 
   // some interruption global event handling
   extern int interrupted;
+  extern const sigset_t *sigmask;
   extern void sigint_handler(int sig);
 
 #if defined (__cplusplus)

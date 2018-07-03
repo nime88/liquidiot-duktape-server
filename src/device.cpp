@@ -178,8 +178,11 @@ bool Device::sendDeviceInfo() {
 
   getCRConfig()->setRawPayload(getDeviceInfoAsJSON());
   getCRConfig()->setRequestType("POST");
-  getCRConfig()->setRequestPath("/devices");
-  DBOUT( "sendDeviceInfo(): request path:" << "/devices" );
+
+  char rpath[100];
+  snprintf(rpath,100,"/%s",Constant::Paths::DEV_ROOT_URL);
+  getCRConfig()->setRequestPath(rpath);
+  DBOUT( "sendDeviceInfo(): request path:" << rpath );
 
   if(getManagerServerConfig().find(Constant::Attributes::RR_HOST) != getManagerServerConfig().end()) {
     getCRConfig()->setRRHost(getManagerServerConfig().at(Constant::Attributes::RR_HOST).c_str());
@@ -212,8 +215,9 @@ bool Device::deviceExists() {
 
   getCRConfig()->setRawPayload("");
   getCRConfig()->setRequestType("GET");
-  string srpath = (string("/devices/id/")+getDevId());
-  const char * rpath = srpath.c_str();
+
+  char rpath[100];
+  snprintf(rpath,100,Constant::Paths::DEV_EXISTS_URL, Constant::Paths::DEV_ROOT_URL, getDevId().c_str());
   getCRConfig()->setRequestPath(rpath);
   DBOUT( "deviceExists(): request path:" << rpath );
 
@@ -250,8 +254,9 @@ bool Device::appExists(string app_id) {
 
   getCRConfig()->setRawPayload("");
   getCRConfig()->setRequestType("GET");
-  string srpath = (string("/devices/") + getDevId() + string("/apps/") + app_id + string("/api"));
-  const char * rpath = srpath.c_str();
+
+  char rpath[100];
+  snprintf(rpath,100,Constant::Paths::APP_EXISTS_URL, Constant::Paths::DEV_ROOT_URL, getDevId().c_str(), app_id.c_str());
   getCRConfig()->setRequestPath(rpath);
   DBOUT( "appExists(): request path:" << rpath );
 
@@ -282,8 +287,9 @@ bool Device::registerAppApi(string class_name, string swagger_fragment) {
 
   getCRConfig()->setRawPayload(swagger_fragment);
   getCRConfig()->setRequestType("PUT");
-  string srpath = (string("/apis/")+ class_name);
-  const char * rpath = srpath.c_str();
+
+  char rpath[100];
+  snprintf(rpath,100,Constant::Paths::REGISTER_APP_API_URL, class_name.c_str());
   getCRConfig()->setRequestPath(rpath);
   DBOUT( "registerAppApi(): request path:" << rpath );
 
