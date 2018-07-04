@@ -31,10 +31,10 @@ int main(int argc, char *argv[]) {
   // calling device constructor to get it ready
   Device::getInstance();
 
-  JSApplication::getJoinThreads();
   servert->join();
+  JSApplication::getJoinThreads();
 
-  AppManager::getInstance().stopApps();
+  // AppManager::getInstance().stopApps();
 
   return 0;
 }

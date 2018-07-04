@@ -27,7 +27,7 @@ using std::to_string;
 #include "duk_util.h"
 #include "globals.h"
 
-// #define NDEBUG
+#define NDEBUG
 
 #ifdef NDEBUG
     #define DBOUT( x ) cout << x  << "\n"
@@ -295,58 +295,52 @@ void JSApplication::clean() {
     std::lock_guard<recursive_mutex> app_lock(getAppMutex());
 
     DBOUT ( "clean()" );
-    // if the application is running we need to stop the thread
-    getEventLoop()->setRequestExit(true);
-    // waiting for thread to stop the execution (come back from poll)
-    DBOUT ("clean(): waiting for thread over" );
-    try {
-      while (getEventLoopThread()->joinable()) {
-        // waiting eventloop poll to finish
-        poll(NULL,0,getEventLoop()->getCurrentTimeout());
-        if(getEventLoopThread()->joinable())
-          getEventLoopThread()->join();
+
+    if(getEventLoop()) {
+      // if the application is running we need to stop the thread
+      getEventLoop()->setRequestExit(true);
+      poll(NULL,0,getEventLoop()->getCurrentTimeout());
+    }
+
+    if(getEventLoopThread()) {
+      // waiting for thread to stop the execution (come back from poll)
+      DBOUT ("clean(): waiting for thread over" );
+      try {
+        if(getEventLoopThread()->joinable() == true) {
+          DBOUT ("clean(): detaching eventloop" );
+          getEventLoopThread()->detach();
+        }
+        DBOUT ("clean(): deleting eventloop" );
+        deleteEventLoopThread();
+      } catch (const std::system_error& e) {
+        if(std::errc::invalid_argument != e.code()) {
+          std::cerr << "Caught a system_error\n";
+          std::cerr << "the error description is " << e.what() << '\n';
+          abort();
+        } else {
+          std::cerr << "EventLoop thread not joinable anymore\n";
+          deleteEventLoopThread();
+        }
       }
-    } catch (const std::system_error& e) {
-      std::cerr << "Caught a system_error\n";
-      if(e.code() == std::errc::invalid_argument)
-        std::cerr << "The error condition is std::errc::invalid_argument\n";
-        std::cerr << "the error description is " << e.what() << '\n';
+
+      DBOUT ( "clean(): killing thread was successful");
     }
 
-    DBOUT ( "clean(): killing thread was successful");
-
-    DBOUT ( "clean(): thread waiting over and calling terminate" );
-
-    {
-      std::lock_guard<recursive_mutex> duktape_lock(getDuktapeMutex());
-      duk_push_string(getContext(), "app.internal.terminate(function(){});");
-      if(duk_peval(getContext()) != 0) {
-        printf("Script error: %s\n", duk_safe_to_string(getContext(), -1));
+    if(getContext()) {
+      DBOUT ( "clean(): thread waiting over and calling terminate" );
+      {
+        std::lock_guard<recursive_mutex> duktape_lock(getDuktapeMutex());
+        duk_push_string(getContext(), "app.internal.terminate(function(){});");
+        if(duk_peval(getContext()) != 0) {
+          printf("Script error: %s\n", duk_safe_to_string(getContext(), -1));
+        }
       }
     }
 
-    deleteEventLoopThread();
+    if(getEventLoop())
+      deleteEventLoop();
 
-    {
-      std::lock_guard<recursive_mutex> static_lock(getStaticMutex());
-      app_threads_.erase(getContext());
-    }
-
-    deleteEventLoop();
-
-    DBOUT ( "clean(): destoying duk heap" );
-    {
-      std::lock_guard<recursive_mutex> duktape_lock(getDuktapeMutex());
-      duk_destroy_heap(getContext());
-    }
-
-    DBOUT ( "clean(): cleaning the app out" << getContext() );
-    {
-      std::lock_guard<recursive_mutex> static_lock(getStaticMutex());
-      applications_.erase(getContext());
-    }
-
-    duk_context_ = 0;
+    DBOUT ("clean(): success" );
   }
 }
 
@@ -363,11 +357,15 @@ bool JSApplication::createEventLoopThread() {
 
 bool JSApplication::deleteEventLoopThread() {
   if(getEventLoopThread()) {
-    {
-      std::lock_guard<recursive_mutex> app_lock(getAppMutex());
-      delete ev_thread_;
-      ev_thread_ = 0;
+    std::lock_guard<recursive_mutex> app_lock(getAppMutex());
+    if(ev_thread_->joinable()) {
+      ev_thread_->join();
     }
+
+    if(!interrupted)
+      delete ev_thread_;
+    ev_thread_ = 0;
+
     return true;
   }
   return false;
@@ -389,7 +387,8 @@ bool JSApplication::deleteEventLoop() {
   if(getEventLoop()) {
     {
       std::lock_guard<recursive_mutex> app_lock(getAppMutex());
-      delete eventloop_;
+      if(!interrupted)
+        delete eventloop_;
       eventloop_ = 0;
     }
     return true;
@@ -570,18 +569,51 @@ void JSApplication::addApplication( JSApplication *app ) {
 }
 
 bool JSApplication::deleteApplication(JSApplication *app) {
-  // have to delete app before we clean (otherwise can really find it)
-  {
-    std::lock_guard<recursive_mutex> static_lock(getStaticMutex());
-    applications_.erase(app->getContext());
-  }
+  std::lock_guard<recursive_mutex> static_lock(getStaticMutex());
+  DBOUT("deleteApplication()");
   app->pause();
   Device::getInstance().deleteApp(std::to_string(app->getAppId()));
-  app->clean();
-  if(delete_files(app->getAppPath().c_str()))
-    return 1;
 
-  return 0;
+  DBOUT("deleteApplication(): Deleting files");
+  delete_files(app->getAppPath().c_str()); /* There is a possibility of failure but we ignore it */
+
+  DBOUT("deleteApplication(): clean()");
+  app->clean();
+
+  DBOUT ( "deleteApplication(): removing thread from stucture" );
+  if(app_threads_.find(app->getContext()) != app_threads_.end()) {
+    // Wait thread to finish 100 ms should be more than enough
+    poll(NULL,0,100);
+
+    try {
+      if(app_threads_.at(app->getContext())->joinable())
+        app_threads_.at(app->getContext())->join();
+    } catch(std::system_error& e) {
+      if(std::errc::invalid_argument == e.code()) {
+        std::cerr << "App thread was too slow to join.\n";
+        std::cerr << "Waiting for a moment and trying to continue.\n";
+        poll(NULL,0,100);
+      } else {
+        std::cerr << "Unexpected error: " << e.what() << "\n";
+        abort();
+      }
+    }
+  }
+
+  DBOUT ( "deleteApplication(): cleaning the app out of ds" );
+  app_threads_.erase(app->getContext());
+  applications_.erase(app->getContext());
+
+  DBOUT ( "deleteApplication(): destoying duk heap" );
+  duk_destroy_heap(app->getContext());
+  app->duk_context_ = 0;
+
+  DBOUT("deleteApplication(): actual removal from memory");
+  delete app;
+  app = 0;
+
+  DBOUT("deleteApplication(): Deleting success");
+  return 1;
 }
 
 void JSApplication::addApplicationThread( JSApplication *app ) {
@@ -682,14 +714,19 @@ void JSApplication::run() {
       fprintf(stderr, "eventloop_run() failed: %s\n", duk_to_string(getContext(), -1));
       fflush(stderr);
     }
-    duk_pop(getContext());
+    if(getContext())
+      duk_pop(getContext());
   }
 
+  DBOUT("run(): exited eventloop");
+
   if(interrupted) {
+    DBOUT("run(): interrupt");
     pause();
     // if runtime is terminating deleting app from the manager
     Device::getInstance().deleteApp(std::to_string(getAppId()));
   }
+  DBOUT("run(): completed");
 }
 
 void JSApplication::reload() {
@@ -1130,8 +1167,13 @@ const vector<string>& JSApplication::listApplicationNames() {
 }
 
 void JSApplication::getJoinThreads() {
+  DBOUT( "getJoinThreads()");
+
+  DBOUT( "getJoinThreads(): threads size: " << getApplicationThreads().size());
     for (  map<duk_context*, thread*>::const_iterator it=getApplicationThreads().begin(); it!=getApplicationThreads().end(); ++it) {
-      it->second->join();
+      DBOUT( "getJoinThreads(): joining thread: " << it->first << " : " << it->second);
+      if(it->second && it->second->joinable())
+        it->second->join();
     }
 }
 

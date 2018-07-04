@@ -97,6 +97,7 @@ int DeleteRequest::calculateHttpRequest(void* buffer_data, void* in) {
         if(deleted_apps) {
           dest_buffer->large_str = "Application " + to_string(id) + " was deleted successfully.";
         }
+        break;
       }
     }
 

@@ -128,6 +128,6 @@ map<string,string> HttpRequest::parseBodyAttributes(string body) {
     attr.insert(pair<string,string>(name,value));
     body = m.suffix();
   }
-  
+
   return attr;
 }

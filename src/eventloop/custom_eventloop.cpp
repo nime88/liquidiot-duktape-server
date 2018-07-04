@@ -36,6 +36,7 @@ extern "C" {
 #define  MAX_TIMERS             4096     /* this is quite excessive for embedded use, but good for testing */
 
 int EventLoop::next_id_ = 0;
+mutex EventLoop::mtx_;
 map<duk_context*,map<int, EventLoop::TimerStruct>*> EventLoop::all_timers_;
 map<duk_context*,EventLoop*> EventLoop::all_eventloops_;
 duk_function_list_entry EventLoop::eventloop_funcs[] = {
@@ -95,7 +96,7 @@ int EventLoop::eventloop_run(duk_context *ctx, void *udata) {
   for(;;) {
     {
       std::lock_guard<recursive_mutex> app_lock(app->getAppMutex());
-      if(interrupted || eventloop->exit_requested_) {
+      if(interrupted || eventloop->exitRequested()) {
         DBOUT( "eventloop_run(): Asked for termination");
         break;
       }
@@ -138,6 +139,7 @@ int EventLoop::eventloop_run(duk_context *ctx, void *udata) {
     // unlocking app mutexes if for some reason they are not released by lock guard
     app->getAppMutex().unlock();
     app->getDuktapeMutex().unlock();
+    JSApplication::getStaticMutex().unlock();
 
     DBOUT( "eventloop_run(): Starting poll() wait for " << timeout << " millis");
     poll(NULL,0,timeout);
@@ -151,19 +153,20 @@ int EventLoop::eventloop_run(duk_context *ctx, void *udata) {
 }
 
 int EventLoop::expire_timers(duk_context *ctx) {
+   DBOUT( "expire_timers()" );
   if(!ctx) return 0;
 
   JSApplication *app = JSApplication::getApplications().at(ctx);
 
-  DBOUT( "expire_timers(): Starting expire timers");
+  // DBOUT( "expire_timers(): Starting expire timers");
   int sanity = MAX_EXPIRIES;
   double now = get_now();
   int rc;
   EventLoop *eventloop = getAllEventLoops().at(ctx);
   map<int,TimerStruct> *timers = getAllTimers().at(ctx);
 
-  DBOUT( "expire_timers(): Successfully initialized variables");
-  DBOUT( "expire_timers(): " << ctx << " - " << timers->size());
+  // DBOUT( "expire_timers(): Successfully initialized variables");
+  // DBOUT( "expire_timers(): " << ctx << " - " << timers->size());
 
   {
     std::lock_guard<recursive_mutex> duktape_lock(app->getDuktapeMutex());
@@ -171,11 +174,11 @@ int EventLoop::expire_timers(duk_context *ctx) {
     duk_get_prop_string(ctx, -1, TIMERS_SLOT_NAME);
     /* [ ... stash eventTimers ] */
 
-    DBOUT( "expire_timers(): Reading timers form heap slot successful");
+    // DBOUT( "expire_timers(): Reading timers form heap slot successful");
 
     for(;sanity > 0 && (MAX_EXPIRIES-sanity) < (int)timers->size(); --sanity) {
         // exit has been requested...
-        if (eventloop->exit_requested_) {
+        if (eventloop->exitRequested()) {
           break;
         }
 
@@ -184,7 +187,7 @@ int EventLoop::expire_timers(duk_context *ctx) {
           break;
         }
 
-        DBOUT( "expire_timers(): Loop, there are " << timers->size() << " timers");
+        // DBOUT( "expire_timers(): Loop, there are " << timers->size() << " timers");
         // find expired timers and mark them
         for (map<int, TimerStruct>::iterator it = timers->begin(); it != timers->end(); ++it) {
           if(it->second.removed) {
@@ -238,12 +241,12 @@ int EventLoop::expire_timers(duk_context *ctx) {
           }
         }
 
-        DBOUT( "expire_timers(): Loop, trying to pop last 2");
+        // DBOUT( "expire_timers(): Loop, trying to pop last 2");
         duk_pop_2(ctx);  /* -> [ ... ] */
     }
   }
 
-  DBOUT( "expire_timers(): Expired timers successfully");
+  // DBOUT( "expire_timers(): Expired timers successfully");
   return 0;
 }
 

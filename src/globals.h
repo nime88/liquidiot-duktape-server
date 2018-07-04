@@ -8,7 +8,6 @@ extern "C" {
 
   // some interruption global event handling
   extern int interrupted;
-  extern const sigset_t *sigmask;
   extern void sigint_handler(int sig);
 
 #if defined (__cplusplus)

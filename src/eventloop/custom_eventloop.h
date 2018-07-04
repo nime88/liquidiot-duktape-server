@@ -12,7 +12,9 @@ extern "C" {
 #endif
 
 #include <map>
+#include <mutex>
 using std::map;
+using std::mutex;
 
 class EventLoop {
   public:
@@ -29,9 +31,17 @@ class EventLoop {
     EventLoop(duk_context *ctx);
 
     void evloopRegister(duk_context *ctx);
-    void setRequestExit(bool request_exit) { exit_requested_ = request_exit; }
+    inline bool exitRequested() { return exit_requested_; }
+    void setRequestExit(bool request_exit) {
+      {
+        std::lock_guard<mutex> evloop_lock(getMutex());
+        exit_requested_ = request_exit;
+      }
+    }
     void setCurrentTimeout(int timeout) { current_timeout_ = timeout; }
     int getCurrentTimeout() { return current_timeout_; }
+
+    static inline mutex& getMutex() { return mtx_; }
 
     static int eventloop_run(duk_context *ctx, void *udata);
     static int expire_timers(duk_context *ctx);
@@ -56,6 +66,7 @@ class EventLoop {
   private:
     bool exit_requested_ = 0;
     int current_timeout_ = 0;
+    static mutex mtx_;
 
     static double get_now(void);
 
