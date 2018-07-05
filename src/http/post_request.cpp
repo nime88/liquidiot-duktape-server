@@ -192,6 +192,7 @@ int PostRequest::calculateHttpRequest(void* buffer_data, void* in) {
       lwsl_user("Deleted file %s\n",temp_file.c_str());
   }
 
+  printf("The mystical id: %d\n", id);
   if(id >= 0) {
     string temp_file = string(Constant::Paths::TEMP_FOLDER) + "/" + string(dest_buffer->filename);
 
@@ -229,7 +230,9 @@ int PostRequest::calculateHttpRequest(void* buffer_data, void* in) {
   } else if(app) {
     // we have to reload the app if it's already running
     lwsl_user("Reloading app\n");
-    app->reload();
+    string temp_path = app->getAppPath().c_str();
+    JSApplication::shutdownApplication(app);
+    app = new JSApplication(temp_path.c_str());
   }
 
   if(!app) {

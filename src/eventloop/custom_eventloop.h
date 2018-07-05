@@ -33,10 +33,7 @@ class EventLoop {
     void evloopRegister(duk_context *ctx);
     inline bool exitRequested() { return exit_requested_; }
     void setRequestExit(bool request_exit) {
-      {
-        std::lock_guard<mutex> evloop_lock(getMutex());
-        exit_requested_ = request_exit;
-      }
+      exit_requested_ = request_exit;
     }
     void setCurrentTimeout(int timeout) { current_timeout_ = timeout; }
     int getCurrentTimeout() { return current_timeout_; }

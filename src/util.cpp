@@ -77,6 +77,8 @@ void save_config(duk_context *ctx, map<string, map<string,string> > new_config) 
 }
 
 map<string,string> read_package_json(duk_context *ctx, const char* js_src) {
+  if(!ctx || string(js_src).length() == 0) return map<string,string>();
+
   map<string,string> attr;
 
   // decoding source
@@ -102,10 +104,13 @@ map<string,string> read_package_json(duk_context *ctx, const char* js_src) {
   }
   duk_pop_2(ctx);
 
+  printf("read_package_json(: OK)\n");
   return attr;
 }
 
 map<string,vector<string> > read_liquidiot_json(duk_context *ctx, const char* js_src) {
+  if(!ctx || string(js_src).length() == 0) return map<string,vector<string> >();
+
   map<string,vector<string> > attr;
   vector<string> dc_vec;
   vector<string> ai_vec;
@@ -113,29 +118,35 @@ map<string,vector<string> > read_liquidiot_json(duk_context *ctx, const char* js
   // decoding source
   duk_push_string(ctx, js_src);
   duk_json_decode(ctx, -1);
+  /* [... dec_obj ] */
 
   if(duk_has_prop_string(ctx, -1, Constant::Attributes::LIOT_DEV_CAP)) {
     duk_get_prop_string(ctx, -1, Constant::Attributes::LIOT_DEV_CAP);
+    /* [... dec_obj prop_str ] */
 
     duk_idx_t index = 0;
     while(duk_get_prop_index(ctx,-1,index)) {
+      /* [... dec_obj prop_str prop_str_inner ] */
       dc_vec.push_back(duk_to_string(ctx,-1));
       duk_pop(ctx);
       index++;
     }
 
     duk_pop(ctx);
+    /* [... dec_obj ] */
 
     attr.insert(pair<string,vector<string> >(Constant::Attributes::LIOT_DEV_CAP, dc_vec));
   }
 
-  duk_pop(ctx);
+  // duk_pop(ctx);
 
   if(duk_has_prop_string(ctx, -1, Constant::Attributes::LIOT_APP_INTERFACES)) {
     duk_get_prop_string(ctx, -1, Constant::Attributes::LIOT_APP_INTERFACES);
+    /* [... dec_obj prop_str ] */
 
     duk_idx_t index = 0;
     while(duk_get_prop_index(ctx,-1,index)) {
+      /* [... dec_obj prop_str prop_str_inner ] */
       ai_vec.push_back(duk_to_string(ctx,-1));
       duk_pop(ctx);
       index++;
@@ -146,7 +157,7 @@ map<string,vector<string> > read_liquidiot_json(duk_context *ctx, const char* js
     attr.insert(pair<string,vector<string> >(Constant::Attributes::LIOT_APP_INTERFACES, ai_vec));
   }
 
-  duk_pop_2(ctx);
+  duk_pop(ctx);
 
   return attr;
 }

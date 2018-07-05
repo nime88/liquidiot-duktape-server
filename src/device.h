@@ -16,12 +16,15 @@ extern "C" {
 #include <vector>
 #include <thread>
 #include <mutex>
+#include <condition_variable>
 
 using std::string;
 using std::map;
 using std::vector;
 using std::thread;
+using std::mutex;
 using std::recursive_mutex;
+using std::condition_variable;
 
 #include "client_request_config.h"
 #include "http_client.h"
@@ -43,13 +46,9 @@ class Device {
         it->second = 0;
       }
 
-      for(map<thread::id,thread*>::iterator it = http_client_threads_.begin(); it != http_client_threads_.end(); ++it) {
-        if(it->second) {
-          if(it->second->joinable())
-            it->second->join();
-          delete it->second;
-        }
-        it->second = 0;
+      for(map<thread::id,thread>::iterator it = http_client_threads_.begin(); it != http_client_threads_.end(); ++it) {
+        if(it->second.joinable())
+            it->second.join();
       }
 
     }
@@ -127,8 +126,8 @@ class Device {
     HttpClient* getHttpClient();
     inline const map<thread::id,HttpClient*>& getHttpClients() { return http_clients_; }
 
-    thread* getHttpClientThread();
-    inline const map<thread::id,thread*>& getHttpClientThreads() { return http_client_threads_; }
+    thread& getHttpClientThread();
+    inline map<thread::id,thread>& getHttpClientThreads() { return http_client_threads_; }
     void spawnHttpClientThread();
 
     /** Functions that use the client **/
@@ -147,13 +146,17 @@ class Device {
 
     string getDeviceInfoAsJSON();
 
-    static inline recursive_mutex& getMutex() { return mtx_; }
+    inline recursive_mutex& getMutex() { return mtx_; }
+    static inline mutex& getCVMutex() { return cv_mtx_; }
+    static inline condition_variable& getCV() { return condvar_; }
 
   private:
     // duk_context
     duk_context *duk_context_;
 
-    static recursive_mutex mtx_;
+    recursive_mutex mtx_;
+    static mutex cv_mtx_;
+    static condition_variable condvar_;
 
     map<string,string> raw_data_;
     map<string,string> manager_server_config_;
@@ -178,7 +181,7 @@ class Device {
     // some client stuff
     map<thread::id, ClientRequestConfig*> crconfigs_;
     map<thread::id,HttpClient*> http_clients_;
-    map<thread::id,thread*> http_client_threads_;
+    map<thread::id,thread> http_client_threads_;
 
     Device();
     void exitClientThread();

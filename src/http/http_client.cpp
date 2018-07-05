@@ -23,6 +23,8 @@ const struct lws_protocols HttpClient::protocols[] = {
 };
 
 void HttpClient::run(ClientRequestConfig *config) {
+  setReady(false);
+
   struct lws_context_creation_info info;
   struct lws_client_connect_info connect_info;
   struct lws_context *context;
@@ -81,6 +83,11 @@ void HttpClient::run(ClientRequestConfig *config) {
     n = lws_service(context, 1000);
 
   lws_context_destroy(context);
+
+  setReady(true);
+
+  Device::getCVMutex().unlock();
+  Device::getCV().notify_all();
 
   return;
 }

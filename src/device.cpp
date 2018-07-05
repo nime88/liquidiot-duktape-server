@@ -3,6 +3,7 @@
 #include "file_ops.h"
 #include "util.h"
 #include "constant.h"
+#include "globals.h"
 
 #include <fstream>
 #include <algorithm>
@@ -16,8 +17,6 @@ using std::pair;
 using std::ofstream;
 using std::regex;
 
-recursive_mutex Device::mtx_;
-
 #define NDEBUG
 
 #ifdef NDEBUG
@@ -26,6 +25,9 @@ recursive_mutex Device::mtx_;
     #define DBOUT( x )
 #endif
 
+mutex Device::cv_mtx_;
+condition_variable Device::condvar_;
+
 Device::Device() {
   // As device_config is read only once we don't store or retain the duktape context
   duk_context_ = duk_create_heap_default();
@@ -33,9 +35,11 @@ Device::Device() {
   // Next few checks prevent some undefined behaviour thus throwing out of here
   // if they fail
   if (!duk_context_) {
+    DBOUT ("Device(): duk_context creation failed");
     throw "Duk context could not be created.";
   }
 
+  DBOUT ("Device(): loading config");
   // loading configs
   map<string,map<string,string> > config = get_config(duk_context_);
 
@@ -74,15 +78,18 @@ Device::Device() {
     setDevPort(getRawData().at(Constant::Attributes::DEVICE_PORT));
   }
 
+  DBOUT ("Device(): checking if device already exists");
   bool dexists = deviceExists();
 
   if(!dexists) {
+    DBOUT ("Device(): creating new device");
     setDevId("");
     deleteDataField(Constant::Attributes::DEVICE_ID);
 
     sendDeviceInfo();
   }
 
+  DBOUT ("Device(): OK");
 }
 
 void Device::setRawDataField(const string& key, const string& value) {
@@ -129,7 +136,7 @@ HttpClient* Device::getHttpClient() {
   return 0;
 }
 
-thread* Device::getHttpClientThread() {
+thread& Device::getHttpClientThread() {
   std::lock_guard<recursive_mutex> device_lock(getMutex());
   thread::id this_id = std::this_thread::get_id();
 
@@ -137,37 +144,54 @@ thread* Device::getHttpClientThread() {
     return getHttpClientThreads().at(this_id);
   }
 
-  return 0;
+  throw "No HttpClientThread found";
 }
 
 void Device::spawnHttpClientThread() {
+  DBOUT("spawnHttpClientThread()");
   std::lock_guard<recursive_mutex> device_lock(getMutex());
   thread::id this_id = std::this_thread::get_id();
 
-  if(getHttpClientThreads().find(this_id) != getHttpClientThreads().end() && !getHttpClientThreads().at(this_id)) {
-    http_client_threads_.at(this_id) = new thread(&HttpClient::run, getHttpClient(), getCRConfig());
+  if(getHttpClientThreads().find(this_id) != getHttpClientThreads().end() && !getHttpClientThread().joinable()) {
+    DBOUT("spawnHttpClientThread(): perfect setup");
+    http_client_threads_.at(this_id) = thread(&HttpClient::run, getHttpClient(), getCRConfig());
+    DBOUT("spawnHttpClientThread(): OK");
     return;
   } else if(getHttpClientThreads().find(this_id) != getHttpClientThreads().end()) {
-    thread *clthread = getHttpClientThreads().at(this_id);
-    if(clthread) {
-      if(clthread->joinable()) {
-        try {
-          clthread->join();
-          delete clthread;
-        } catch(std::system_error e) {
-          clthread->detach();
-          clthread = 0;
-        }
-      }
+    DBOUT("spawnHttpClientThread(): joining old thread");
 
-      http_client_threads_.at(this_id) = 0;
+    try {
+      {
+        HttpClient *client = getHttpClient();
+        std::unique_lock<mutex> cv_lock(getCVMutex());
+        getCV().wait_for(cv_lock, std::chrono::seconds(1),[client]{
+          DBOUT("spawnHttpClientThread(): is ready: " << client->isReady() );
+          return !client || client->isReady()||interrupted;
+        });
+      }
+      getCVMutex().unlock();
+      if(getHttpClientThread().joinable()) {
+          //BRB
+          // clthread->detach();
+          getHttpClientThread().join();
+      }
+    } catch (const std::system_error& e) {
+      if(std::errc::invalid_argument != e.code()) {
+        std::cerr << "spawnHttpClientThread(): Caught a system_error\n";
+        std::cerr << "spawnHttpClientThread(): the error description is " << e.what() << '\n';
+      }
     }
 
-    http_client_threads_.at(this_id) = new thread(&HttpClient::run, getHttpClient(), getCRConfig());
+    DBOUT("spawnHttpClientThread(): setting new thread on top of old one");
+    http_client_threads_.at(this_id) = thread(&HttpClient::run, getHttpClient(), getCRConfig());
+    DBOUT("spawnHttpClientThread(): OK");
     return;
+
   }
 
-  http_client_threads_.insert(pair<thread::id,thread*>(this_id, new thread(&HttpClient::run, getHttpClient(), getCRConfig())));
+  DBOUT("spawnHttpClientThread(): creating completely new thread");
+  http_client_threads_.insert(pair<thread::id,thread>(this_id, thread(&HttpClient::run, getHttpClient(), getCRConfig())));
+  DBOUT("spawnHttpClientThread(): OK");
   return;
 }
 
@@ -198,8 +222,25 @@ bool Device::sendDeviceInfo() {
 
   spawnHttpClientThread();
 
-  if(getHttpClientThread()->joinable())
-    getHttpClientThread()->join();
+  {
+    HttpClient *client = getHttpClient();
+    std::unique_lock<mutex> cv_lock(getCVMutex());
+    getCV().wait_for(cv_lock, std::chrono::seconds(1),[client]{
+      return client->isReady()||interrupted;
+    });
+  }
+
+  if(getHttpClientThread().joinable()) {
+    try {
+      getHttpClientThread().join();
+    } catch(std::system_error e) {
+      if(std::errc::invalid_argument != e.code()) {
+        std::cerr << "sendDeviceInfo(): Caught a system_error\n";
+        std::cerr << "sendDeviceInfo(): the error description is " << e.what() << '\n';
+        abort();
+      }
+    }
+  }
 
   if(getCRConfig()->getResponseStatus()  == 200) {
     cleanDeviceId(getCRConfig()->getResponse());
@@ -210,6 +251,7 @@ bool Device::sendDeviceInfo() {
 }
 
 bool Device::deviceExists() {
+  DBOUT( "deviceExists():");
   exitClientThread();
   std::lock_guard<recursive_mutex> device_lock(getMutex());
 
@@ -233,10 +275,33 @@ bool Device::deviceExists() {
     return false;
   }
 
+  DBOUT( "deviceExists(): spawn new client thread:" << rpath );
   spawnHttpClientThread();
 
-  if(getHttpClientThread()->joinable())
-    getHttpClientThread()->join();
+  {
+    HttpClient *client = getHttpClient();
+    std::unique_lock<mutex> cv_lock(getCVMutex());
+    getCV().wait_for(cv_lock, std::chrono::seconds(1),[client]{
+      return client->isReady()||interrupted;
+    });
+  }
+  DBOUT( "deviceExists(): unlocking:");
+  getCVMutex().unlock();
+
+  if(getHttpClientThread().joinable()) {
+    try {
+      DBOUT( "deviceExists(): trying to join client thread:" << rpath );
+      getHttpClientThread().join();
+    } catch(std::system_error e) {
+      if(std::errc::invalid_argument != e.code()) {
+        std::cerr << "deviceExists(): Caught a system_error\n";
+        std::cerr << "deviceExists(): the error description is " << e.what() << '\n';
+        abort();
+      }
+    }
+  }
+
+  DBOUT( "deviceExists(): OK" << rpath );
 
   // cleaning the response out of spaces because for some reason response value
   // from the RR manager has some extra spaces
@@ -272,11 +337,32 @@ bool Device::appExists(string app_id) {
     return false;
   }
 
+  DBOUT( "appExists(): spawnHttpClientThread():");
   spawnHttpClientThread();
 
-  if(getHttpClientThread()->joinable())
-    getHttpClientThread()->join();
+  {
+    HttpClient *client = getHttpClient();
+    std::unique_lock<mutex> cv_lock(getCVMutex());
+    getCV().wait_for(cv_lock, std::chrono::seconds(1),[client]{
+      return client->isReady()||interrupted;
+    });
+  }
+  getCVMutex().unlock();
 
+  DBOUT( "appExists(): join():");
+  if(getHttpClientThread().joinable()) {
+    try {
+      getHttpClientThread().join();
+    } catch(std::system_error e) {
+      if(std::errc::invalid_argument != e.code()) {
+        std::cerr << "appExists(): Caught a system_error\n";
+        std::cerr << "appExists(): the error description is " << e.what() << '\n';
+        abort();
+      }
+    }
+  }
+
+  DBOUT( "appExists(): OK:");
   return getCRConfig()->getResponseStatus() == 200;
 }
 
@@ -307,8 +393,26 @@ bool Device::registerAppApi(string class_name, string swagger_fragment) {
 
   spawnHttpClientThread();
 
-  if(getHttpClientThread()->joinable())
-    getHttpClientThread()->join();
+  {
+    HttpClient *client = getHttpClient();
+    std::unique_lock<mutex> cv_lock(getCVMutex());
+    getCV().wait_for(cv_lock, std::chrono::seconds(1),[client]{
+      return client->isReady()||interrupted;
+    });
+  }
+  getCVMutex().unlock();
+
+  if(getHttpClientThread().joinable()) {
+    try {
+      getHttpClientThread().join();
+    } catch(std::system_error e) {
+      if(std::errc::invalid_argument != e.code()) {
+        std::cerr << "registerAppApi(): Caught a system_error\n";
+        std::cerr << "registerAppApi(): the error description is " << e.what() << '\n';
+        abort();
+      }
+    }
+  }
 
   return getCRConfig()->getResponseStatus() == 200;
 }
@@ -341,8 +445,26 @@ bool Device::registerApp(string app_payload) {
 
   spawnHttpClientThread();
 
-  if(getHttpClientThread()->joinable())
-    getHttpClientThread()->join();
+  {
+    HttpClient *client = getHttpClient();
+    std::unique_lock<mutex> cv_lock(getCVMutex());
+    getCV().wait_for(cv_lock, std::chrono::seconds(1),[client]{
+      return client->isReady()||interrupted;
+    });
+  }
+  getCVMutex().unlock();
+
+  if(getHttpClientThread().joinable()) {
+    try {
+      getHttpClientThread().join();
+    } catch(std::system_error e) {
+      if(std::errc::invalid_argument != e.code()) {
+        std::cerr << "registerApp(): Caught a system_error\n";
+        std::cerr << "registerApp(): the error description is " << e.what() << '\n';
+        abort();
+      }
+    }
+  }
 
   return getCRConfig()->getResponseStatus() == 200;
 }
@@ -370,11 +492,32 @@ bool Device::updateApp(string app_id, string app_payload) {
     return false;
   }
 
+  DBOUT( "updateApp(): spawn http client thread" );
   spawnHttpClientThread();
 
-  if(getHttpClientThread()->joinable())
-    getHttpClientThread()->join();
+  {
+    HttpClient *client = getHttpClient();
+    std::unique_lock<mutex> cv_lock(getCVMutex());
+    getCV().wait_for(cv_lock, std::chrono::seconds(1),[client]{
+      return client->isReady()||interrupted;
+    });
+  }
+  getCVMutex().unlock();
 
+  DBOUT( "updateApp(): trying to join client thread" );
+  if(getHttpClientThread().joinable()) {
+    try {
+      getHttpClientThread().join();
+    } catch(std::system_error e) {
+      if(std::errc::invalid_argument != e.code()) {
+        std::cerr << "updateApp(): Caught a system_error\n";
+        std::cerr << "updateApp(): the error description is " << e.what() << '\n';
+        abort();
+      }
+    }
+  }
+
+  DBOUT( "updateApp(): succeed");
   return getCRConfig()->getResponseStatus() == 200;
 }
 
@@ -404,8 +547,26 @@ bool Device::deleteApp(string app_id) {
 
   spawnHttpClientThread();
 
-  if(getHttpClientThread()->joinable())
-    getHttpClientThread()->join();
+  {
+    HttpClient *client = getHttpClient();
+    std::unique_lock<mutex> cv_lock(getCVMutex());
+    getCV().wait_for(cv_lock, std::chrono::seconds(1),[client]{
+      return client->isReady()||interrupted;
+    });
+  }
+  getCVMutex().unlock();
+
+  if(getHttpClientThread().joinable()) {
+    try {
+      getHttpClientThread().join();
+    } catch(std::system_error e) {
+      if(std::errc::invalid_argument != e.code()) {
+        std::cerr << "deleteApp(): Caught a system_error\n";
+        std::cerr << "deleteApp(): the error description is " << e.what() << '\n';
+        abort();
+      }
+    }
+  }
 
   return getCRConfig()->getResponseStatus() == 200;
 }
@@ -454,12 +615,25 @@ void Device::cleanDeviceId(const string& id) {
 }
 
 void Device::exitClientThread() {
+  DBOUT("exitClientThread()");
   std::lock_guard<recursive_mutex> device_lock(getMutex());
-  thread* http_ct = getHttpClientThread();
-  if(http_ct) {
-    if(http_ct->joinable())
-      http_ct->join();
-    delete http_ct;
-    http_ct = 0;
+
+  try {
+    getHttpClientThread();
+  } catch( char const * e ) {
+    std::cerr << "exitClientThread(): no client thread: " << e << '\n';
+    return;
+  }
+
+  if(getHttpClientThread().joinable()) {
+    try {
+      getHttpClientThread().join();
+    } catch(std::system_error e) {
+      if(std::errc::invalid_argument != e.code()) {
+        std::cerr << "exitClientThread(): Caught a system_error\n";
+        std::cerr << "exitClientThread() :the error description is " << e.what() << '\n';
+        abort();
+      }
+    }
   }
 }

@@ -21,7 +21,7 @@ add_library (Constant constant.cpp)
 target_link_libraries(Utility DukTape Constant archive)
 target_link_libraries(JSApp DukTape DukTapeExtra ModDukTape Constant Http EventLoop NodeJS Logs Device Utility)
 target_link_libraries(HttpServer Constant Utility JSApp Http websockets)
-target_link_libraries(Device DukTape Constant Utility HttpClient)
+target_link_libraries(Device DukTape Constant Globals Utility HttpClient)
 target_link_libraries(Globals Device)
 
 # making libraries accessable

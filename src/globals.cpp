@@ -10,7 +10,7 @@ extern "C" {
 
 #include "globals.h"
 
-int interrupted;
+int interrupted = 0;
 
 void sigint_handler(int sig) {
   (void)sig;

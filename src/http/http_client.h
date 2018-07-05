@@ -18,6 +18,9 @@ class HttpClient {
 
     inline ClientRequestConfig* getCRConfig() { return crconfig_; }
 
+    inline bool isReady() { return ready_; }
+    inline void setReady(bool ready) { ready_ = ready; }
+
     HttpClient(){
       data_ = new user_buffer_data;
     }
@@ -55,6 +58,8 @@ class HttpClient {
 
     ClientRequestConfig *crconfig_;
     int status_;
+
+    bool ready_ = false;
 
 };
 

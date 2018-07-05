@@ -29,6 +29,7 @@ extern "C" {
 #include <map>
 #include <thread>
 #include <mutex>
+#include <condition_variable>
 
 using std::string;
 using std::vector;
@@ -37,6 +38,7 @@ using std::map;
 using std::thread;
 using std::mutex;
 using std::recursive_mutex;
+using std::condition_variable;
 
 
 class JSApplication {
@@ -44,14 +46,14 @@ class JSApplication {
     JSApplication(const char* path);
 
     ~JSApplication() {
-      clean();
+      // clean();
     }
 
     // simply initializes the app(doesn't take path)
     void init();
 
     // cleans the app from unnecessary stuff
-    void clean();
+    // void clean();
 
     enum APP_STATES { INITIALIZING=0, CRASHED, RUNNING, PAUSED };
     static const array<string,4> APP_STATES_CHAR;
@@ -62,7 +64,7 @@ class JSApplication {
 
     inline duk_context* getContext() { return duk_context_; }
 
-    inline thread* getEventLoopThread() { return ev_thread_; }
+    inline thread& getEventLoopThread() { return ev_thread_; }
     bool createEventLoopThread();
     bool deleteEventLoopThread();
 
@@ -116,6 +118,9 @@ class JSApplication {
     inline const string& getSwaggerFragment() { return swagger_fragment_; }
     inline void setSwaggerFragment(const string& fragment) { swagger_fragment_ = fragment; }
 
+    inline bool isReady() { return is_ready_; }
+    inline void setIsReady(bool ready) { is_ready_ = ready; }
+
     static inline const map<string,string>& getOptions() { return options_; }
     static inline void setOptions(const map<string,string>& options) { options_ = options; }
 
@@ -123,13 +128,13 @@ class JSApplication {
     static void addApplication(JSApplication *app);
     // effectively deletes the app
     static bool deleteApplication(JSApplication *app);
-
-    static inline const map<duk_context*, thread*>& getApplicationThreads() { return app_threads_; }
-    static void addApplicationThread(JSApplication *app);
+    static bool shutdownApplication(JSApplication *app);
 
     inline static recursive_mutex& getStaticMutex() { return static_mutex_; }
     inline recursive_mutex& getAppMutex() { return app_mutex_; }
     inline recursive_mutex& getDuktapeMutex() { return duktape_mutex_; }
+    inline mutex& getCVMutex() { return cv_mutex_; }
+    inline condition_variable& getEventLoopCV() { return evcv_; }
 
     static int getNextId(bool generate_new);
 
@@ -144,9 +149,6 @@ class JSApplication {
     bool start();
 
     void run();
-    // reloads the app from files
-    void reload();
-
 
     void updateAppState(APP_STATES state) { updateAppState(state,false); }
     void updateAppState(APP_STATES state, bool update_client);
@@ -193,7 +195,7 @@ class JSApplication {
     void operator=(JSApplication const&) = delete;
 
   private:
-    thread *ev_thread_ = 0;
+    thread ev_thread_;
     EventLoop *eventloop_ = 0;
     duk_context *duk_context_ = 0;
     char* package_json_ = 0;
@@ -216,19 +218,21 @@ class JSApplication {
     // other
     AppResponse *app_response_ = 0;
     string swagger_fragment_;
+    bool is_ready_ = false;
 
 
     // static
     static int next_id_;
     static map<string,string> options_;
     static map<duk_context*, JSApplication*> applications_;
-    static map<duk_context*, thread*> app_threads_;
     static vector<string> app_names_;
 
     // mutexes
     static recursive_mutex static_mutex_;
     recursive_mutex app_mutex_;
     recursive_mutex duktape_mutex_;
+    mutex cv_mutex_;
+    condition_variable evcv_;
 
 
     duk_idx_t set_task_interval_idx_;

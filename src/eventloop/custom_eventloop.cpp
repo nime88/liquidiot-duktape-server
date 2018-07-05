@@ -3,6 +3,7 @@
 #include <sys/time.h>
 #include <poll.h>
 #include <cmath>
+#include <iostream>
 
 #include "application.h"
 #include "app_log.h"
@@ -30,7 +31,7 @@ extern "C" {
 #define  TIMERS_SLOT_NAME       "eventTimers"
 #define  MIN_DELAY              1.0
 #define  MIN_WAIT               1.0
-#define  MAX_WAIT               1000.0
+#define  MAX_WAIT               60000.0
 #define  MAX_EXPIRIES           10
 
 #define  MAX_TIMERS             4096     /* this is quite excessive for embedded use, but good for testing */
@@ -130,7 +131,8 @@ int EventLoop::eventloop_run(duk_context *ctx, void *udata) {
         timeout = diff < timeout ? diff : timeout;  /* clamping ensures that fits */
       }
 
-      timeout = floor(diff / 2) < MIN_WAIT ? MIN_WAIT : floor(diff / 2);
+      // timeout = floor(diff / 2) < MIN_WAIT ? MIN_WAIT : floor(diff / 2);
+      timeout = diff;
       // updating current timeout
       eventloop->setCurrentTimeout(timeout);
 
@@ -141,10 +143,27 @@ int EventLoop::eventloop_run(duk_context *ctx, void *udata) {
     app->getDuktapeMutex().unlock();
     JSApplication::getStaticMutex().unlock();
 
-    DBOUT( "eventloop_run(): Starting poll() wait for " << timeout << " millis");
-    poll(NULL,0,timeout);
+
     // handling sigint event
     signal(SIGINT, sigint_handler);
+
+    DBOUT( "eventloop_run(): Starting poll() wait for " << timeout << " millis");
+    try {
+      std::unique_lock<mutex> cv_lock(app->getCVMutex());
+      app->getEventLoopCV().wait_for(cv_lock, std::chrono::milliseconds(timeout), [eventloop]{
+          // return eventloop && (!eventloop->exitRequested()) && (interrupted == 0);
+          return interrupted || !eventloop || eventloop->exitRequested();
+      });
+
+      if(interrupted || eventloop->exitRequested()) {
+        return 0;
+      }
+    } catch(const std::system_error& e) {
+      std::cerr << "Some random error: " << e.what() << '\n';
+      return 0;
+    }
+    // poll(NULL,0,timeout);
+
   }
 
   DBOUT( "eventloop_run(): Run was executed successfully");
@@ -346,7 +365,13 @@ int EventLoop::delete_timer(duk_context *ctx) {
 
 int EventLoop::request_exit(duk_context *ctx) {
   EventLoop *eventloop = getAllEventLoops().at(ctx);
-  eventloop->setRequestExit(1);
+  JSApplication *app = JSApplication::getApplications().at(ctx);
+  {
+    std::unique_lock<mutex> cv_lock(app->getCVMutex());
+    eventloop->setRequestExit(1);
+  }
+  app->getCVMutex().unlock();
+  app->getEventLoopCV().notify_one();
   return 0;
 }
 

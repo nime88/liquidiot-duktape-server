@@ -43,46 +43,56 @@ const array<string,4> JSApplication::APP_STATES_CHAR = { {
 int JSApplication::next_id_ = 0;
 map<string,string> JSApplication::options_;
 map<duk_context*, JSApplication*> JSApplication::applications_;
-map<duk_context*, thread*> JSApplication::app_threads_;
 vector<string> JSApplication::app_names_;
 recursive_mutex JSApplication::static_mutex_;
 
-JSApplication::JSApplication(const char* path) {
+JSApplication::JSApplication(const char* path):duk_context_(0) {
   {
+    DBOUT("JSApplication()");
     std::lock_guard<recursive_mutex> static_lock(getStaticMutex());
 
+    DBOUT("JSApplication(): app path: " << getAppPath());
     // adding app_path to global app paths
     setAppPath(path);
 
     if(getAppPath().length() > 0 && getAppPath().at(getAppPath().length()-1) != '/')
       setAppPath(getAppPath()+"/");
 
+    DBOUT("JSApplication(): app path: " << getAppPath());
+    DBOUT("JSApplication(): init()");
     init();
 
+    DBOUT("JSApplication(): registerAppApi()");
     unsigned int ai_len = getAppInterfaces().size();
     for(unsigned int i = 0; i < ai_len; ++i) {
         Device::getInstance().registerAppApi(getAppInterfaces().at(i), getSwaggerFragment());
     }
 
+    DBOUT("JSApplication(): getAppAsJSON()");
     string app_payload = getAppAsJSON();
     bool app_is = Device::getInstance().appExists(to_string(getAppId()));
 
+    DBOUT("JSApplication(): registerApp()");
     if(!app_is) {
       Device::getInstance().registerApp(app_payload);
     }
   }
 
+  DBOUT("JSApplication(): pauseApp()");
   pause();
+  DBOUT("JSApplication(): startApp()");
   start();
+  DBOUT("JSApplication(): OK");
 }
 
 void JSApplication::init() {
   {
     std::lock_guard<recursive_mutex> static_lock(getStaticMutex());
+    setIsReady(false);
     DBOUT("init()");
 
     // creating new duk heap for the js application
-    {
+    if(!getContext()){
       std::lock_guard<recursive_mutex> duktape_lock(getDuktapeMutex());
       duk_context_ = duk_create_heap(NULL, NULL, NULL, this, custom_fatal_handler);
     }
@@ -159,10 +169,11 @@ void JSApplication::init() {
       duk_pop(getContext());
     }
 
-    DBOUT ("Creating new eventloop");
+    DBOUT ("init(): Creating new eventloop");
     // registering/creating the eventloop
     createEventLoop();
 
+    DBOUT ("init(): Loading eventloop js");
     // loading the event loop javascript functions (setTimeout ect.)
     int evlLen;
     char* evlSource = load_js_file(Constant::Paths::EVENT_LOOP_JS,evlLen);
@@ -176,6 +187,8 @@ void JSApplication::init() {
       duk_pop(getContext());
     }
 
+
+    DBOUT ("init(): Loading application header js");
     int tmpLen;
     char* headerSource = load_js_file(Constant::Paths::APPLICATION_HEADER_JS,tmpLen);
 
@@ -189,6 +202,7 @@ void JSApplication::init() {
       duk_pop(getContext());
     }
 
+    DBOUT ("init(): Misc js loads");
     // evaluating necessary js files that main.js will need
     char* agentSource = load_js_file(Constant::Paths::AGENT_JS,tmpLen);
     char* apiSource = load_js_file(Constant::Paths::API_JS,tmpLen);
@@ -249,18 +263,22 @@ void JSApplication::init() {
 
     string main_file = getAppPath() + "/" + getAppMain();
 
-    DBOUT ("JSApplication(): Loading liquidiot file");
+    DBOUT ("init(): Loading liquidiot file");
     // reading the package.json file to memory
     string liquidiot_file = getAppPath() + string(Constant::Paths::LIQUID_IOT_JSON);
     string liquidiot_js = load_js_file(liquidiot_file.c_str(),source_len);
 
-    DBOUT ("JSApplication(): Reading json to attr");
-    map<string,vector<string> > liquidiot_json_attr = read_liquidiot_json(getContext(), liquidiot_js.c_str());
-    if(liquidiot_json_attr.find(Constant::Attributes::APP_INTERFACES) != liquidiot_json_attr.end()) {
-      setAppInterfaces(liquidiot_json_attr.at(Constant::Attributes::APP_INTERFACES));
+    DBOUT ("init(): Reading json to attr");
+    {
+      std::lock_guard<recursive_mutex> duktape_lock(getDuktapeMutex());
+      map<string,vector<string> > liquidiot_json_attr = read_liquidiot_json(getContext(), liquidiot_js.c_str());
+
+      if(liquidiot_json_attr.find(Constant::Attributes::APP_INTERFACES) != liquidiot_json_attr.end()) {
+        setAppInterfaces(liquidiot_json_attr.at(Constant::Attributes::APP_INTERFACES));
+      }
     }
 
-    DBOUT ("JSApplication(): Creating full source code");
+    DBOUT ("init(): Creating full source code");
     string temp_source =  string(load_js_file(main_file.c_str(),source_len)) +
       "\napp = {};\n"
       "IoTApp(app);\n"
@@ -272,7 +290,7 @@ void JSApplication::init() {
     // executing initialize code
     setJSSource(temp_source.c_str(), temp_source.length());
 
-    DBOUT ("JSApplication(): Making it main node module");
+    DBOUT ("init(): Making it main node module");
     // pushing this as main module
     {
       std::lock_guard<recursive_mutex> duktape_lock(getDuktapeMutex());
@@ -283,92 +301,96 @@ void JSApplication::init() {
       }
     }
 
-    DBOUT ("Inserting application thread");
+    DBOUT ("init(): Inserting application thread");
     // initializing the thread, this must be the last initialization
     createEventLoopThread();
-    addApplicationThread(this);
   }
 }
 
-void JSApplication::clean() {
-  {
-    std::lock_guard<recursive_mutex> app_lock(getAppMutex());
-
-    DBOUT ( "clean()" );
-
-    if(getEventLoop()) {
-      // if the application is running we need to stop the thread
-      getEventLoop()->setRequestExit(true);
-      poll(NULL,0,getEventLoop()->getCurrentTimeout());
-    }
-
-    if(getEventLoopThread()) {
-      // waiting for thread to stop the execution (come back from poll)
-      DBOUT ("clean(): waiting for thread over" );
-      try {
-        if(getEventLoopThread()->joinable() == true) {
-          DBOUT ("clean(): detaching eventloop" );
-          getEventLoopThread()->detach();
-        }
-        DBOUT ("clean(): deleting eventloop" );
-        deleteEventLoopThread();
-      } catch (const std::system_error& e) {
-        if(std::errc::invalid_argument != e.code()) {
-          std::cerr << "Caught a system_error\n";
-          std::cerr << "the error description is " << e.what() << '\n';
-          abort();
-        } else {
-          std::cerr << "EventLoop thread not joinable anymore\n";
-          deleteEventLoopThread();
-        }
-      }
-
-      DBOUT ( "clean(): killing thread was successful");
-    }
-
-    if(getContext()) {
-      DBOUT ( "clean(): thread waiting over and calling terminate" );
-      {
-        std::lock_guard<recursive_mutex> duktape_lock(getDuktapeMutex());
-        duk_push_string(getContext(), "app.internal.terminate(function(){});");
-        if(duk_peval(getContext()) != 0) {
-          printf("Script error: %s\n", duk_safe_to_string(getContext(), -1));
-        }
-      }
-    }
-
-    if(getEventLoop())
-      deleteEventLoop();
-
-    DBOUT ("clean(): success" );
-  }
-}
+// void JSApplication::clean() {
+//   {
+//     if(!getContext()) return;
+//     DBOUT( "clean(): " << getContext());
+//     DBOUT ( "clean(): mutex lock");
+//     std::lock_guard<recursive_mutex> app_lock(getAppMutex());
+//     DBOUT ( "clean(): mutex in");
+//
+//     DBOUT ( "clean(): id: " << getAppId() );
+//
+//     if(getEventLoop()) {
+//       DBOUT ( "clean(): eventloop start");
+//       // if the application is running we need to stop the thread
+//       {
+//         std::unique_lock<mutex> cv_lock(getCVMutex());
+//         getEventLoop()->setRequestExit(true);
+//       }
+//       getCVMutex().unlock();
+//       getEventLoopCV().notify_one();
+//       DBOUT ( "clean(): eventloop end");
+//     }
+//
+//     // waiting for thread to stop the execution (come back from poll)
+//     DBOUT ("clean(): waiting for thread over" );
+//     try {
+//       if(getEventLoopThread().joinable() == true) {
+//         DBOUT ("clean(): joining eventloop" );
+//         getEventLoopThread().join();
+//       }
+//       DBOUT ("clean(): deleting eventloop" );
+//       deleteEventLoopThread();
+//     } catch (const std::system_error& e) {
+//       if(std::errc::invalid_argument != e.code()) {
+//         std::cerr << "Caught a system_error\n";
+//         std::cerr << "the error description is " << e.what() << '\n';
+//         abort();
+//       } else {
+//         std::cerr << "EventLoop thread not joinable anymore\n";
+//         deleteEventLoopThread();
+//       }
+//     }
+//
+//     DBOUT ( "clean(): killing thread was successful");
+//
+//     if(getContext()) {
+//       DBOUT ( "clean(): thread waiting over and calling terminate" );
+//       {
+//         std::lock_guard<recursive_mutex> duktape_lock(getDuktapeMutex());
+//         duk_push_string(getContext(), "app.internal.terminate(function(){});");
+//         if(duk_peval(getContext()) != 0) {
+//           printf("Script error: %s\n", duk_safe_to_string(getContext(), -1));
+//         }
+//       }
+//     }
+//
+//     if(getEventLoop())
+//       deleteEventLoop();
+//
+//     DBOUT ("clean(): success" );
+//   }
+// }
 
 bool JSApplication::createEventLoopThread() {
-  if(ev_thread_) return false;
 
   {
     std::lock_guard<recursive_mutex> app_lock(getAppMutex());
-    ev_thread_ = new thread(&JSApplication::run,this);
+    ev_thread_ = thread(&JSApplication::run,this);
   }
 
-  return ev_thread_ ? true : false;
+  return true;
 }
 
 bool JSApplication::deleteEventLoopThread() {
-  if(getEventLoopThread()) {
-    std::lock_guard<recursive_mutex> app_lock(getAppMutex());
-    if(ev_thread_->joinable()) {
-      ev_thread_->join();
+  std::lock_guard<recursive_mutex> app_lock(getAppMutex());
+
+  try {
+    if(getEventLoopThread().joinable()) {
+      ev_thread_.join();
     }
-
-    if(!interrupted)
-      delete ev_thread_;
-    ev_thread_ = 0;
-
-    return true;
+  } catch (const std::system_error& e) {
+    std::cerr << "The error in joining ev thread: " << e.what() << '\n';
   }
-  return false;
+
+  return true;
 }
 
 EventLoop* JSApplication::createEventLoop() {
@@ -560,7 +582,7 @@ void JSApplication::setResponseObj(AppResponse *response) {
 void JSApplication::addApplication( JSApplication *app ) {
   if(!app) return;
 
-  if( getApplications().find( app->getContext()) != getApplications().end() ) return;
+  if( getApplications().find( app->getContext() ) != getApplications().end() ) return;
 
   {
     std::lock_guard<recursive_mutex> static_lock(getStaticMutex());
@@ -578,30 +600,31 @@ bool JSApplication::deleteApplication(JSApplication *app) {
   delete_files(app->getAppPath().c_str()); /* There is a possibility of failure but we ignore it */
 
   DBOUT("deleteApplication(): clean()");
-  app->clean();
+  // app->clean();
 
-  DBOUT ( "deleteApplication(): removing thread from stucture" );
-  if(app_threads_.find(app->getContext()) != app_threads_.end()) {
-    // Wait thread to finish 100 ms should be more than enough
-    poll(NULL,0,100);
-
-    try {
-      if(app_threads_.at(app->getContext())->joinable())
-        app_threads_.at(app->getContext())->join();
-    } catch(std::system_error& e) {
-      if(std::errc::invalid_argument == e.code()) {
-        std::cerr << "App thread was too slow to join.\n";
-        std::cerr << "Waiting for a moment and trying to continue.\n";
-        poll(NULL,0,100);
-      } else {
-        std::cerr << "Unexpected error: " << e.what() << "\n";
-        abort();
-      }
+  DBOUT ( "deleteApplication(): joining app thread" );
+  try {
+    app->getEventLoopCV().notify_all();
+    DBOUT ( "deleteApplication(): wait for app" );
+    {
+      std::unique_lock<mutex> cv_lock(app->getCVMutex());
+      app->getEventLoopCV().wait_for(cv_lock, std::chrono::seconds(1),[app]{
+        return app->isReady()||interrupted;
+      });
+    }
+    DBOUT ( "deleteApplication(): joining app" );
+    if(app->getEventLoopThread().joinable())
+      app->getEventLoopThread().join();
+  } catch(std::system_error& e) {
+    if(std::errc::invalid_argument == e.code()) {
+      std::cerr << "App thread was too slow to join.\n";
+      std::cerr << "Waiting for a moment and trying to continue.\n";
+    } else {
+      std::cerr << "Unexpected error: " << e.what() << "\n";
     }
   }
 
   DBOUT ( "deleteApplication(): cleaning the app out of ds" );
-  app_threads_.erase(app->getContext());
   applications_.erase(app->getContext());
 
   DBOUT ( "deleteApplication(): destoying duk heap" );
@@ -616,15 +639,50 @@ bool JSApplication::deleteApplication(JSApplication *app) {
   return 1;
 }
 
-void JSApplication::addApplicationThread( JSApplication *app ) {
-  if(!app) return;
+bool JSApplication::shutdownApplication(JSApplication *app) {
+  std::lock_guard<recursive_mutex> static_lock(getStaticMutex());
+  DBOUT("shutdownApplication()");
 
-  if( getApplicationThreads().find( app->getContext() ) != getApplicationThreads().end() ) return;
+  // DBOUT("shutdownApplication(): deleting from RR manager");
+  // Device::getInstance().deleteApp(std::to_string(app->getAppId()));
 
-  {
-    std::lock_guard<recursive_mutex> static_lock(getStaticMutex());
-    app_threads_.insert(pair<duk_context*,thread*>(app->getContext(),app->getEventLoopThread()));
+  DBOUT ( "shutdownApplication(): joining app thread" );
+  try {
+    app->getEventLoopCV().notify_all();
+    DBOUT ( "shutdownApplication(): wait for app" );
+    {
+      std::unique_lock<mutex> cv_lock(app->getCVMutex());
+      app->getEventLoopCV().wait_for(cv_lock, std::chrono::seconds(1),[app]{
+        return app->isReady()||interrupted;
+      });
+    }
+    DBOUT ( "shutdownApplication(): joining app" );
+    if(app->getEventLoopThread().joinable())
+      app->getEventLoopThread().join();
+  } catch(std::system_error& e) {
+    if(std::errc::invalid_argument == e.code()) {
+      std::cerr << "shutdownApplication(): App thread was too slow to join.\n";
+      std::cerr << "shutdownApplication(): Waiting for a moment and trying to continue.\n";
+    } else {
+      std::cerr << "shutdownApplication(): Unexpected error: " << e.what() << "\n";
+    }
   }
+
+  applications_.erase(app->getContext());
+
+  DBOUT ( "shutdownApplication(): cleaning the app out of ds" );
+  applications_.erase(app->getContext());
+
+  DBOUT ( "shutdownApplication(): destoying duk heap" );
+  duk_destroy_heap(app->getContext());
+  app->duk_context_ = 0;
+
+  DBOUT("shutdownApplication(): actual removal from memory");
+  delete app;
+  app = 0;
+
+  DBOUT("shutdownApplication(): Shutting down successful");
+  return 1;
 }
 
 int JSApplication::getNextId(bool generate_new) {
@@ -637,7 +695,7 @@ int JSApplication::getNextId(bool generate_new) {
     while(!ok) {
       next_id_++;
       ok = true;
-      for(const pair<duk_context*,JSApplication*> &item : getApplications()) {
+      for(const pair<duk_context*,JSApplication*>& item : getApplications()) {
         if( item.second->getAppId() == next_id_ ) {
           ok = false;
         }
@@ -726,17 +784,12 @@ void JSApplication::run() {
     // if runtime is terminating deleting app from the manager
     Device::getInstance().deleteApp(std::to_string(getAppId()));
   }
-  DBOUT("run(): completed");
-}
 
-void JSApplication::reload() {
-  // TODO explore if this check is necessary
-  if(getAppState() == APP_STATES::RUNNING) {
-    // clearing application of all previous states and executions
-    clean();
-    // initialize app
-    init();
-  }
+  setIsReady(true);
+  getCVMutex().unlock();
+  getEventLoopCV().notify_one();
+
+  DBOUT("run(): completed");
 }
 
 void JSApplication::updateAppState(APP_STATES state, bool update_client) {
@@ -1169,15 +1222,19 @@ const vector<string>& JSApplication::listApplicationNames() {
 void JSApplication::getJoinThreads() {
   DBOUT( "getJoinThreads()");
 
-  DBOUT( "getJoinThreads(): threads size: " << getApplicationThreads().size());
-    for (  map<duk_context*, thread*>::const_iterator it=getApplicationThreads().begin(); it!=getApplicationThreads().end(); ++it) {
-      DBOUT( "getJoinThreads(): joining thread: " << it->first << " : " << it->second);
-      if(it->second && it->second->joinable())
-        it->second->join();
+    for (  map<duk_context*, JSApplication*>::const_iterator it=getApplications().begin(); it!=getApplications().end(); ++it) {
+      DBOUT( "getJoinThreads(): joining thread: " << it->first );
+      try {
+        if(it->second->getEventLoopThread().joinable())
+          it->second->getEventLoopThread().join();
+      } catch(const std::system_error& e) {
+        std::cerr << "getJoinThreads(): join failed: " << e.what() << '\n';
+      }
     }
 }
 
 void JSApplication::parsePackageJS() {
+  std::lock_guard<recursive_mutex> duk_lock(getDuktapeMutex());
   duk_context *ctx = getContext();
   int sourceLen;
 
@@ -1189,7 +1246,9 @@ void JSApplication::parsePackageJS() {
   setPackageJSON(load_js_file(package_file.c_str(),sourceLen));
 
   DBOUT ("parsePackageJS(): Reading package to attr");
+
   map<string,string> package_json_attr = read_package_json(getContext(), getPackageJSON());
+
   setRawPackageJSONData(package_json_attr);
 
   if(package_json_attr.find(Constant::Attributes::APP_NAME) != package_json_attr.end())
@@ -1218,4 +1277,5 @@ void JSApplication::parsePackageJS() {
     getNextId(true);
   }
 
+  DBOUT ("parsePackageJS(): OK");
 }
