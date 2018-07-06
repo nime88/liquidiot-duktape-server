@@ -5,10 +5,6 @@ using std::pair;
 
 #include <fstream>
 
-#include <iostream>
-using std::cout;
-using std::endl;
-
 map<string, map<string,string> >get_config(duk_context *ctx) {
   map<string, map<string,string> > config;
 
@@ -104,7 +100,6 @@ map<string,string> read_package_json(duk_context *ctx, const char* js_src) {
   }
   duk_pop_2(ctx);
 
-  printf("read_package_json(: OK)\n");
   return attr;
 }
 

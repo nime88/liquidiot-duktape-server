@@ -1,5 +1,6 @@
 #include "device.h"
 
+#include "prints.h"
 #include "file_ops.h"
 #include "util.h"
 #include "constant.h"
@@ -9,21 +10,9 @@
 #include <algorithm>
 #include <regex>
 
-#include <iostream>
-using std::cout;
-using std::endl;
-
 using std::pair;
 using std::ofstream;
 using std::regex;
-
-// #define NDEBUG
-
-#ifdef NDEBUG
-    #define DBOUT( x ) cout << x  << "\n"
-#else
-    #define DBOUT( x )
-#endif
 
 mutex Device::cv_mtx_;
 condition_variable Device::condvar_;
@@ -35,7 +24,7 @@ Device::Device() {
   // Next few checks prevent some undefined behaviour thus throwing out of here
   // if they fail
   if (!duk_context_) {
-    DBOUT ("Device(): duk_context creation failed");
+    ERROUT ("Device(): duk_context creation failed");
     throw "Duk context could not be created.";
   }
 
@@ -177,8 +166,8 @@ void Device::spawnHttpClientThread() {
       }
     } catch (const std::system_error& e) {
       if(std::errc::invalid_argument != e.code()) {
-        std::cerr << "spawnHttpClientThread(): Caught a system_error\n";
-        std::cerr << "spawnHttpClientThread(): the error description is " << e.what() << '\n';
+        ERROUT("spawnHttpClientThread(): Caught a system_error");
+        ERROUT("spawnHttpClientThread(): the error description is " << e.what());
       }
     }
 
@@ -235,8 +224,8 @@ bool Device::sendDeviceInfo() {
       getHttpClientThread().join();
     } catch(std::system_error e) {
       if(std::errc::invalid_argument != e.code()) {
-        std::cerr << "sendDeviceInfo(): Caught a system_error\n";
-        std::cerr << "sendDeviceInfo(): the error description is " << e.what() << '\n';
+        ERROUT("sendDeviceInfo(): Caught a system_error");
+        ERROUT("sendDeviceInfo(): the error description is " << e.what());
         abort();
       }
     }
@@ -294,8 +283,8 @@ bool Device::deviceExists() {
       getHttpClientThread().join();
     } catch(std::system_error e) {
       if(std::errc::invalid_argument != e.code()) {
-        std::cerr << "deviceExists(): Caught a system_error\n";
-        std::cerr << "deviceExists(): the error description is " << e.what() << '\n';
+        ERROUT("deviceExists(): Caught a system_error");
+        ERROUT("deviceExists(): the error description is " << e.what());
         abort();
       }
     }
@@ -355,8 +344,8 @@ bool Device::appExists(string app_id) {
       getHttpClientThread().join();
     } catch(std::system_error e) {
       if(std::errc::invalid_argument != e.code()) {
-        std::cerr << "appExists(): Caught a system_error\n";
-        std::cerr << "appExists(): the error description is " << e.what() << '\n';
+        ERROUT("appExists(): Caught a system_error");
+        ERROUT("appExists(): the error description is " << e.what());
         abort();
       }
     }
@@ -407,8 +396,8 @@ bool Device::registerAppApi(string class_name, string swagger_fragment) {
       getHttpClientThread().join();
     } catch(std::system_error e) {
       if(std::errc::invalid_argument != e.code()) {
-        std::cerr << "registerAppApi(): Caught a system_error\n";
-        std::cerr << "registerAppApi(): the error description is " << e.what() << '\n';
+        ERROUT("registerAppApi(): Caught a system_error");
+        ERROUT("registerAppApi(): the error description is " << e.what());
         abort();
       }
     }
@@ -459,8 +448,8 @@ bool Device::registerApp(string app_payload) {
       getHttpClientThread().join();
     } catch(std::system_error e) {
       if(std::errc::invalid_argument != e.code()) {
-        std::cerr << "registerApp(): Caught a system_error\n";
-        std::cerr << "registerApp(): the error description is " << e.what() << '\n';
+        ERROUT("registerApp(): Caught a system_error");
+        ERROUT("registerApp(): the error description is " << e.what());
         abort();
       }
     }
@@ -510,8 +499,8 @@ bool Device::updateApp(string app_id, string app_payload) {
       getHttpClientThread().join();
     } catch(std::system_error e) {
       if(std::errc::invalid_argument != e.code()) {
-        std::cerr << "updateApp(): Caught a system_error\n";
-        std::cerr << "updateApp(): the error description is " << e.what() << '\n';
+        ERROUT("updateApp(): Caught a system_error");
+        ERROUT("updateApp(): the error description is " << e.what());
         abort();
       }
     }
@@ -561,8 +550,8 @@ bool Device::deleteApp(string app_id) {
       getHttpClientThread().join();
     } catch(std::system_error e) {
       if(std::errc::invalid_argument != e.code()) {
-        std::cerr << "deleteApp(): Caught a system_error\n";
-        std::cerr << "deleteApp(): the error description is " << e.what() << '\n';
+        ERROUT("deleteApp(): Caught a system_error");
+        ERROUT("deleteApp(): the error description is " << e.what());
         abort();
       }
     }
@@ -621,7 +610,7 @@ void Device::exitClientThread() {
   try {
     getHttpClientThread();
   } catch( char const * e ) {
-    std::cerr << "exitClientThread(): no client thread: " << e << '\n';
+    DBOUT("exitClientThread(): no client thread: " << e);
     return;
   }
 
@@ -630,8 +619,8 @@ void Device::exitClientThread() {
       getHttpClientThread().join();
     } catch(std::system_error e) {
       if(std::errc::invalid_argument != e.code()) {
-        std::cerr << "exitClientThread(): Caught a system_error\n";
-        std::cerr << "exitClientThread() :the error description is " << e.what() << '\n';
+        ERROUT("exitClientThread(): Caught a system_error");
+        ERROUT("exitClientThread(): the error description is " << e.what());
         abort();
       }
     }

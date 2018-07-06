@@ -11,6 +11,7 @@ extern "C" {
 }
 #endif
 
+#include "prints.h"
 #include "device.h"
 
 #include <algorithm>
@@ -30,13 +31,13 @@ void HttpClient::run(ClientRequestConfig *config) {
   struct lws_context *context;
   crconfig_ = config;
 
-  int n = 0, logs = LLL_USER | LLL_ERR | LLL_WARN | LLL_NOTICE;
-  // Add: LLL_INFO for debug
+  int n = 0, logs = LLL_ERR | LLL_WARN;
 
   signal(SIGINT, sigint_handler);
 
   lws_set_log_level(logs, NULL);
-  lwsl_user("Starting http client for the RR server.\n");
+  INFOOUT("Connecting client to " << config->getRRHost() << ":" << config->getRRPort() <<
+  config->getRequestPath() << "." << " Request type " << config->getRequestType() << ".");
 
   memset(&info, 0, sizeof info); /* otherwise uninitialized garbage */
   info.options = LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT;
@@ -51,7 +52,7 @@ void HttpClient::run(ClientRequestConfig *config) {
   context = lws_create_context(&info);
 
   if (!context) {
-    lwsl_err("lws init failed\n");
+    ERROUT("lws init failed");
     return;
   }
 
@@ -121,7 +122,7 @@ int HttpClient::http_client_callback(struct lws *wsi, enum lws_callback_reasons 
 
     /* because we are protocols[0] ... */
     case LWS_CALLBACK_CLIENT_CONNECTION_ERROR: {
-      lwsl_err("CLIENT_CONNECTION_ERROR: %s\n", in ? (char *)in : "(null)");
+      ERROUT("CLIENT_CONNECTION_ERROR: " << (in ? (char *)in : "(null)") );
       dest_buffer->client->client_wsi = NULL;
       break;
     }
@@ -211,7 +212,7 @@ int HttpClient::http_client_callback(struct lws *wsi, enum lws_callback_reasons 
             memcpy (out + LWS_SEND_BUFFER_PRE_PADDING, write_buffer.c_str(), write_buffer.length() );
             if (lws_write( wsi, (uint8_t *)out + LWS_SEND_BUFFER_PRE_PADDING, write_buffer.length(), LWS_WRITE_HTTP ) < 0) {
               free(out);
-              lwsl_err("Error sending\n");
+              ERROUT("Error sending data to " << dest_buffer->config->getRRHost() << ":" << dest_buffer->config->getRRPort());
               return -1;
             }
 
@@ -221,7 +222,7 @@ int HttpClient::http_client_callback(struct lws *wsi, enum lws_callback_reasons 
             lws_client_http_body_pending(wsi, 0);
 
             if (lws_write(wsi, (uint8_t *)write_buffer.c_str(), write_buffer.length(), LWS_WRITE_HTTP_FINAL) < 0) {
-              lwsl_err("Error sending\n");
+              ERROUT("Error sending data to " << dest_buffer->config->getRRHost() << ":" << dest_buffer->config->getRRPort());
               return -1;
             }
 

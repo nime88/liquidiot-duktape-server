@@ -1,6 +1,7 @@
 #if !defined(APPLICATION_H_INCLUDED)
 #define APPLICATION_H_INCLUDED
 
+#include "prints.h"
 #include "custom_eventloop.h"
 class AppRequest;
 #include "app_request.h"
@@ -46,6 +47,7 @@ class JSApplication {
     JSApplication(const char* path);
 
     ~JSApplication() {
+      INFOOUT("Application " << getAppName() << " closed.");
       // clean();
     }
 

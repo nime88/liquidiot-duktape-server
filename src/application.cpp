@@ -12,10 +12,8 @@ extern "C" {
 
 #include <algorithm>
 #include <regex>
-#include <iostream>
 
 using std::regex;
-using std::cout;
 using std::endl;
 using std::to_string;
 
@@ -26,14 +24,6 @@ using std::to_string;
 #include "logs/read_app_log.h"
 #include "duk_util.h"
 #include "globals.h"
-
-// #define NDEBUG
-
-#ifdef NDEBUG
-    #define DBOUT( x ) cout << x  << "\n"
-#else
-    #define DBOUT( x )
-#endif
 
 const array<string,4> JSApplication::APP_STATES_CHAR = { {
   Constant::String::INITIALIZING,
@@ -51,7 +41,6 @@ JSApplication::JSApplication(const char* path):duk_context_(0) {
     DBOUT("JSApplication()");
     std::lock_guard<recursive_mutex> static_lock(getStaticMutex());
 
-    DBOUT("JSApplication(): app path: " << getAppPath());
     // adding app_path to global app paths
     setAppPath(path);
 
@@ -59,8 +48,10 @@ JSApplication::JSApplication(const char* path):duk_context_(0) {
       setAppPath(getAppPath()+"/");
 
     DBOUT("JSApplication(): app path: " << getAppPath());
+
     DBOUT("JSApplication(): init()");
     if(!init()) {
+      ERROUT("JSApplication(): Failed to initialize");
       JSApplication::shutdownApplication(this);
       return;
     }
@@ -86,6 +77,7 @@ JSApplication::JSApplication(const char* path):duk_context_(0) {
   DBOUT("JSApplication(): startApp()");
   start();
   DBOUT("JSApplication(): OK");
+  INFOOUT("Application " << getAppName() << " started.");
 }
 
 bool JSApplication::init() {
@@ -102,6 +94,7 @@ bool JSApplication::init() {
 
     if (!getContext()) {
       // throw "Duk context could not be created.";
+      ERROUT("Duk context could not be created.");
       AppLog(getAppPath().c_str()) << AppLog::getTimeStamp() << " [" << Constant::String::LOG_FATAL_ERROR << "] " << "Duk context could not be created." << "\n";
       return false;
     }
@@ -187,7 +180,8 @@ bool JSApplication::init() {
       std::lock_guard<recursive_mutex> duktape_lock(getDuktapeMutex());
       duk_push_string(getContext(), evlSource);
       if (duk_peval(getContext()) != 0) {
-        printf("Failed to evaluate custom_eventloop.js: %s\n", duk_safe_to_string(getContext(), -1));
+        ERROUT("Failed to evaluate custom_eventloop.js: " << duk_safe_to_string(getContext(), -1));
+        return false;
       }
       duk_pop(getContext());
     }
@@ -202,7 +196,8 @@ bool JSApplication::init() {
       std::lock_guard<recursive_mutex> duktape_lock(getDuktapeMutex());
       duk_push_string(getContext(), headerSource);
       if(duk_peval(getContext()) != 0) {
-        printf("Script error: %s\n", duk_safe_to_string(getContext(), -1));
+        ERROUT("Script error: " << duk_safe_to_string(getContext(), -1));
+        return false;
       }
       duk_pop(getContext());
     }
@@ -219,7 +214,8 @@ bool JSApplication::init() {
       std::lock_guard<recursive_mutex> duktape_lock(getDuktapeMutex());
       duk_push_string(getContext(), agentSource);
       if (duk_peval(getContext()) != 0) {
-        printf("Failed to evaluate agent.js: %s\n", duk_safe_to_string(getContext(), -1));
+        ERROUT("Failed to evaluate agent.js: " << duk_safe_to_string(getContext(), -1));
+        return false;
       }
       duk_pop(getContext());
     }
@@ -228,7 +224,8 @@ bool JSApplication::init() {
       std::lock_guard<recursive_mutex> duktape_lock(getDuktapeMutex());
       duk_push_string(getContext(), apiSource);
       if (duk_peval(getContext()) != 0) {
-        printf("Failed to evaluate api.js: %s\n", duk_safe_to_string(getContext(), -1));
+        ERROUT("Failed to evaluate api.js: " << duk_safe_to_string(getContext(), -1));
+        return false;
       }
       duk_pop(getContext());
     }
@@ -237,7 +234,8 @@ bool JSApplication::init() {
       std::lock_guard<recursive_mutex> duktape_lock(getDuktapeMutex());
       duk_push_string(getContext(), appSource);
       if (duk_peval(getContext()) != 0) {
-        printf("Failed to evaluate app.js: %s\n", duk_safe_to_string(getContext(), -1));
+        ERROUT("Failed to evaluate app.js: " << duk_safe_to_string(getContext(), -1));
+        return false;
       }
       duk_pop(getContext());
     }
@@ -246,7 +244,8 @@ bool JSApplication::init() {
       std::lock_guard<recursive_mutex> duktape_lock(getDuktapeMutex());
       duk_push_string(getContext(), requestSource);
       if (duk_peval(getContext()) != 0) {
-        printf("Failed to evaluate request.js: %s\n", duk_safe_to_string(getContext(), -1));
+        ERROUT("Failed to evaluate request.js: " << duk_safe_to_string(getContext(), -1));
+        return false;
       }
       duk_pop(getContext());
     }
@@ -255,7 +254,8 @@ bool JSApplication::init() {
       std::lock_guard<recursive_mutex> duktape_lock(getDuktapeMutex());
       duk_push_string(getContext(), responseSource);
       if (duk_peval(getContext()) != 0) {
-        printf("Failed to evaluate response.js: %s\n", duk_safe_to_string(getContext(), -1));
+        ERROUT("Failed to evaluate response.js: " << duk_safe_to_string(getContext(), -1));
+        return false;
       }
       duk_pop(getContext());
     }
@@ -302,11 +302,9 @@ bool JSApplication::init() {
       duk_push_string(getContext(), getJSSource());
 
       if(duk_module_node_peval_main(getContext(), getAppMain().c_str()) != 0) {
-        char buffer[256];
-        sprintf(buffer,"Failed to evaluate main module: %s\n",duk_safe_to_string(getContext(), -1));
-        AppLog(getAppPath().c_str()) << AppLog::getTimeStamp() << " [" << Constant::String::LOG_ERROR << "] " << buffer << "\n";
+        ERROUT("Failed to evaluate main module: " << duk_safe_to_string(getContext(), -1));
+        AppLog(getAppPath().c_str()) << AppLog::getTimeStamp() << " [" << Constant::String::LOG_ERROR << "] " << duk_safe_to_string(getContext(), -1) << "\n";
         return false;
-        // printf("Failed to evaluate main module: %s\n", duk_safe_to_string(getContext(), -1));
       }
     }
 
@@ -336,7 +334,7 @@ bool JSApplication::deleteEventLoopThread() {
       ev_thread_.join();
     }
   } catch (const std::system_error& e) {
-    std::cerr << "The error in joining ev thread: " << e.what() << '\n';
+    ERROUT("The error in joining ev thread: " << e.what());
   }
 
   return true;
@@ -526,7 +524,7 @@ AppResponse *JSApplication::getResponse(AppRequest *request) {
     std::lock_guard<recursive_mutex> duktape_lock(getDuktapeMutex());
     duk_push_string(getContext(), sourceCode.c_str());
     if (duk_peval(getContext()) != 0) {
-      printf("Failed to evaluate response: %s\n", duk_safe_to_string(getContext(), -1));
+      ERROUT("Failed to evaluate response: " << duk_safe_to_string(getContext(), -1));
     }
     duk_pop(getContext());
   }
@@ -586,10 +584,9 @@ bool JSApplication::deleteApplication(JSApplication *app) {
       app->getEventLoopThread().join();
   } catch(std::system_error& e) {
     if(std::errc::invalid_argument == e.code()) {
-      std::cerr << "App thread was too slow to join.\n";
-      std::cerr << "Waiting for a moment and trying to continue.\n";
+      ERROUT("App thread was too slow to join. Good luck.");
     } else {
-      std::cerr << "Unexpected error: " << e.what() << "\n";
+      ERROUT("Unexpected error: " << e.what());
     }
   }
 
@@ -635,10 +632,9 @@ bool JSApplication::shutdownApplication(JSApplication *app) {
       app->getEventLoopThread().join();
   } catch(std::system_error& e) {
     if(std::errc::invalid_argument == e.code()) {
-      std::cerr << "shutdownApplication(): App thread was too slow to join.\n";
-      std::cerr << "shutdownApplication(): Waiting for a moment and trying to continue.\n";
+      ERROUT("shutdownApplication(): App thread was too slow to join. Good luck.");
     } else {
-      std::cerr << "shutdownApplication(): Unexpected error: " << e.what() << "\n";
+      ERROUT("shutdownApplication(): Unexpected error: ");
     }
   }
 
@@ -741,8 +737,8 @@ void JSApplication::run() {
     int rc = duk_safe_call(getContext(), EventLoop::eventloop_run, NULL, 0 /*nargs*/, 1 /*nrets*/);
     if (rc != 0) {
       updateAppState(APP_STATES::CRASHED, true);
-      fprintf(stderr, "eventloop_run() failed: %s\n", duk_to_string(getContext(), -1));
-      fflush(stderr);
+      ERROUT("eventloop_run() failed: " << duk_to_string(getContext(), -1));
+      AppLog(getAppPath().c_str()) << AppLog::getTimeStamp() << " [" << Constant::String::LOG_ERROR << "] " << duk_to_string(getContext(), -1) << endl;
     }
     if(getContext())
       duk_pop(getContext());
@@ -910,7 +906,6 @@ duk_ret_t JSApplication::cb_resolve_module(duk_context *ctx) {
     string requested_id_str = string(requested_id);
     // trying to "purify" relative paths
     requested_id_str.erase(std::remove(requested_id_str.begin()+1, requested_id_str.end()-3, '.'), requested_id_str.end()-3);
-    cout << "ReQ ID: " << requested_id_str << "\n";
 
     // getting the known application/module path
     string path = app->getAppPath() + "/";
@@ -956,6 +951,8 @@ duk_ret_t JSApplication::cb_resolve_module(duk_context *ctx) {
 
     duk_push_string(ctx, requested_id_str.c_str());
   }
+
+    /* [ ... resolved_id ] */
 
   return 1;  /*nrets*/
 }
@@ -1020,9 +1017,6 @@ duk_ret_t JSApplication::cb_load_module(duk_context *ctx) {
     if(source.size() > 0) {
       // pushing the source code to heap as the require system wants that
       duk_push_string(ctx, module_source);
-      // if (duk_peval(ctx) != 0) {
-      //     printf("Script error 134: %s\n", duk_safe_to_string(ctx, -1));
-      // }
     } else {
       (void) duk_type_error(ctx, "cannot find module: %s", resolved_id);
     }
@@ -1042,7 +1036,7 @@ duk_ret_t JSApplication::cb_print (duk_context *ctx) {
     duk_concat(ctx, nargs);
 
     // writing to log
-    AppLog(app->getAppPath().c_str()) << AppLog::getTimeStamp() << " [Print] " << duk_require_string(ctx, -1) << endl;
+    AppLog(app->getAppPath().c_str()) << AppLog::getTimeStamp() << " [" << Constant::String::LOG_PRINT << "] " << duk_require_string(ctx, -1) << endl;
   }
 
   return 0;
@@ -1060,7 +1054,7 @@ duk_ret_t JSApplication::cb_alert (duk_context *ctx) {
     duk_concat(ctx, nargs);
 
     // writing to log
-    AppLog(app->getAppPath().c_str()) << AppLog::getTimeStamp() << " [Alert] " << duk_require_string(ctx, -1) << endl;
+    AppLog(app->getAppPath().c_str()) << AppLog::getTimeStamp() << " [" << Constant::String::LOG_ALERT << "] " << duk_require_string(ctx, -1) << endl;
   }
 
   return 0;
@@ -1206,7 +1200,7 @@ void JSApplication::getJoinThreads() {
         if(it->second->getEventLoopThread().joinable())
           it->second->getEventLoopThread().join();
       } catch(const std::system_error& e) {
-        std::cerr << "getJoinThreads(): join failed: " << e.what() << '\n';
+        ERROUT("getJoinThreads(): join failed: " << e.what());
       }
     }
 }

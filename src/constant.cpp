@@ -15,6 +15,8 @@ const char * Constant::String::LOG_INFO = "Info";
 const char * Constant::String::LOG_WARNING = "Warn";
 const char * Constant::String::LOG_ERROR = "Error";
 const char * Constant::String::LOG_FATAL_ERROR = "SystemError";
+const char * Constant::String::LOG_PRINT = "Print";
+const char * Constant::String::LOG_ALERT = "Alert";
 const char * Constant::String::REQ_TYPE_TEXT_HTML = "text/html";
 const char * Constant::String::REQ_TYPE_APP_JSON = "application/json";
 

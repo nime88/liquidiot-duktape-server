@@ -35,8 +35,7 @@ struct lws_protocols HttpServer::protocols[] = {
 };
 
 int HttpServer::run() {
-  // const char *p;
-  int n = 0, logs = LLL_USER | LLL_ERR | LLL_WARN | LLL_NOTICE
+  int n = 0, logs = LLL_ERR | LLL_WARN
     /* for LLL_ verbosity above NOTICE to be built into lws,
      * lws must have been configured and built with
      * -DCMAKE_BUILD_TYPE=DEBUG instead of =RELEASE */

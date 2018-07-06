@@ -27,6 +27,8 @@ public:
       static const char * LOG_WARNING;
       static const char * LOG_ERROR;
       static const char * LOG_FATAL_ERROR;
+      static const char * LOG_PRINT;
+      static const char * LOG_ALERT;
 
       // misc http
       static const char * REQ_TYPE_TEXT_HTML;

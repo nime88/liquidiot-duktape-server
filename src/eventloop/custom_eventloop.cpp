@@ -2,7 +2,6 @@
 
 #include <sys/time.h>
 #include <cmath>
-#include <iostream>
 
 #include "application.h"
 #include "app_log.h"
@@ -15,16 +14,6 @@ extern "C" {
 
 #if defined (__cplusplus)
 }
-#endif
-
-// #define NDEBUG
-
-#ifdef NDEBUG
-    #include <iostream>
-    using std::cout;
-    #define DBOUT( x ) cout << x  << "\n"
-#else
-    #define DBOUT( x )
 #endif
 
 #define  TIMERS_SLOT_NAME       "eventTimers"
@@ -84,7 +73,6 @@ int EventLoop::eventloop_run(duk_context *ctx, void *udata) {
 
   (void) udata;
 
-  // DBOUT( "eventloop_run(): Data initialized");
   {
     std::lock_guard<recursive_mutex> duktape_lock(app->getDuktapeMutex());
     duk_push_global_object(ctx);
@@ -108,7 +96,6 @@ int EventLoop::eventloop_run(duk_context *ctx, void *udata) {
         continue;
       }
 
-      DBOUT( "eventloop_run(): Expiring timers");
       expire_timers(ctx);
 
       if(timers->size() == 0) {
@@ -137,7 +124,6 @@ int EventLoop::eventloop_run(duk_context *ctx, void *udata) {
       // updating current timeout
       eventloop->setCurrentTimeout(timeout);
 
-      DBOUT( "eventloop_run(): Timers, diff " << diff);
     }
     // unlocking app mutexes if for some reason they are not released by lock guard
     app->getDuktapeMutex().unlock();
@@ -146,7 +132,6 @@ int EventLoop::eventloop_run(duk_context *ctx, void *udata) {
     // handling sigint event
     signal(SIGINT, sigint_handler);
 
-    DBOUT( "eventloop_run(): Starting wait_for " << timeout << " millis");
     try {
       std::unique_lock<mutex> cv_lock(app->getCVMutex());
       app->getEventLoopCV().wait_for(cv_lock, std::chrono::milliseconds(timeout), [eventloop]{
@@ -154,10 +139,11 @@ int EventLoop::eventloop_run(duk_context *ctx, void *udata) {
       });
 
       if(interrupted || eventloop->exitRequested()) {
-        return 0;
+        DBOUT( "eventloop_run(): Asked for termination");
+        break;
       }
     } catch(const std::system_error& e) {
-      std::cerr << "Some random error: " << e.what() << '\n';
+      ERROUT("Some random error: " << e.what());
       return 0;
     }
 
@@ -169,28 +155,21 @@ int EventLoop::eventloop_run(duk_context *ctx, void *udata) {
 }
 
 int EventLoop::expire_timers(duk_context *ctx) {
-   DBOUT( "expire_timers()" );
   if(!ctx) return 0;
 
   JSApplication *app = JSApplication::getApplications().at(ctx);
 
-  // DBOUT( "expire_timers(): Starting expire timers");
   int sanity = MAX_EXPIRIES;
   double now = get_now();
   int rc;
   EventLoop *eventloop = getAllEventLoops().at(ctx);
   map<int,TimerStruct> *timers = getAllTimers().at(ctx);
 
-  // DBOUT( "expire_timers(): Successfully initialized variables");
-  // DBOUT( "expire_timers(): " << ctx << " - " << timers->size());
-
   {
     std::lock_guard<recursive_mutex> duktape_lock(app->getDuktapeMutex());
     duk_push_global_stash(ctx);
     duk_get_prop_string(ctx, -1, TIMERS_SLOT_NAME);
     /* [ ... stash eventTimers ] */
-
-    // DBOUT( "expire_timers(): Reading timers form heap slot successful");
 
     for(;sanity > 0 && (MAX_EXPIRIES-sanity) < (int)timers->size(); --sanity) {
         // exit has been requested...
@@ -203,7 +182,6 @@ int EventLoop::expire_timers(duk_context *ctx) {
           break;
         }
 
-        // DBOUT( "expire_timers(): Loop, there are " << timers->size() << " timers");
         // find expired timers and mark them
         for (map<int, TimerStruct>::iterator it = timers->begin(); it != timers->end(); ++it) {
           if(it->second.removed) {
@@ -257,12 +235,10 @@ int EventLoop::expire_timers(duk_context *ctx) {
           }
         }
 
-        // DBOUT( "expire_timers(): Loop, trying to pop last 2");
         duk_pop_2(ctx);  /* -> [ ... ] */
     }
   }
 
-  // DBOUT( "expire_timers(): Expired timers successfully");
   return 0;
 }
 
