@@ -1,7 +1,6 @@
 #include "custom_eventloop.h"
 
 #include <sys/time.h>
-#include <poll.h>
 #include <cmath>
 #include <iostream>
 
@@ -96,14 +95,16 @@ int EventLoop::eventloop_run(duk_context *ctx, void *udata) {
 
   for(;;) {
     {
-      std::lock_guard<recursive_mutex> app_lock(app->getAppMutex());
       if(interrupted || eventloop->exitRequested()) {
         DBOUT( "eventloop_run(): Asked for termination");
         break;
       }
 
       if(app->getAppState() == JSApplication::APP_STATES::PAUSED) {
-        poll(NULL,0,MIN_WAIT);
+        std::unique_lock<mutex> cv_lock(app->getCVMutex());
+        app->getEventLoopCV().wait_for(cv_lock, std::chrono::milliseconds(int(MAX_WAIT)), [eventloop,app]{
+            return interrupted || !eventloop || eventloop->exitRequested() || !app || app->getAppState() == JSApplication::APP_STATES::RUNNING;
+        });
         continue;
       }
 
@@ -139,19 +140,16 @@ int EventLoop::eventloop_run(duk_context *ctx, void *udata) {
       DBOUT( "eventloop_run(): Timers, diff " << diff);
     }
     // unlocking app mutexes if for some reason they are not released by lock guard
-    app->getAppMutex().unlock();
     app->getDuktapeMutex().unlock();
     JSApplication::getStaticMutex().unlock();
-
 
     // handling sigint event
     signal(SIGINT, sigint_handler);
 
-    DBOUT( "eventloop_run(): Starting poll() wait for " << timeout << " millis");
+    DBOUT( "eventloop_run(): Starting wait_for " << timeout << " millis");
     try {
       std::unique_lock<mutex> cv_lock(app->getCVMutex());
       app->getEventLoopCV().wait_for(cv_lock, std::chrono::milliseconds(timeout), [eventloop]{
-          // return eventloop && (!eventloop->exitRequested()) && (interrupted == 0);
           return interrupted || !eventloop || eventloop->exitRequested();
       });
 
@@ -162,7 +160,6 @@ int EventLoop::eventloop_run(duk_context *ctx, void *udata) {
       std::cerr << "Some random error: " << e.what() << '\n';
       return 0;
     }
-    // poll(NULL,0,timeout);
 
   }
 

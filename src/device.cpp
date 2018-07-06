@@ -17,7 +17,7 @@ using std::pair;
 using std::ofstream;
 using std::regex;
 
-#define NDEBUG
+// #define NDEBUG
 
 #ifdef NDEBUG
     #define DBOUT( x ) cout << x  << "\n"
@@ -636,4 +636,8 @@ void Device::exitClientThread() {
       }
     }
   }
+}
+
+void Device::notify() {
+  Device::getInstance().getCV().notify_all();
 }

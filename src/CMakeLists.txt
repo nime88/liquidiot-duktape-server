@@ -22,7 +22,7 @@ target_link_libraries(Utility DukTape Constant archive)
 target_link_libraries(JSApp DukTape DukTapeExtra ModDukTape Constant Http EventLoop NodeJS Logs Device Utility)
 target_link_libraries(HttpServer Constant Utility JSApp Http websockets)
 target_link_libraries(Device DukTape Constant Globals Utility HttpClient)
-target_link_libraries(Globals Device)
+target_link_libraries(Globals JSApp Device)
 
 # making libraries accessable
 target_include_directories (Constant PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

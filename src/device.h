@@ -150,6 +150,8 @@ class Device {
     static inline mutex& getCVMutex() { return cv_mtx_; }
     static inline condition_variable& getCV() { return condvar_; }
 
+    static void notify();
+
   private:
     // duk_context
     duk_context *duk_context_;

@@ -79,7 +79,8 @@ void HttpClient::run(ClientRequestConfig *config) {
     return;
   }
 
-  while (n >= 0 && client_wsi /*&& !interrupted*/)
+  // interrupt is ignored because we actually want to finish everything we can in this case
+  while (n >= 0 && client_wsi /* && !interrupted */)
     n = lws_service(context, 1000);
 
   lws_context_destroy(context);

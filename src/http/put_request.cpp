@@ -146,14 +146,20 @@ int PutRequest::calculateHttpRequest(void* buffer_data, void* in) {
     parsed_str = lws_spa_get_string(dest_buffer->spa, n);
   }
 
-  for(unsigned int i = 0; i < app->APP_STATES_CHAR.size(); ++i) {
+  unsigned int i = 0;
+  for(; i < app->APP_STATES_CHAR.size(); ++i) {
     if(app->APP_STATES_CHAR.at(i) == parsed_str) {
       state = JSApplication::APP_STATES(i);
       break;
     }
   }
 
-  bool app_state_ok = app->setAppState(state);
+  bool app_state_ok = false;
+
+  if(i < app->APP_STATES_CHAR.size()) {
+    app->updateAppState(state, true);
+    app_state_ok = true;
+  }
 
   if(app_state_ok) {
     dest_buffer->large_str = "Application went to target status successfully.";

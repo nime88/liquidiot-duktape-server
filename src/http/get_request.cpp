@@ -111,11 +111,14 @@ int GetRequest::calculateHttpRequest(void* buffer_data, void* in) {
       dest_buffer->large_str += it->second->getDescriptionAsJSON();
       dest_buffer->large_str += ",\n";
     }
+    if(apps.size() > 0)
+      dest_buffer->large_str.erase(dest_buffer->large_str.length()-2,2);
     dest_buffer->large_str += "]";
 
     optimizeResponseString(dest_buffer->large_str, buffer_data);
 
-    return 0;
+    // sending JSON
+    return 1;
   }
 
   // handling parse error
@@ -124,6 +127,7 @@ int GetRequest::calculateHttpRequest(void* buffer_data, void* in) {
 
     optimizeResponseString(dest_buffer->error_msg, buffer_data);
 
+    // error
     return -1;
   }
 
@@ -140,7 +144,8 @@ int GetRequest::calculateHttpRequest(void* buffer_data, void* in) {
 
       optimizeResponseString(dest_buffer->large_str, buffer_data);
 
-      return 0;
+      // sending JSON
+      return 1;
     } else {
       string logs = app->getLogsAsJSON();
       cout << "Buffer length: " << logs.size() << endl;
@@ -148,6 +153,7 @@ int GetRequest::calculateHttpRequest(void* buffer_data, void* in) {
 
       optimizeResponseString(dest_buffer->large_str, buffer_data);
 
+      // sending JSON
       return 1;
     }
   }
@@ -156,6 +162,7 @@ int GetRequest::calculateHttpRequest(void* buffer_data, void* in) {
 
   optimizeResponseString(dest_buffer->error_msg, buffer_data);
 
+  // error
   return -1;
 }
 

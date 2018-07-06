@@ -27,7 +27,7 @@ using std::to_string;
 #include "duk_util.h"
 #include "globals.h"
 
-#define NDEBUG
+// #define NDEBUG
 
 #ifdef NDEBUG
     #define DBOUT( x ) cout << x  << "\n"
@@ -60,7 +60,10 @@ JSApplication::JSApplication(const char* path):duk_context_(0) {
 
     DBOUT("JSApplication(): app path: " << getAppPath());
     DBOUT("JSApplication(): init()");
-    init();
+    if(!init()) {
+      JSApplication::shutdownApplication(this);
+      return;
+    }
 
     DBOUT("JSApplication(): registerAppApi()");
     unsigned int ai_len = getAppInterfaces().size();
@@ -85,7 +88,7 @@ JSApplication::JSApplication(const char* path):duk_context_(0) {
   DBOUT("JSApplication(): OK");
 }
 
-void JSApplication::init() {
+bool JSApplication::init() {
   {
     std::lock_guard<recursive_mutex> static_lock(getStaticMutex());
     setIsReady(false);
@@ -98,7 +101,9 @@ void JSApplication::init() {
     }
 
     if (!getContext()) {
-      throw "Duk context could not be created.";
+      // throw "Duk context could not be created.";
+      AppLog(getAppPath().c_str()) << AppLog::getTimeStamp() << " [" << Constant::String::LOG_FATAL_ERROR << "] " << "Duk context could not be created." << "\n";
+      return false;
     }
 
     if(getOptions().size() == 0) {
@@ -297,7 +302,11 @@ void JSApplication::init() {
       duk_push_string(getContext(), getJSSource());
 
       if(duk_module_node_peval_main(getContext(), getAppMain().c_str()) != 0) {
-        printf("Failed to evaluate main module: %s\n", duk_safe_to_string(getContext(), -1));
+        char buffer[256];
+        sprintf(buffer,"Failed to evaluate main module: %s\n",duk_safe_to_string(getContext(), -1));
+        AppLog(getAppPath().c_str()) << AppLog::getTimeStamp() << " [" << Constant::String::LOG_ERROR << "] " << buffer << "\n";
+        return false;
+        // printf("Failed to evaluate main module: %s\n", duk_safe_to_string(getContext(), -1));
       }
     }
 
@@ -305,69 +314,9 @@ void JSApplication::init() {
     // initializing the thread, this must be the last initialization
     createEventLoopThread();
   }
-}
 
-// void JSApplication::clean() {
-//   {
-//     if(!getContext()) return;
-//     DBOUT( "clean(): " << getContext());
-//     DBOUT ( "clean(): mutex lock");
-//     std::lock_guard<recursive_mutex> app_lock(getAppMutex());
-//     DBOUT ( "clean(): mutex in");
-//
-//     DBOUT ( "clean(): id: " << getAppId() );
-//
-//     if(getEventLoop()) {
-//       DBOUT ( "clean(): eventloop start");
-//       // if the application is running we need to stop the thread
-//       {
-//         std::unique_lock<mutex> cv_lock(getCVMutex());
-//         getEventLoop()->setRequestExit(true);
-//       }
-//       getCVMutex().unlock();
-//       getEventLoopCV().notify_one();
-//       DBOUT ( "clean(): eventloop end");
-//     }
-//
-//     // waiting for thread to stop the execution (come back from poll)
-//     DBOUT ("clean(): waiting for thread over" );
-//     try {
-//       if(getEventLoopThread().joinable() == true) {
-//         DBOUT ("clean(): joining eventloop" );
-//         getEventLoopThread().join();
-//       }
-//       DBOUT ("clean(): deleting eventloop" );
-//       deleteEventLoopThread();
-//     } catch (const std::system_error& e) {
-//       if(std::errc::invalid_argument != e.code()) {
-//         std::cerr << "Caught a system_error\n";
-//         std::cerr << "the error description is " << e.what() << '\n';
-//         abort();
-//       } else {
-//         std::cerr << "EventLoop thread not joinable anymore\n";
-//         deleteEventLoopThread();
-//       }
-//     }
-//
-//     DBOUT ( "clean(): killing thread was successful");
-//
-//     if(getContext()) {
-//       DBOUT ( "clean(): thread waiting over and calling terminate" );
-//       {
-//         std::lock_guard<recursive_mutex> duktape_lock(getDuktapeMutex());
-//         duk_push_string(getContext(), "app.internal.terminate(function(){});");
-//         if(duk_peval(getContext()) != 0) {
-//           printf("Script error: %s\n", duk_safe_to_string(getContext(), -1));
-//         }
-//       }
-//     }
-//
-//     if(getEventLoop())
-//       deleteEventLoop();
-//
-//     DBOUT ("clean(): success" );
-//   }
-// }
+  return true;
+}
 
 bool JSApplication::createEventLoopThread() {
 
@@ -487,6 +436,7 @@ void JSApplication::setAppId(const string& id) {
 }
 
 bool JSApplication::setAppState(APP_STATES state) {
+  DBOUT("setAppState()");
   // trivial case
   if(state == getAppState()) return true;
 
@@ -499,10 +449,20 @@ bool JSApplication::setAppState(APP_STATES state) {
   }
 
   else if(state == APP_STATES::RUNNING && getAppState() == APP_STATES::PAUSED) {
+    DBOUT("setAppState(): Setting to running");
     {
       std::lock_guard<recursive_mutex> app_lock(getAppMutex());
       app_state_ = state;
     }
+    getAppMutex().unlock();
+
+    if(app_state_ == APP_STATES::RUNNING) {
+      getCVMutex().unlock();
+      getEventLoopCV().notify_all();
+    }
+
+    DBOUT("setAppState(): Running");
+
     return start();
   }
 
@@ -510,6 +470,13 @@ bool JSApplication::setAppState(APP_STATES state) {
     std::lock_guard<recursive_mutex> app_lock(getAppMutex());
     app_state_ = state;
   }
+  getAppMutex().unlock();
+
+  if(app_state_ == APP_STATES::RUNNING) {
+    getCVMutex().unlock();
+    getEventLoopCV().notify_all();
+  }
+
   return false;
 }
 
@@ -599,11 +566,13 @@ bool JSApplication::deleteApplication(JSApplication *app) {
   DBOUT("deleteApplication(): Deleting files");
   delete_files(app->getAppPath().c_str()); /* There is a possibility of failure but we ignore it */
 
-  DBOUT("deleteApplication(): clean()");
-  // app->clean();
-
   DBOUT ( "deleteApplication(): joining app thread" );
   try {
+    {
+      std::lock_guard<mutex> req_lock(app->getCVMutex());
+      app->getEventLoop()->setRequestExit(true);
+    }
+    app->getCVMutex().unlock();
     app->getEventLoopCV().notify_all();
     DBOUT ( "deleteApplication(): wait for app" );
     {
@@ -648,6 +617,11 @@ bool JSApplication::shutdownApplication(JSApplication *app) {
 
   DBOUT ( "shutdownApplication(): joining app thread" );
   try {
+    {
+      std::lock_guard<mutex> req_lock(app->getCVMutex());
+      app->getEventLoop()->setRequestExit(true);
+    }
+    app->getCVMutex().unlock();
     app->getEventLoopCV().notify_all();
     DBOUT ( "shutdownApplication(): wait for app" );
     {
@@ -667,8 +641,6 @@ bool JSApplication::shutdownApplication(JSApplication *app) {
       std::cerr << "shutdownApplication(): Unexpected error: " << e.what() << "\n";
     }
   }
-
-  applications_.erase(app->getContext());
 
   DBOUT ( "shutdownApplication(): cleaning the app out of ds" );
   applications_.erase(app->getContext());
@@ -719,7 +691,7 @@ string JSApplication::getLogsAsJSON() {
   string logs = ReadAppLog(getAppPath().c_str()).getLogsString();
 
   std::smatch m;
-  std::regex e( R"(\[(\w{3}\s+\w{3}\s+\d{2}\s+\d{2}:\d{2}:\d{2}\s+\d{4})\]\s\[(\w+)\]\s([A-Za-z\d\s._:]*)(\n|\n$)+?)" );
+  std::regex e( R"(\[(\w{3}\s+\w{3}\s+\d{2}\s+\d{2}:\d{2}:\d{2}\s+\d{4})\]\s\[(\w+)\]\s([A-Za-z\d\s._:\/]*)(\n|\n$)+?)" );
 
   json_logs += "[\n";
   while (std::regex_search (logs,m,e, std::regex_constants::match_any)) {
@@ -932,7 +904,13 @@ duk_ret_t JSApplication::cb_resolve_module(duk_context *ctx) {
     requested_id = duk_require_string(ctx, 0);
     parent_id = duk_require_string(ctx, 1);
 
+    duk_pop_2(ctx);
+    /* [ ... ] */
+
     string requested_id_str = string(requested_id);
+    // trying to "purify" relative paths
+    requested_id_str.erase(std::remove(requested_id_str.begin()+1, requested_id_str.end()-3, '.'), requested_id_str.end()-3);
+    cout << "ReQ ID: " << requested_id_str << "\n";
 
     // getting the known application/module path
     string path = app->getAppPath() + "/";
@@ -1231,6 +1209,12 @@ void JSApplication::getJoinThreads() {
         std::cerr << "getJoinThreads(): join failed: " << e.what() << '\n';
       }
     }
+}
+
+void JSApplication::notify() {
+  for(const pair<duk_context*, JSApplication*>& it : applications_ ) {
+    it.second->getEventLoopCV().notify_all();
+  }
 }
 
 void JSApplication::parsePackageJS() {

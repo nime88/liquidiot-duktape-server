@@ -138,7 +138,7 @@ map<string,vector<string> > read_liquidiot_json(duk_context *ctx, const char* js
     attr.insert(pair<string,vector<string> >(Constant::Attributes::LIOT_DEV_CAP, dc_vec));
   }
 
-  // duk_pop(ctx);
+  duk_pop(ctx);
 
   if(duk_has_prop_string(ctx, -1, Constant::Attributes::LIOT_APP_INTERFACES)) {
     duk_get_prop_string(ctx, -1, Constant::Attributes::LIOT_APP_INTERFACES);
@@ -157,7 +157,7 @@ map<string,vector<string> > read_liquidiot_json(duk_context *ctx, const char* js
     attr.insert(pair<string,vector<string> >(Constant::Attributes::LIOT_APP_INTERFACES, ai_vec));
   }
 
-  duk_pop(ctx);
+  duk_pop_2(ctx);
 
   return attr;
 }

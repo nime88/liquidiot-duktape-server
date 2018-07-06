@@ -9,10 +9,14 @@ extern "C" {
 #endif
 
 #include "globals.h"
+#include "application.h"
+#include "device.h"
 
 int interrupted = 0;
 
 void sigint_handler(int sig) {
   (void)sig;
   interrupted = 1;
+  JSApplication::notify();
+  Device::notify();
 }

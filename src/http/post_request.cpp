@@ -92,6 +92,7 @@ int PostRequest::generateFailResponse(struct lws *wsi, void* buffer_data, uint8_
 
 int PostRequest::parsePostForm(struct lws *wsi, void* buffer_data, void* in, size_t len) {
   struct user_buffer_data *dest_buffer = (struct user_buffer_data*)buffer_data;
+
   /* create the POST argument parser if not already existing */
   if (!dest_buffer->spa) {
     dest_buffer->spa = lws_spa_create(wsi, post_param_names,

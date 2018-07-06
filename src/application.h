@@ -50,7 +50,7 @@ class JSApplication {
     }
 
     // simply initializes the app(doesn't take path)
-    void init();
+    bool init();
 
     // cleans the app from unnecessary stuff
     // void clean();
@@ -190,6 +190,7 @@ class JSApplication {
 
 
     static void getJoinThreads();
+    static void notify();
 
     JSApplication(JSApplication const&) = delete;
     void operator=(JSApplication const&) = delete;
