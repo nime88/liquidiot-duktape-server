@@ -13,15 +13,8 @@ using std::ifstream;
 using std::pair;
 using std::istringstream;
 
+#include "prints.h"
 #include "constant.h"
-
-// #define NDEBUG
-
-#ifdef NDEBUG
-    #define DBOUT( x ) cout << x  << "\n"
-#else
-    #define DBOUT( x )
-#endif
 
 char* load_js_file(const char* filename, int & sourceLen) {
   char* sourceCode;

@@ -34,15 +34,16 @@ Agent = function (iotApp){
 
       if(!repeat) {
         // only execute task() once if not on repeat
-        console.log("Executing task once...");
-        interval_id = setTimeout(task,interval);
+        try {
+          interval_id = setTimeout(task,interval);
+        } catch(e) {
+          console.error("Setting the interval failed. " + e);
+        }
       } else  {
-        print("Setting interval in header...");
         try {
           interval_id = setInterval(task, interval);
-          console.log("Set the interval " + interval_id);
         } catch(e) {
-          console.log("Setting the interval failed. " + e);
+          console.error("Setting the interval failed. " + e);
         }
       }
 

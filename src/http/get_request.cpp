@@ -4,11 +4,8 @@
 #include "constant.h"
 
 #include <regex>
-#include <iostream>
 #include <string>
 
-using std::cout;
-using std::endl;
 using std::to_string;
 
 int GetRequest::handleHttpRequest(struct lws *wsi, void* buffer_data, void* in, uint8_t *start, uint8_t *p, uint8_t *end, size_t len, enum lws_callback_reasons reason) {
@@ -148,7 +145,6 @@ int GetRequest::calculateHttpRequest(void* buffer_data, void* in) {
       return 1;
     } else {
       string logs = app->getLogsAsJSON();
-      cout << "Buffer length: " << logs.size() << endl;
       dest_buffer->large_str = logs;
 
       optimizeResponseString(dest_buffer->large_str, buffer_data);
