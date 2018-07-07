@@ -52,3 +52,5 @@ make
 Check for **"examples/test"** and **"examples/test2"** for example applications that are using the features supported by current runtime.
 
 The runtime should start properly even when configuration is not correct.
+
+To enable debug prints one should use `-DCMAKE_BUILD_TYPE=Debug` in cmake flags.
