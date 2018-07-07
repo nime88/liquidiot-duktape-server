@@ -137,9 +137,6 @@ string extract(const char *filename, int do_extract, int flags, const char* extr
       return "";
     }
 
-		if (do_extract)
-      write(1, "x", strlen("x"));
-
 		if (do_extract) {
       // setting extract path
       const char* currentFile = archive_entry_pathname(entry);

@@ -1,7 +1,3 @@
-# cpp flags
-set ( CMAKE_CXX_FLAGS "-Wall -Wextra -lm -std=c++11")
-set ( CMAKE_C_FLAGS "-Wall -Wextra -lm -std=c99")
-
 # adding libraries
 add_library (ModDukTape mod_duk_console.cpp duk_util.cpp)
 

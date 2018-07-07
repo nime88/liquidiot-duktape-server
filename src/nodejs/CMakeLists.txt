@@ -1,5 +1,3 @@
-set ( CMAKE_CXX_FLAGS "-Wall -Wextra -lm -std=c++11")
-
 # adding library
 add_library (NodeJS node_module_search.cpp)
 

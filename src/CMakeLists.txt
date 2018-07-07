@@ -5,10 +5,6 @@ add_subdirectory (http)
 add_subdirectory (logs)
 add_subdirectory (duktape)
 
-# cpp flags
-set ( CMAKE_CXX_FLAGS "-Wall -Wextra -lm -std=c++11")
-set ( CMAKE_C_FLAGS "-Wall -Wextra -lm -std=c99")
-
 # adding libraries
 add_library (Utility file_ops.cpp util.cpp)
 add_library (JSApp applications_manager.cpp application.cpp)

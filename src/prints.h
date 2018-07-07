@@ -4,7 +4,8 @@
 #include <iostream>
 
 // #define NDEBUG
-#ifdef NDEBUG
+
+#ifdef DEBUG_PRINT
     #define DBOUT( x ) std::cout << "\033[1;36m" << x  << "\033[0m\n"
 #else
     #define DBOUT( x )

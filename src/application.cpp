@@ -48,6 +48,11 @@ JSApplication::JSApplication(const char* path):duk_context_(0) {
       setAppPath(getAppPath()+"/");
 
     DBOUT("JSApplication(): app path: " << getAppPath());
+    if(is_file(getAppPath().c_str()) != FILE_TYPE::PATH_TO_DIR) {
+      DBOUT("JSApplication(): File " << getAppPath() << " not a directory.");
+      JSApplication::shutdownApplication(this);
+      return;
+    }
 
     DBOUT("JSApplication(): init()");
     if(!init()) {
@@ -614,9 +619,11 @@ bool JSApplication::shutdownApplication(JSApplication *app) {
 
   DBOUT ( "shutdownApplication(): joining app thread" );
   try {
-    {
+    if(app->getEventLoop()){
       std::lock_guard<mutex> req_lock(app->getCVMutex());
       app->getEventLoop()->setRequestExit(true);
+    } else {
+      app->setIsReady(true);
     }
     app->getCVMutex().unlock();
     app->getEventLoopCV().notify_all();
@@ -627,7 +634,7 @@ bool JSApplication::shutdownApplication(JSApplication *app) {
         return app->isReady()||interrupted;
       });
     }
-    DBOUT ( "shutdownApplication(): joining app" );
+    DBOUT ( "shutdownApplication(): joining app");
     if(app->getEventLoopThread().joinable())
       app->getEventLoopThread().join();
   } catch(std::system_error& e) {
@@ -642,8 +649,10 @@ bool JSApplication::shutdownApplication(JSApplication *app) {
   applications_.erase(app->getContext());
 
   DBOUT ( "shutdownApplication(): destoying duk heap" );
-  duk_destroy_heap(app->getContext());
-  app->duk_context_ = 0;
+  if(app->getContext()) {
+    duk_destroy_heap(app->getContext());
+    app->duk_context_ = 0;
+  }
 
   DBOUT("shutdownApplication(): actual removal from memory");
   delete app;

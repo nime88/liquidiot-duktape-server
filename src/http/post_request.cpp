@@ -119,7 +119,7 @@ int PostRequest::parsePostFormCB(void *data, const char *name, const char *filen
   int n;
 
   if(string(name) != string(post_param_names[post_enum_param_names::EPN_FILEKEY])) {
-    lwsl_notice("Unexpected key %s\n", name);
+    ERROUT("Unexpected key " << name);
     dest_buffer->error_msg = "Unidentified '" + string(name) + "' parameter";
     return -1;
   }
@@ -135,8 +135,7 @@ int PostRequest::parsePostFormCB(void *data, const char *name, const char *filen
       std::string path = string(Constant::Paths::TEMP_FOLDER) + "/" + std::string(dest_buffer->filename);
       dest_buffer->fd = open(path.c_str(), O_CREAT | O_TRUNC | O_RDWR, 0600);
       if (dest_buffer->fd == LWS_INVALID_FILE) {
-        lwsl_notice("Failed to open output file %s\n",
-              dest_buffer->filename);
+        ERROUT("Failed to open output file " << dest_buffer->filename);
         dest_buffer->error_msg = "Failed to open output file '" + string(dest_buffer->filename) + "'";
         return -1;
       }
@@ -149,7 +148,7 @@ int PostRequest::parsePostFormCB(void *data, const char *name, const char *filen
 
       n = write(dest_buffer->fd, buf, len);
       if (n < len) {
-        lwsl_notice("Problem writing file %d\n", errno);
+        ERROUT("Problem writing file " << errno);
       }
     }
     if (state == LWS_UFS_CONTENT)
@@ -157,9 +156,7 @@ int PostRequest::parsePostFormCB(void *data, const char *name, const char *filen
       break;
 
     /* the file upload is completed */
-
-    lwsl_user("%s: upload done, written %lld to %s\n", __func__,
-        dest_buffer->file_length, dest_buffer->filename);
+    DBOUT(__func__ << ": upload done, written " << dest_buffer->file_length << " to " << dest_buffer->filename);
 
     close(dest_buffer->fd);
     dest_buffer->fd = LWS_INVALID_FILE;
@@ -185,15 +182,13 @@ int PostRequest::calculateHttpRequest(void* buffer_data, void* in) {
     // we have the file in file system now so we can just extract it
     string ext_filename = extract_file(temp_file.c_str(), 0);
     strcpy(dest_buffer->ext_filename,ext_filename.c_str());
-    lwsl_user("%s: extracted, written to %s/%s\n", __func__,Constant::Paths::APPLICATIONS_ROOT, dest_buffer->ext_filename);
+    DBOUT(__func__ << ": extracted, written to " << Constant::Paths::APPLICATIONS_ROOT << "/" << dest_buffer->ext_filename);
 
-    if( is_file(temp_file.c_str()) == FILE_TYPE::PATH_TO_FILE && remove( temp_file.c_str() ) != 0 )
-      lwsl_user("Failed to delete file: %s\n",temp_file.c_str());
-    else
-      lwsl_user("Deleted file %s\n",temp_file.c_str());
+    if( is_file(temp_file.c_str()) == FILE_TYPE::PATH_TO_FILE && remove( temp_file.c_str() ) != 0 ) {
+      ERROUT("Failed to delete file: " << temp_file); }
+    else { DBOUT("Deleted file " << temp_file); };
   }
 
-  printf("The mystical id: %d\n", id);
   if(id >= 0) {
     string temp_file = string(Constant::Paths::TEMP_FOLDER) + "/" + string(dest_buffer->filename);
 
@@ -204,12 +199,11 @@ int PostRequest::calculateHttpRequest(void* buffer_data, void* in) {
         // copying contents to updated app
         string ext_filename = extract_file(temp_file.c_str(), app->getAppPath().c_str());
         strcpy(dest_buffer->ext_filename,ext_filename.c_str());
-        lwsl_user("%s: extracted, written to applicaitons/%s\n", __func__, dest_buffer->ext_filename);
+        DBOUT(__func__ << ": extracted, written to " << Constant::Paths::APPLICATIONS_ROOT << "/" << dest_buffer->ext_filename);
 
-        if( is_file(temp_file.c_str()) == FILE_TYPE::PATH_TO_FILE && remove( temp_file.c_str() ) != 0 )
-          lwsl_user("Failed to delete file: %s\n",temp_file.c_str());
-        else
-          lwsl_user("Deleted file %s\n",temp_file.c_str());
+        if( is_file(temp_file.c_str()) == FILE_TYPE::PATH_TO_FILE && remove( temp_file.c_str() ) != 0 ) {
+          ERROUT("Failed to delete file: " << temp_file); }
+        else { DBOUT("Deleted file " << temp_file); };
 
         break;
       }
@@ -230,7 +224,7 @@ int PostRequest::calculateHttpRequest(void* buffer_data, void* in) {
     app = new JSApplication(temp_path.c_str());
   } else if(app) {
     // we have to reload the app if it's already running
-    lwsl_user("Reloading app\n");
+    DBOUT("Reloading app");
     string temp_path = app->getAppPath().c_str();
     JSApplication::shutdownApplication(app);
     app = new JSApplication(temp_path.c_str());

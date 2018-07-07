@@ -1,8 +1,8 @@
 #include "duk_util.h"
-
 #include "application.h"
 #include "app_log.h"
 #include "constant.h"
+
 
 void custom_fatal_handler(void *udata, const char *msg) {
   JSApplication *app = (JSApplication*) udata;
