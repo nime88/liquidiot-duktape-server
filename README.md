@@ -1,25 +1,54 @@
 # liquidiot-duktape-server
 
-Requirements
+## Requirements
 
-- duktape 2.2.1
+- gcc 5.4.0 or complier able to complile -std=c++11
 
-- libwebsockets version 3.0 stable
+- cmake 3.0.2
 
-- libarchive latest realease (3.2.2)
+- duktape 2.2.1 http://duktape.org/duktape-2.2.1.tar.xz
 
-Duktape Configure
+- libwebsockets version 3.0 stable https://github.com/warmcat/libwebsockets
 
+- libarchive release (3.2.2) https://github.com/libarchive/libarchive
+
+- dirent.h is also required (should already be on _*nix_ systems)
+
+*Some of these requirements are not absolute lower boundaries but rather tested versions*
+
+## Duktape Configure
+
+**Duktape doesn't need to be complied separately** (it is compled with the program), thus only the files are required.
+
+Inside duktape folder configure duktape.
+```
 python2 tools/configure.py --output-directory duktape-src -UDUK_USE_GLOBAL_BINDING -UDUK_USE_FATAL_HANDLER -UDUK_USE_VERBOSE_ERRORS
+```
+*Default configure should work but it is not tested properly*
 
-Install
+## Install
 
-CMake assumes that duktape is located at "../duktape-2.2.1/" so one might want to look at the path if that's not the case.
+CMake assumes that duktape is located at "../duktape-2.2.1/" so one might want to look at the path if that's not the case. *Might change in later releases.*
 
-- mkdir build && cd build
+```
+mkdir build && cd build
+cmake ..
+make
+```
 
-- cmake ..
+*Currently 'make install' doesn't do anything extra*
 
-- make
+## Configure
 
-Currently 'make install' doesn't do anything more as this still is very much in development
+1. Copy examples/example_config.json `cp examples/example_config.json build/config.json`
+2. Change all `hostname` and `port` parameters accordingly (these are mandatory)
+3. Change `url` parameters (only used for visibility and might be needed to communicate from outside)
+4. Everything else important is generated automatically (although only device id will be overwritten if not apppropriate)
+5. All **string** parameters will be saved as **string** (only native configs can be other than string)
+6. Only parameters used in example_config.json are natively used (although other parameters will be visible eg. `"device" : { "serial":"asdf" }` )
+
+## Other
+
+Check for **"examples/test"** and **"examples/test2"** for example applications that are using the features supported by current runtime.
+
+The runtime should start properly even when configuration is not correct.
