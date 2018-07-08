@@ -30,7 +30,13 @@ Device::Device() {
 
   DBOUT ("Device(): loading config");
   // loading configs
-  map<string,map<string,string> > config = get_config(duk_context_);
+  map<string,map<string,string> > config;
+  try {
+    config = get_config(duk_context_);
+  } catch (char const * e) {
+    ERROUT("Device failed to read config: " << e);
+    throw "Device failed to start.";
+  }
 
   if(config.find(Constant::Attributes::MANAGER_SERVER) != config.end())
     setManagerServerConfig(config.at(Constant::Attributes::MANAGER_SERVER));
@@ -561,10 +567,21 @@ bool Device::deleteApp(string app_id) {
 }
 
 void Device::saveSettings() {
-  map<string,map<string,string> > config = get_config(getContext());
+  map<string,map<string,string> > config;
+  try {
+    config = get_config(getContext());
+  } catch (char const * e) {
+    ERROUT("saveSettings(): Device failed to read config: " << e);
+    return;
+  }
   config.erase(Constant::Attributes::DEVICE);
   config.insert(pair<string,map<string,string> >(Constant::Attributes::DEVICE,getRawData()));
-  save_config(getContext(),config);
+  try {
+    save_config(getContext(),config);
+  } catch (char const * e) {
+    ERROUT("saveSettings(): Device failed to save config: " << e);
+    return;
+  }
 }
 
 string Device::getDeviceInfoAsJSON() {

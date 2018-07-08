@@ -1,24 +1,49 @@
 #include "util.h"
 
+#include "prints.h"
 #include "constant.h"
 using std::pair;
 
 #include <fstream>
 
+duk_ret_t json_decode_raw(duk_context *ctx, void *udata) {
+  (void) udata;
+	duk_json_decode(ctx, -1);
+	return 1;
+}
+
+duk_int_t safe_json_decode(duk_context *ctx,const char* json) {
+  void *udata;
+  (void) udata;
+  duk_int_t ret;
+  duk_push_string(ctx, json);
+  ret = duk_safe_call(ctx, json_decode_raw, NULL, 1, 1);
+  return ret;
+}
+
 map<string, map<string,string> >get_config(duk_context *ctx) {
+  DBOUT("get_config()");
   map<string, map<string,string> > config;
+  DBOUT("get_config(): context "  << ctx);
+  if(!ctx) return config;
 
   std::ifstream file(Constant::CONFIG_PATH);
   string content( (std::istreambuf_iterator<char>(file) ),
                      (std::istreambuf_iterator<char>() ) );
 
+  DBOUT("get_config(): decode");
   // decoding source
-  duk_push_string(ctx, content.c_str());
-  duk_json_decode(ctx, -1);
+  // duk_push_string(ctx, content.c_str());
+  duk_int_t ret = safe_json_decode(ctx, content.c_str());
+  if(ret != 0) {
+    ERROUT("get_config(): Error decoding json");
+    throw "get_config(): Error decoding json";
+  }
   /* [... dec_obj ] */
 
   duk_enum(ctx, -1, DUK_ENUM_OWN_PROPERTIES_ONLY);
 
+  DBOUT("get_config(): grinding the config");
   while (duk_next(ctx, -1 /*enum_idx*/, 1)) {
     /* [ ... dec_obj enum main_key value_obj ] */
     if(duk_check_type(ctx, -1, DUK_TYPE_OBJECT)) {
@@ -49,6 +74,7 @@ map<string, map<string,string> >get_config(duk_context *ctx) {
 }
 
 void save_config(duk_context *ctx, map<string, map<string,string> > new_config) {
+  DBOUT("save_config()");
   /* [...] */
   duk_push_object(ctx);
 
@@ -73,13 +99,17 @@ void save_config(duk_context *ctx, map<string, map<string,string> > new_config) 
 }
 
 map<string,string> read_package_json(duk_context *ctx, const char* js_src) {
+  DBOUT("read_package_json()");
   if(!ctx || string(js_src).length() == 0) return map<string,string>();
 
   map<string,string> attr;
 
   // decoding source
-  duk_push_string(ctx, js_src);
-  duk_json_decode(ctx, -1);
+  duk_int_t ret = safe_json_decode(ctx, js_src);
+  if(ret != 0) {
+    ERROUT("read_package_json(): Error decoding json");
+    throw "read_package_json(): Error decoding json";
+  }
   /* [... dec_obj ] */
 
   duk_enum(ctx, -1, DUK_ENUM_OWN_PROPERTIES_ONLY);
@@ -104,6 +134,7 @@ map<string,string> read_package_json(duk_context *ctx, const char* js_src) {
 }
 
 map<string,vector<string> > read_liquidiot_json(duk_context *ctx, const char* js_src) {
+  DBOUT("read_liquidiot_json()");
   if(!ctx || string(js_src).length() == 0) return map<string,vector<string> >();
 
   map<string,vector<string> > attr;
@@ -111,8 +142,11 @@ map<string,vector<string> > read_liquidiot_json(duk_context *ctx, const char* js
   vector<string> ai_vec;
 
   // decoding source
-  duk_push_string(ctx, js_src);
-  duk_json_decode(ctx, -1);
+  duk_int_t ret = safe_json_decode(ctx, js_src);
+  if(ret != 0) {
+    ERROUT("read_liquidiot_json(): Error decoding json");
+    throw "read_liquidiot_json(): Error decoding json";
+  }
   /* [... dec_obj ] */
 
   if(duk_has_prop_string(ctx, -1, Constant::Attributes::LIOT_DEV_CAP)) {
@@ -153,31 +187,6 @@ map<string,vector<string> > read_liquidiot_json(duk_context *ctx, const char* js
   }
 
   duk_pop_2(ctx);
-
-  return attr;
-}
-
-// trying to read raw data to json
-map<string,string> read_raw_json(duk_context *ctx, const char* js_src, map<string,string> &attr) {
-  // decoding source
-  duk_push_string(ctx, js_src);
-  duk_json_decode(ctx, -1);
-  /* [ ... json_obj ] */
-
-  duk_enum(ctx, -1, DUK_ENUM_OWN_PROPERTIES_ONLY);
-
-  while (duk_next(ctx, -1 /*enum_idx*/, 1)) {
-    /* [ ... enum key value ] */
-    // only adding strings
-    if(duk_check_type(ctx, -1, DUK_TYPE_STRING)) {
-      string key = duk_to_string(ctx, -2);
-      string value = string(duk_to_string(ctx, -1));
-      attr.insert(pair<string,string>(key, value));
-    }
-    duk_pop_2(ctx);  /* pop key value  */
-  }
-
-  duk_pop_2(ctx); // popping enum object
 
   return attr;
 }

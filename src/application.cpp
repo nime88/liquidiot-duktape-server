@@ -105,7 +105,14 @@ bool JSApplication::init() {
     }
 
     if(getOptions().size() == 0) {
-      map<string, map<string,string> > full_config = get_config(getContext());
+      map<string,map<string,string> > full_config;
+      try {
+        full_config = get_config(getContext());
+      } catch (char const * e) {
+        ERROUT("init(): Application failed to read config: " << e);
+        AppLog(getAppPath().c_str()) << AppLog::getTimeStamp() << " [" << Constant::String::LOG_FATAL_ERROR << "] " << "Application failed to read config." << "\n";
+        return false;
+      }
 
       if(full_config.find(Constant::Attributes::GENERAL) != full_config.end())
         setOptions(full_config.at(Constant::Attributes::GENERAL));
@@ -281,7 +288,14 @@ bool JSApplication::init() {
     DBOUT ("init(): Reading json to attr");
     {
       std::lock_guard<recursive_mutex> duktape_lock(getDuktapeMutex());
-      map<string,vector<string> > liquidiot_json_attr = read_liquidiot_json(getContext(), liquidiot_js.c_str());
+      map<string,vector<string> > liquidiot_json_attr;
+      try {
+        liquidiot_json_attr = read_liquidiot_json(getContext(), liquidiot_js.c_str());
+      } catch (char const * e) {
+        ERROUT("init(): Failed to read liquidiot.json: " << e);
+        AppLog(getAppPath().c_str()) << AppLog::getTimeStamp() << " [" << Constant::String::LOG_FATAL_ERROR << "] " << "Failed to read liquidiot.json." << "\n";
+        return false;
+      }
 
       if(liquidiot_json_attr.find(Constant::Attributes::APP_INTERFACES) != liquidiot_json_attr.end()) {
         setAppInterfaces(liquidiot_json_attr.at(Constant::Attributes::APP_INTERFACES));
