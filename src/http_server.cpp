@@ -57,7 +57,7 @@ int HttpServer::run() {
     throw "Duk context could not be created.";
   }
 
-  map<string,map<string,string> > config = get_config(ctx);
+  map<string,map<string,string> > config = get_config(ctx, Device::getInstance().getExecPath());
   duk_destroy_heap(ctx);
   ctx = 0;
 

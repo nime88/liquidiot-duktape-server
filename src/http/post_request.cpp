@@ -132,8 +132,8 @@ int PostRequest::parsePostFormCB(void *data, const char *name, const char *filen
       lws_filename_purify_inplace(dest_buffer->filename);
 
       /* open a file of that name for write in the cwd */
-      std::string path = string(Constant::Paths::TEMP_FOLDER) + "/" + std::string(dest_buffer->filename);
-      dest_buffer->fd = open(path.c_str(), O_CREAT | O_TRUNC | O_RDWR, 0600);
+      std::string path = Device::getInstance().getExecPath() + "/" + string(Constant::Paths::TEMP_FOLDER) + "/" + std::string(dest_buffer->filename);
+      dest_buffer->fd = open(path.c_str(), O_CREAT | O_TRUNC | O_RDWR, 0666);
       if (dest_buffer->fd == LWS_INVALID_FILE) {
         ERROUT("Failed to open output file " << dest_buffer->filename);
         dest_buffer->error_msg = "Failed to open output file '" + string(dest_buffer->filename) + "'";
@@ -178,9 +178,10 @@ int PostRequest::calculateHttpRequest(void* buffer_data, void* in) {
   int id = parseIdFromURL(dest_buffer->request_url);
 
   if(id == -1) {
-    string temp_file = string(string(Constant::Paths::TEMP_FOLDER) + "/" + string(dest_buffer->filename));
+    string temp_file = Device::getInstance().getExecPath() + "/" + string(string(Constant::Paths::TEMP_FOLDER) + "/" + string(dest_buffer->filename));
+    string temp_path = Device::getInstance().getExecPath() + "/" + Constant::Paths::APPLICATIONS_ROOT;
     // we have the file in file system now so we can just extract it
-    string ext_filename = extract_file(temp_file.c_str(), 0);
+    string ext_filename = extract_file(temp_file.c_str(), temp_path.c_str(), 0);
     strcpy(dest_buffer->ext_filename,ext_filename.c_str());
     DBOUT(__func__ << ": extracted, written to " << Constant::Paths::APPLICATIONS_ROOT << "/" << dest_buffer->ext_filename);
 
@@ -190,14 +191,14 @@ int PostRequest::calculateHttpRequest(void* buffer_data, void* in) {
   }
 
   if(id >= 0) {
-    string temp_file = string(Constant::Paths::TEMP_FOLDER) + "/" + string(dest_buffer->filename);
+    string temp_file = Device::getInstance().getExecPath() + "/" + string(Constant::Paths::TEMP_FOLDER) + "/" + string(dest_buffer->filename);
 
     for (  map<duk_context*, JSApplication*>::const_iterator it=apps.begin(); it!=apps.end(); ++it) {
       // if the application already exists, simply assign it
       if(id == it->second->getAppId()) {
         app = it->second;
         // copying contents to updated app
-        string ext_filename = extract_file(temp_file.c_str(), app->getAppPath().c_str());
+        string ext_filename = extract_file(temp_file.c_str(), app->getAppPath().c_str(), "");
         strcpy(dest_buffer->ext_filename,ext_filename.c_str());
         DBOUT(__func__ << ": extracted, written to " << Constant::Paths::APPLICATIONS_ROOT << "/" << dest_buffer->ext_filename);
 

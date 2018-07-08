@@ -87,15 +87,17 @@ FILE_TYPE is_file(const char* path) {
   return FILE_TYPE::NOT_EXIST;
 }
 
-string extract_file(const char* file_path, const char* extract_path) {
+string extract_file(const char* file_path, const char* extract_path, const char* filename) {
+  INFOOUT("File path: " << file_path);
+  INFOOUT("Ext path: " << extract_path);
   int flags;
 
   flags = ARCHIVE_EXTRACT_TIME;
 
-  return extract(file_path, 1, flags, extract_path);
+  return extract(file_path, 1, flags, extract_path, filename);
 }
 
-string extract(const char *filename, int do_extract, int flags, const char* extract_path)
+string extract(const char *in_filename, int do_extract, int flags, const char* extract_path, const char* out_filename)
 {
 	struct archive *a;
 	struct archive *ext;
@@ -110,9 +112,9 @@ string extract(const char *filename, int do_extract, int flags, const char* extr
   archive_read_support_filter_gzip(a);
 	archive_read_support_format_tar(a);
 
-	if (filename != NULL && strcmp(filename, "-") == 0)
-		filename = NULL;
-	if ((r = archive_read_open_filename(a, filename, 10240))) {
+	if (in_filename != NULL && strcmp(in_filename, "-") == 0)
+		in_filename = NULL;
+	if ((r = archive_read_open_filename(a, in_filename, 10240))) {
     DBOUT ( "archive_read_open_filename()" );
     DBOUT ( archive_error_string(a) );
 		return "";
@@ -142,14 +144,14 @@ string extract(const char *filename, int do_extract, int flags, const char* extr
       string fullOutputPath;
 
       // separating if we have designated extract path or not
-      if(!extract_path)
-        fullOutputPath = string(Constant::Paths::APPLICATIONS_ROOT) + "/" + string(currentFile);
-      else {
+      if(!out_filename)
         fullOutputPath = string(extract_path) + "/" + string(currentFile);
+      else {
+        fullOutputPath = string(extract_path) + "/" + string(out_filename) + "/" + string(currentFile);
         size_t found;
         found=string(currentFile).find_first_of("/");
         fullOutputPath = string(currentFile).substr(found+1);
-        fullOutputPath = string(extract_path) + "/" + fullOutputPath;
+        fullOutputPath = string(extract_path) + "/" + string(out_filename) + "/" + fullOutputPath;
       }
 
       archive_entry_set_pathname(entry, fullOutputPath.c_str());

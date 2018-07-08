@@ -42,13 +42,14 @@ JSApplication::JSApplication(const char* path):duk_context_(0) {
     std::lock_guard<recursive_mutex> static_lock(getStaticMutex());
 
     // adding app_path to global app paths
+    string exec_path = Device::getInstance().getExecPath() + "/";
     setAppPath(path);
 
     if(getAppPath().length() > 0 && getAppPath().at(getAppPath().length()-1) != '/')
       setAppPath(getAppPath()+"/");
 
     DBOUT("JSApplication(): app path: " << getAppPath());
-    if(is_file(getAppPath().c_str()) != FILE_TYPE::PATH_TO_DIR) {
+    if(is_file((exec_path + getAppPath()).c_str()) != FILE_TYPE::PATH_TO_DIR) {
       DBOUT("JSApplication(): File " << getAppPath() << " not a directory.");
       JSApplication::shutdownApplication(this);
       return;
@@ -107,7 +108,7 @@ bool JSApplication::init() {
     if(getOptions().size() == 0) {
       map<string,map<string,string> > full_config;
       try {
-        full_config = get_config(getContext());
+        full_config = get_config(getContext(), Device::getInstance().getExecPath());
       } catch (char const * e) {
         ERROUT("init(): Application failed to read config: " << e);
         AppLog(getAppPath().c_str()) << AppLog::getTimeStamp() << " [" << Constant::String::LOG_FATAL_ERROR << "] " << "Application failed to read config." << "\n";
@@ -186,7 +187,8 @@ bool JSApplication::init() {
     DBOUT ("init(): Loading eventloop js");
     // loading the event loop javascript functions (setTimeout ect.)
     int evlLen;
-    char* evlSource = load_js_file(Constant::Paths::EVENT_LOOP_JS,evlLen);
+    string temp_path = Device::getInstance().getExecPath() + "/" + string(Constant::Paths::EVENT_LOOP_JS);
+    char* evlSource = load_js_file(temp_path.c_str(),evlLen);
 
     {
       std::lock_guard<recursive_mutex> duktape_lock(getDuktapeMutex());
@@ -201,7 +203,8 @@ bool JSApplication::init() {
 
     DBOUT ("init(): Loading application header js");
     int tmpLen;
-    char* headerSource = load_js_file(Constant::Paths::APPLICATION_HEADER_JS,tmpLen);
+    temp_path = Device::getInstance().getExecPath() + "/" + string(Constant::Paths::APPLICATION_HEADER_JS);
+    char* headerSource = load_js_file(temp_path.c_str(),tmpLen);
 
     // evaluating ready made headers
     {
@@ -216,11 +219,16 @@ bool JSApplication::init() {
 
     DBOUT ("init(): Misc js loads");
     // evaluating necessary js files that main.js will need
-    char* agentSource = load_js_file(Constant::Paths::AGENT_JS,tmpLen);
-    char* apiSource = load_js_file(Constant::Paths::API_JS,tmpLen);
-    char* appSource = load_js_file(Constant::Paths::APP_JS,tmpLen);
-    char* requestSource = load_js_file(Constant::Paths::REQUEST_JS,tmpLen);
-    char* responseSource = load_js_file(Constant::Paths::RESPONSE_JS,tmpLen);
+    temp_path = Device::getInstance().getExecPath() + "/" + string(Constant::Paths::AGENT_JS);
+    char* agentSource = load_js_file(temp_path.c_str(),tmpLen);
+    temp_path = Device::getInstance().getExecPath() + "/" + string(Constant::Paths::API_JS);
+    char* apiSource = load_js_file(temp_path.c_str(),tmpLen);
+    temp_path = Device::getInstance().getExecPath() + "/" + string(Constant::Paths::APP_JS);
+    char* appSource = load_js_file(temp_path.c_str(),tmpLen);
+    temp_path = Device::getInstance().getExecPath() + "/" + string(Constant::Paths::REQUEST_JS);
+    char* requestSource = load_js_file(temp_path.c_str(),tmpLen);
+    temp_path = Device::getInstance().getExecPath() + "/" + string(Constant::Paths::RESPONSE_JS);
+    char* responseSource = load_js_file(temp_path.c_str(),tmpLen);
 
     {
       std::lock_guard<recursive_mutex> duktape_lock(getDuktapeMutex());
@@ -278,11 +286,11 @@ bool JSApplication::init() {
 
     parsePackageJS();
 
-    string main_file = getAppPath() + "/" + getAppMain();
+    string main_file = Device::getInstance().getExecPath() + "/" + getAppPath() + "/" + getAppMain();
 
     DBOUT ("init(): Loading liquidiot file");
     // reading the package.json file to memory
-    string liquidiot_file = getAppPath() + string(Constant::Paths::LIQUID_IOT_JSON);
+    string liquidiot_file = Device::getInstance().getExecPath() + "/" + getAppPath() + string(Constant::Paths::LIQUID_IOT_JSON);
     string liquidiot_js = load_js_file(liquidiot_file.c_str(),source_len);
 
     DBOUT ("init(): Reading json to attr");
@@ -1243,7 +1251,7 @@ void JSApplication::parsePackageJS() {
 
   DBOUT ("parsePackageJS(): Loading package file");
   // reading the package.json file to memory
-  string package_file = getAppPath() + string(Constant::Paths::PACKAGE_JSON);
+  string package_file = Device::getInstance().getExecPath() + "/" + getAppPath() + string(Constant::Paths::PACKAGE_JSON);
   setPackageJSON(load_js_file(package_file.c_str(),sourceLen));
 
   DBOUT ("parsePackageJS(): Reading package to attr");

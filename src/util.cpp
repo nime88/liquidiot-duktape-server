@@ -21,13 +21,13 @@ duk_int_t safe_json_decode(duk_context *ctx,const char* json) {
   return ret;
 }
 
-map<string, map<string,string> >get_config(duk_context *ctx) {
+map<string, map<string,string> >get_config(duk_context *ctx, const string& exec_path) {
   DBOUT("get_config()");
   map<string, map<string,string> > config;
   DBOUT("get_config(): context "  << ctx);
   if(!ctx) return config;
 
-  std::ifstream file(Constant::CONFIG_PATH);
+  std::ifstream file(exec_path + "/" + Constant::CONFIG_PATH);
   string content( (std::istreambuf_iterator<char>(file) ),
                      (std::istreambuf_iterator<char>() ) );
 
@@ -73,7 +73,7 @@ map<string, map<string,string> >get_config(duk_context *ctx) {
   return config;
 }
 
-void save_config(duk_context *ctx, map<string, map<string,string> > new_config) {
+void save_config(duk_context *ctx, map<string, map<string,string> > new_config, const string& exec_path) {
   DBOUT("save_config()");
   /* [...] */
   duk_push_object(ctx);
@@ -93,7 +93,7 @@ void save_config(duk_context *ctx, map<string, map<string,string> > new_config) 
   duk_pop(ctx);
 
   std::ofstream dev_file;
-  dev_file.open (Constant::CONFIG_PATH);
+  dev_file.open (exec_path + "/" + Constant::CONFIG_PATH);
   dev_file << full_config;
   dev_file.close();
 }

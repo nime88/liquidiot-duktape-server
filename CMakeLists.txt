@@ -1,13 +1,6 @@
 cmake_minimum_required (VERSION 3.0.2)
 project (LIQUID_IOT_SERVER)
 
-## INSTALL ##
-
-# creating vecessary directories
-install(DIRECTORY DESTINATION ${LIQUID_IOT_SERVER_BINARY_DIR}/applications)
-install(DIRECTORY DESTINATION ${LIQUID_IOT_SERVER_BINARY_DIR}/tmp)
-#install(DIRECTORY DESTINATION ${LIQUID_IOT_SERVER_BINARY_DIR}/lib)
-
 ## BUILD ##
 # cpp flags
 set ( CMAKE_C_FLAGS "-Wall -Wextra -lm -std=c99" )
@@ -33,14 +26,19 @@ target_link_libraries(DukTapeExtra DukTape)
 target_include_directories(DukTapeExtra PUBLIC ${DUKTAPE_MODULE_NODE} ${DUKTAPE_PRINT_ALERT} ${DUKTAPE_CONSOLE})
 
 # Adding external libraries
-#add_library(websockets SHARED IMPORTED)
-#add_library(archive SHARED IMPORTED)
+set(Boost_USE_STATIC_LIBS OFF)
+set(Boost_USE_MULTITHREADED OFF)
+set(Boost_USE_STATIC_RUNTIME OFF)
+find_package(Boost COMPONENTS filesystem)
+
+if(Boost_FOUND)
+    include_directories(${Boost_INCLUDE_DIRS})
+endif()
 
 # Setting up some compiler stuff
 
 add_executable (liquid-server src/main.cpp)
-
-target_link_libraries (liquid-server LINK_PUBLIC HttpServer JSApp Device)
+target_link_libraries (liquid-server LINK_PUBLIC HttpServer JSApp Device ${Boost_LIBRARIES})
 
 # Some post build file moving stuff to help debugging and stuff
 add_custom_command(TARGET liquid-server POST_BUILD
@@ -58,3 +56,36 @@ add_custom_command(TARGET liquid-server POST_BUILD
 add_custom_command(TARGET liquid-server POST_BUILD
                    COMMAND ${CMAKE_COMMAND} -E copy_directory
                        ${LIQUID_IOT_SERVER_SOURCE_DIR}/js $<TARGET_FILE_DIR:liquid-server>/js)
+add_custom_command(TARGET liquid-server POST_BUILD
+                   COMMAND ${CMAKE_COMMAND} -E copy
+                       ${LIQUID_IOT_SERVER_SOURCE_DIR}/examples/example_config.json $<TARGET_FILE_DIR:liquid-server>/config.json)
+
+## INSTALL ##
+
+# creating necessary directories
+install(DIRECTORY DESTINATION liquidiot-duktape-server)
+install(TARGETS liquid-server DESTINATION liquidiot-duktape-server)
+install(DIRECTORY DESTINATION liquidiot-duktape-server/applications DIRECTORY_PERMISSIONS
+  OWNER_WRITE OWNER_READ OWNER_EXECUTE
+  GROUP_WRITE GROUP_READ GROUP_EXECUTE
+  WORLD_WRITE WORLD_READ WORLD_EXECUTE)
+install(DIRECTORY DESTINATION liquidiot-duktape-server/tmp DIRECTORY_PERMISSIONS
+  OWNER_WRITE OWNER_READ OWNER_EXECUTE
+  GROUP_WRITE GROUP_READ GROUP_EXECUTE
+  WORLD_WRITE WORLD_READ WORLD_EXECUTE)
+install(DIRECTORY ${LIQUID_IOT_SERVER_SOURCE_DIR}/lib DESTINATION liquidiot-duktape-server)
+install(DIRECTORY ${LIQUID_IOT_SERVER_SOURCE_DIR}/http-files DESTINATION liquidiot-duktape-server)
+install(DIRECTORY ${LIQUID_IOT_SERVER_SOURCE_DIR}/js DESTINATION liquidiot-duktape-server)
+install(FILES ${LIQUID_IOT_SERVER_SOURCE_DIR}/examples/example_config.json DESTINATION liquidiot-duktape-server RENAME config.json PERMISSIONS
+  OWNER_WRITE OWNER_READ OWNER_EXECUTE
+  GROUP_WRITE GROUP_READ GROUP_EXECUTE
+  WORLD_WRITE WORLD_READ WORLD_EXECUTE)
+
+set(target "liquidiot-duktape-server/liquid-server")
+set(link "bin/liquid-server")
+install(CODE "execute_process( \
+    COMMAND ${CMAKE_COMMAND} -E create_symlink \
+    ${CMAKE_INSTALL_PREFIX}/${target} \
+    ${CMAKE_INSTALL_PREFIX}/${link}   \
+    )"
+)

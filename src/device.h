@@ -56,12 +56,16 @@ class Device {
     Device(Device const&) = delete;
     void operator=(Device const&) = delete;
 
+    void init();
 
     /* ******************* */
     /* Setters and Getters */
     /* ******************* */
 
     inline duk_context* getContext() { return duk_context_; }
+
+    inline const string& getExecPath() { return exec_path_; }
+    inline void setExecPath(const string& path) { exec_path_ = path; }
 
     inline const map<string,string>& getRawData() { return raw_data_; }
     void setRawData(const map<string,string>& data) {
@@ -155,6 +159,7 @@ class Device {
   private:
     // duk_context
     duk_context *duk_context_;
+    string exec_path_;
 
     recursive_mutex mtx_;
     static mutex cv_mtx_;

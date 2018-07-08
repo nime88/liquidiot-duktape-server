@@ -17,7 +17,9 @@ using std::regex;
 mutex Device::cv_mtx_;
 condition_variable Device::condvar_;
 
-Device::Device() {
+Device::Device() {}
+
+void Device::init() {
   // As device_config is read only once we don't store or retain the duktape context
   duk_context_ = duk_create_heap_default();
 
@@ -32,7 +34,7 @@ Device::Device() {
   // loading configs
   map<string,map<string,string> > config;
   try {
-    config = get_config(duk_context_);
+    config = get_config(duk_context_, getExecPath());
   } catch (char const * e) {
     ERROUT("Device failed to read config: " << e);
     throw "Device failed to start.";
@@ -569,7 +571,7 @@ bool Device::deleteApp(string app_id) {
 void Device::saveSettings() {
   map<string,map<string,string> > config;
   try {
-    config = get_config(getContext());
+    config = get_config(getContext(), getExecPath());
   } catch (char const * e) {
     ERROUT("saveSettings(): Device failed to read config: " << e);
     return;
@@ -577,7 +579,7 @@ void Device::saveSettings() {
   config.erase(Constant::Attributes::DEVICE);
   config.insert(pair<string,map<string,string> >(Constant::Attributes::DEVICE,getRawData()));
   try {
-    save_config(getContext(),config);
+    save_config(getContext(),config, getExecPath());
   } catch (char const * e) {
     ERROUT("saveSettings(): Device failed to save config: " << e);
     return;
