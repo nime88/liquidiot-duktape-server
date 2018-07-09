@@ -94,7 +94,7 @@ int HttpRequest::parseIdFromURL(string url) {
     try {
       id = stoi( m_id[2]);
       return id;
-    } catch( invalid_argument e) {
+    } catch( const invalid_argument& e) {
       id = -2;
     }
   }

@@ -45,7 +45,7 @@ int PutRequest::handleHttpRequest(struct lws *wsi, void* buffer_data, void* in, 
       } else if(get_resp < 0) {
         return generateFailResponse(wsi, buffer_data, start, p, end);
       }
-
+      break;
     }
 
     case LWS_CALLBACK_HTTP_WRITEABLE: {

@@ -230,7 +230,7 @@ bool Device::sendDeviceInfo() {
   if(getHttpClientThread().joinable()) {
     try {
       getHttpClientThread().join();
-    } catch(std::system_error e) {
+    } catch(const std::system_error& e) {
       if(std::errc::invalid_argument != e.code()) {
         ERROUT("sendDeviceInfo(): Caught a system_error");
         ERROUT("sendDeviceInfo(): the error description is " << e.what());
@@ -289,7 +289,7 @@ bool Device::deviceExists() {
     try {
       DBOUT( "deviceExists(): trying to join client thread:" << rpath );
       getHttpClientThread().join();
-    } catch(std::system_error e) {
+    } catch(const std::system_error& e) {
       if(std::errc::invalid_argument != e.code()) {
         ERROUT("deviceExists(): Caught a system_error");
         ERROUT("deviceExists(): the error description is " << e.what());
@@ -350,7 +350,7 @@ bool Device::appExists(string app_id) {
   if(getHttpClientThread().joinable()) {
     try {
       getHttpClientThread().join();
-    } catch(std::system_error e) {
+    } catch(const std::system_error& e) {
       if(std::errc::invalid_argument != e.code()) {
         ERROUT("appExists(): Caught a system_error");
         ERROUT("appExists(): the error description is " << e.what());
@@ -402,7 +402,7 @@ bool Device::registerAppApi(string class_name, string swagger_fragment) {
   if(getHttpClientThread().joinable()) {
     try {
       getHttpClientThread().join();
-    } catch(std::system_error e) {
+    } catch(const std::system_error& e) {
       if(std::errc::invalid_argument != e.code()) {
         ERROUT("registerAppApi(): Caught a system_error");
         ERROUT("registerAppApi(): the error description is " << e.what());
@@ -454,7 +454,7 @@ bool Device::registerApp(string app_payload) {
   if(getHttpClientThread().joinable()) {
     try {
       getHttpClientThread().join();
-    } catch(std::system_error e) {
+    } catch(const std::system_error& e) {
       if(std::errc::invalid_argument != e.code()) {
         ERROUT("registerApp(): Caught a system_error");
         ERROUT("registerApp(): the error description is " << e.what());
@@ -505,7 +505,7 @@ bool Device::updateApp(string app_id, string app_payload) {
   if(getHttpClientThread().joinable()) {
     try {
       getHttpClientThread().join();
-    } catch(std::system_error e) {
+    } catch(const std::system_error& e) {
       if(std::errc::invalid_argument != e.code()) {
         ERROUT("updateApp(): Caught a system_error");
         ERROUT("updateApp(): the error description is " << e.what());
@@ -556,7 +556,7 @@ bool Device::deleteApp(string app_id) {
   if(getHttpClientThread().joinable()) {
     try {
       getHttpClientThread().join();
-    } catch(std::system_error e) {
+    } catch(const std::system_error& e) {
       if(std::errc::invalid_argument != e.code()) {
         ERROUT("deleteApp(): Caught a system_error");
         ERROUT("deleteApp(): the error description is " << e.what());
@@ -636,7 +636,7 @@ void Device::exitClientThread() {
   if(getHttpClientThread().joinable()) {
     try {
       getHttpClientThread().join();
-    } catch(std::system_error e) {
+    } catch(const std::system_error& e) {
       if(std::errc::invalid_argument != e.code()) {
         ERROUT("exitClientThread(): Caught a system_error");
         ERROUT("exitClientThread(): the error description is " << e.what());
