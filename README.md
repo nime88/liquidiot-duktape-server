@@ -26,7 +26,7 @@
 
 Inside duktape folder configure duktape.
 ```
-python2 tools/configure.py --output-directory duktape-src -UDUK_USE_FATAL_HANDLER -UDUK_USE_VERBOSE_ERRORS -UDUK_USE_CPP_EXCEPTIONS
+python2 tools/configure.py --output-directory src -UDUK_USE_FATAL_HANDLER -UDUK_USE_VERBOSE_ERRORS -UDUK_USE_CPP_EXCEPTIONS
 ```
 *Default configure should work but it is not tested properly*
 

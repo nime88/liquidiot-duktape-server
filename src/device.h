@@ -1,15 +1,7 @@
 #ifndef DEVICE_H_INCLUDED
 #define DEVICE_H_INCLUDED
 
-#if defined (__cplusplus)
-extern "C" {
-#endif
-
-  #include "duktape.h"
-
-#if defined (__cplusplus)
-}
-#endif
+#include "duktape.h"
 
 #include <string>
 #include <map>

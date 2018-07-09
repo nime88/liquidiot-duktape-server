@@ -5,16 +5,7 @@
 
 #include "application.h"
 #include "app_log.h"
-
-#if defined (__cplusplus)
-extern "C" {
-#endif
-
-  #include "globals.h"
-
-#if defined (__cplusplus)
-}
-#endif
+#include "globals.h"
 
 #define  TIMERS_SLOT_NAME       "eventTimers"
 #define  MIN_DELAY              1.0

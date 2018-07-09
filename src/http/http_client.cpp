@@ -4,13 +4,13 @@
 extern "C" {
 #endif
 
-  #include "globals.h"
   #include <signal.h>
 
 #if defined (__cplusplus)
 }
 #endif
 
+#include "globals.h"
 #include "prints.h"
 #include "device.h"
 

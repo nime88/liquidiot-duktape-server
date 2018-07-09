@@ -1,15 +1,7 @@
 #if !defined(UTIL_H_INCLUDED)
 #define UTIL_H_INCLUDED
 
-#if defined (__cplusplus)
-extern "C" {
-#endif
-
-  #include "duktape.h"
-
-#if defined (__cplusplus)
-}
-#endif
+#include "duktape.h"
 
 #include <map>
 #include <vector>

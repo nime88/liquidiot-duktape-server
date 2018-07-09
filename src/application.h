@@ -15,14 +15,14 @@ class AppResponse;
 extern "C" {
 #endif
 
-  #include <poll.h>
-  #include "duktape.h"
-  #include "duk_print_alert.h"
-  #include "duk_module_node.h"
+#include "duk_print_alert.h"
+#include "duk_module_node.h"
 
 #if defined (__cplusplus)
 }
 #endif
+
+#include "duktape.h"
 
 #include <string>
 #include <vector>

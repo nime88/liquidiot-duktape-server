@@ -1,15 +1,7 @@
 #ifndef DUK_CONSOLE_H_INCLUDED
 #define DUK_CONSOLE_H_INCLUDED
 
-#if defined (__cplusplus)
-extern "C" {
-#endif
-
-  #include "duktape.h"
-
-#if defined (__cplusplus)
-}
-#endif
+#include "duktape.h"
 
 /* Use a proxy wrapper to make undefined methods (console.foo()) no-ops. */
 #define DUK_CONSOLE_PROXY_WRAPPER  (1 << 0)

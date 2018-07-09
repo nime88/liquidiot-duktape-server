@@ -1,15 +1,7 @@
 #ifndef CUSTOM_EVENTLOOP_H
 #define CUSTOM_EVENTLOOP_H
 
-#if defined (__cplusplus)
-extern "C" {
-#endif
-
-  #include "duktape.h"
-
-#if defined (__cplusplus)
-}
-#endif
+#include "duktape.h"
 
 #include <map>
 #include <mutex>
