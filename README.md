@@ -14,6 +14,10 @@
 
 - dirent.h is also required (should already be on _*nix_ systems)
 
+- boost (only boost::filesystem is required, so about 1.55.0 version should be enough)
+
+- unistd.h unfortunately currently locking the platform to linux systems
+
 *Some of these requirements are not absolute lower boundaries but rather tested versions*
 
 ## Duktape Configure

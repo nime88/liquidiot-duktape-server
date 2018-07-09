@@ -126,9 +126,6 @@ public:
 
 private:
   Constant();
-  template <typename T>
-  static void ignore(T &&)
-  { }
 
 };
 
