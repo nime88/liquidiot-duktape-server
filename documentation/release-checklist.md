@@ -1,0 +1,2 @@
+- Make sure dependency list is up-to-date
+- Update CMakeLists.txt version
