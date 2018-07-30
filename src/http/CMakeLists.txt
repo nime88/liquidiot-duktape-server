@@ -3,10 +3,9 @@ add_library (Http http_request.cpp get_request.cpp post_request.cpp delete_reque
 add_library (HttpClient http_client.cpp client_request_config.cpp)
 
 # linking libraries
-target_link_libraries(Http Constant JSApp Utility websockets)
+target_link_libraries(Http Constant JSApp Utility Device websockets)
 target_link_libraries(HttpClient DukTape Globals websockets)
 
 # making library accessable
 target_include_directories (Http PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_include_directories (HttpClient PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-

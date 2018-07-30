@@ -1,21 +1,15 @@
 #include "application.h"
 
-#if defined (__cplusplus)
-extern "C" {
-#endif
-
-  #include <dirent.h>
-
-#if defined (__cplusplus)
-}
-#endif
-
 #include <algorithm>
 #include <regex>
 
 using std::regex;
 using std::endl;
 using std::to_string;
+
+#include <boost/filesystem.hpp>
+#include <boost/range/iterator_range.hpp>
+namespace fs = boost::filesystem;
 
 #include "node_module_search.h"
 #include "util.h"
@@ -1229,25 +1223,14 @@ bool JSApplication::applicationExists(const char* path) {
 
 const vector<string>& JSApplication::listApplicationNames() {
 
-  DIR *dir;
-  struct dirent *ent;
-
-  if ((dir = opendir (Constant::Paths::APPLICATIONS_ROOT)) != NULL) {
-    // clearing old application names
+  fs::path dpath(Device::getInstance().getExecPath() + "/" + Constant::Paths::APPLICATIONS_ROOT);
+  if(fs::is_directory(dpath)) {
     app_names_.clear();
-
-    /* print all the files and directories within directory */
-    while ((ent = readdir (dir)) != NULL) {
-      string temp_name = ent->d_name;
-      if(temp_name != "." && temp_name != "..") {
-        app_names_.push_back(ent->d_name);
-      }
+    for(auto& entry : boost::make_iterator_range(fs::directory_iterator(dpath), {})) {
+      fs::path temp_file = fs::path(entry);
+      if(fs::is_directory(temp_file))
+        app_names_.push_back(temp_file.filename().string());
     }
-    closedir (dir);
-  } else {
-    /* could not open directory */
-    // perror ("");
-    return app_names_;
   }
 
   return app_names_;

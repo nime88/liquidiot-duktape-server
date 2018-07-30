@@ -183,10 +183,14 @@ font-style: italic;
     </style>
   </head>
   <body>
-  <h1>Liquid-IoT Runtime Environemnt (LIoTRE) API Specifiction</h1>
-    <div class="app-desc">Liquid IoT Runtime Environemnt (LIoTRE) is a Node.js HTTP server which turns an IoT device into an application server so that it can host and run IoT applications. LIoTRE offers a set of RESTFul APIs that can be used to deploy the IoT applications and manage their operations remotely. More information can be found in https://github.com/nime88/liquidiot-duktape-server.</div>
+  <h1>Lightweight Liquid-IoT Runtime Environment (LwLITR) API Specifiction</h1>
+    <div class="app-desc">
+      Lightweight Liquid-IoT Runtime Environment (LwLITR) is a C++ HTTP server which turns an IoT device into an application server so that it can host and run IoT applications.
+      LIoTRE offers a set of RESTFul APIs that can be used to deploy the IoT applications and manage their operations remotely.
+      More information can be found in <a href="https://github.com/nime88/liquidiot-duktape-server" target="blank">https://github.com/nime88/liquidiot-duktape-server</a>.
+    </div>
 
-    <div class="app-desc">Version: 1.0</div>
+    <div class="app-desc">Version: 0.1.1</div>
   <h2>Access</h2>
 
   <h2><a name="__Methods">Methods</a></h2>
@@ -209,7 +213,7 @@ font-style: italic;
     <div class="method-path">
     <a class="up" href="#__Methods">Up</a>
     <pre class="delete"><code class="huge"><span class="http-method">delete</span> /app/{appId}</code></pre></div>
-    <div class="method-summary">Deletes an applications by ID. (<span class="nickname">appAppIdDelete</span>)</div>
+    <div class="method-summary">Deletes an applications by ID.</div>
     <div class="method-notes">Deletes a specific applications on the target device. </div>
 
     <h3 class="field-label">Path parameters</h3>
@@ -218,15 +222,6 @@ font-style: italic;
 
       <div class="param-desc"><span class="param-type">Path Parameter</span> &mdash; ID of the application </div>
     </div>  <!-- field-items -->
-
-
-
-
-
-
-
-    <!--Todo: process Response Object and its headers, schema, examples -->
-
 
     <h3 class="field-label">Produces</h3>
     This API call produces the following media types according to the <span class="header">Accept</span> request header;
@@ -237,21 +232,20 @@ font-style: italic;
 
     <h3 class="field-label">Responses</h3>
     <h4 class="field-label">200</h4>
-    Application was deleted successfully.
-        <a href="#"></a>
+      Application was deleted successfully.
+      <a href="#"></a>
     <h4 class="field-label">404</h4>
-    No application with given id.
-        <a href="#"></a>
-    <h4 class="field-label">500</h4>
-    Unexpected error
-        <a href="#String">String</a>
+      JSON with "error":"Some message"
+      <a href="#"></a>
   </div> <!-- method -->
+
   <hr/>
+
   <div class="method"><a name="appAppIdGet"/>
     <div class="method-path">
     <a class="up" href="#__Methods">Up</a>
     <pre class="get"><code class="huge"><span class="http-method">get</span> /app/{appId}</code></pre></div>
-    <div class="method-summary">Returns an application by ID. (<span class="nickname">appAppIdGet</span>)</div>
+    <div class="method-summary">Returns an application by ID.</div>
     <div class="method-notes">Get the information of a specific application. </div>
 
     <h3 class="field-label">Path parameters</h3>
@@ -261,19 +255,11 @@ font-style: italic;
       <div class="param-desc"><span class="param-type">Path Parameter</span> &mdash; ID of the application </div>
     </div>  <!-- field-items -->
 
-
-
-
-
-
     <h3 class="field-label">Return type</h3>
     <div class="return-type">
       <a href="#Application">Application</a>
 
     </div>
-
-    <!--Todo: process Response Object and its headers, schema, examples -->
-
 
     <h3 class="field-label">Produces</h3>
     This API call produces the following media types according to the <span class="header">Accept</span> request header;
@@ -295,7 +281,7 @@ font-style: italic;
     <div class="method-path">
     <a class="up" href="#__Methods">Up</a>
     <pre class="get"><code class="huge"><span class="http-method">get</span> /app/{appId}/log</code></pre></div>
-    <div class="method-summary">Returns application log by ID. (<span class="nickname">appAppIdLogGet</span>)</div>
+    <div class="method-summary">Returns application log by ID.</div>
     <div class="method-notes">Returns the log of an specific application. </div>
 
     <h3 class="field-label">Path parameters</h3>
@@ -305,19 +291,11 @@ font-style: italic;
       <div class="param-desc"><span class="param-type">Path Parameter</span> &mdash; ID of the application </div>
     </div>  <!-- field-items -->
 
-
-
-
-
-
     <h3 class="field-label">Return type</h3>
     <div class="return-type">
 
       String
     </div>
-
-    <!--Todo: process Response Object and its headers, schema, examples -->
-
 
     <h3 class="field-label">Produces</h3>
     This API call produces the following media types according to the <span class="header">Accept</span> request header;
@@ -342,7 +320,7 @@ font-style: italic;
     <div class="method-path">
     <a class="up" href="#__Methods">Up</a>
     <pre class="post"><code class="huge"><span class="http-method">post</span> /app/{appId}</code></pre></div>
-    <div class="method-summary">Updates an application by ID. (<span class="nickname">appAppIdPost</span>)</div>
+    <div class="method-summary">Updates an application by ID.</div>
     <div class="method-notes">Updates a previously deplyed application specified by its ID. </div>
 
     <h3 class="field-label">Path parameters</h3>
@@ -358,14 +336,13 @@ font-style: italic;
       <li><code>multipart/form-data</code></li>
     </ul>
 
-
-
-
     <h3 class="field-label">Form parameters</h3>
     <div class="field-items">
       <div class="param">filekey (required)</div>
 
-      <div class="param-desc"><span class="param-type">Form Parameter</span> &mdash; The application package in .tgz format. For more information about the content of application package see section 4 (File structure of the liquid-IoT application) of the Liquid-IoT RE API specification document (https://github.com/farshadahmadi/liquidiot-server/blob/master/Documents/API%20Documentation%2025-05-2016.pdf) </div>
+      <div class="param-desc"><span class="param-type">Form Parameter</span> &mdash;
+        The application package in .tgz format.
+      </div>
     </div>  <!-- field-items -->
 
     <h3 class="field-label">Return type</h3>
@@ -373,9 +350,6 @@ font-style: italic;
       <a href="#Application">Application</a>
 
     </div>
-
-    <!--Todo: process Response Object and its headers, schema, examples -->
-
 
     <h3 class="field-label">Produces</h3>
     This API call produces the following media types according to the <span class="header">Accept</span> request header;
@@ -392,12 +366,14 @@ font-style: italic;
     Error in updating the application.
         <a href="#String">String</a>
   </div> <!-- method -->
+
   <hr/>
+
   <div class="method"><a name="appAppIdPut"/>
     <div class="method-path">
     <a class="up" href="#__Methods">Up</a>
     <pre class="put"><code class="huge"><span class="http-method">put</span> /app/{appId}</code></pre></div>
-    <div class="method-summary">Starts or stops an application by ID and the target status. (<span class="nickname">appAppIdPut</span>)</div>
+    <div class="method-summary">Starts or stops an application by ID and the target status.</div>
     <div class="method-notes">Starts or stops a specific application based on the provided target status in the body of the request. </div>
 
     <h3 class="field-label">Path parameters</h3>
@@ -415,17 +391,11 @@ font-style: italic;
       <div class="param-desc"><span class="param-type">Body Parameter</span> &mdash; Target status of the application </div>
     </div>  <!-- field-items -->
 
-
-
-
     <h3 class="field-label">Return type</h3>
     <div class="return-type">
       <a href="#Application">Application</a>
 
     </div>
-
-    <!--Todo: process Response Object and its headers, schema, examples -->
-
 
     <h3 class="field-label">Produces</h3>
     This API call produces the following media types according to the <span class="header">Accept</span> request header;
@@ -436,8 +406,8 @@ font-style: italic;
 
     <h3 class="field-label">Responses</h3>
     <h4 class="field-label">200</h4>
-    Application went to target status successfully.
-        <a href="#Application">Application</a>
+      Application went to target status successfully.
+      <a href="#Application">Application</a>
     <h4 class="field-label">404</h4>
     No application with given id.
         <a href="#"></a>
@@ -450,18 +420,8 @@ font-style: italic;
     <div class="method-path">
     <a class="up" href="#__Methods">Up</a>
     <pre class="delete"><code class="huge"><span class="http-method">delete</span> /app</code></pre></div>
-    <div class="method-summary">Deletes all applications (<span class="nickname">appDelete</span>)</div>
+    <div class="method-summary">Deletes all applications</div>
     <div class="method-notes">This endpoint deletes all applications deployed to the device. </div>
-
-
-
-
-
-
-
-
-    <!--Todo: process Response Object and its headers, schema, examples -->
-
 
     <h3 class="field-label">Produces</h3>
     This API call produces the following media types according to the <span class="header">Accept</span> request header;
@@ -478,28 +438,21 @@ font-style: italic;
     Unexpected error
         <a href="#String">String</a>
   </div> <!-- method -->
+
   <hr/>
+
   <div class="method"><a name="appGet"/>
     <div class="method-path">
     <a class="up" href="#__Methods">Up</a>
     <pre class="get"><code class="huge"><span class="http-method">get</span> /app</code></pre></div>
-    <div class="method-summary">Gets the list of deployed applications (<span class="nickname">appGet</span>)</div>
+    <div class="method-summary">Gets the list of deployed applications</div>
     <div class="method-notes">This endpoint returns the list of all IoT appplications deployed to the device. </div>
-
-
-
-
-
-
 
     <h3 class="field-label">Return type</h3>
     <div class="return-type">
       array[<a href="#Application">Application</a>]
 
     </div>
-
-    <!--Todo: process Response Object and its headers, schema, examples -->
-
 
     <h3 class="field-label">Produces</h3>
     This API call produces the following media types according to the <span class="header">Accept</span> request header;
@@ -521,7 +474,7 @@ font-style: italic;
     <div class="method-path">
     <a class="up" href="#__Methods">Up</a>
     <pre class="post"><code class="huge"><span class="http-method">post</span> /app</code></pre></div>
-    <div class="method-summary">Deploys an application (<span class="nickname">appPost</span>)</div>
+    <div class="method-summary">Deploys an application </div>
     <div class="method-notes">Deploys an application to the device. </div>
 
 
@@ -531,14 +484,13 @@ font-style: italic;
       <li><code>multipart/form-data</code></li>
     </ul>
 
-
-
-
     <h3 class="field-label">Form parameters</h3>
     <div class="field-items">
       <div class="param">filekey (required)</div>
 
-      <div class="param-desc"><span class="param-type">Form Parameter</span> &mdash; The application package in .tgz format. For more information about the content of application package see section 4 (File structure of the liquid-IoT application) of the Liquid-IoT RE API specification document (https://github.com/farshadahmadi/liquidiot-server/blob/master/Documents/API%20Documentation%2025-05-2016.pdf) </div>
+      <div class="param-desc"><span class="param-type">Form Parameter</span> &mdash;
+        The application package in .tgz format.
+      </div>
     </div>  <!-- field-items -->
 
     <h3 class="field-label">Return type</h3>
@@ -546,9 +498,6 @@ font-style: italic;
       <a href="#Application">Application</a>
 
     </div>
-
-    <!--Todo: process Response Object and its headers, schema, examples -->
-
 
     <h3 class="field-label">Produces</h3>
     This API call produces the following media types according to the <span class="header">Accept</span> request header;

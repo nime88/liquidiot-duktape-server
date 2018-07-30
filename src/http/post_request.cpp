@@ -3,6 +3,7 @@
 #include "application.h"
 #include "file_ops.h"
 #include "constant.h"
+#include "device.h"
 
 #include <sys/fcntl.h>
 #include <cstdio>
