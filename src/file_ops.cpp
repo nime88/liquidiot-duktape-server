@@ -6,7 +6,9 @@
 #include <sstream>
 #include <archive.h>
 #include <archive_entry.h>
-#include <dirent.h>
+
+#include <boost/filesystem.hpp>
+namespace fs = boost::filesystem;
 
 using std::cout;
 using std::ifstream;
@@ -65,24 +67,13 @@ map<string, string> load_config(const char* filename) {
 
 }
 
-FILE_TYPE is_file(const char* path) {
-  struct stat s;
+FILE_TYPE is_file(const char* fpath) {
+  fs::path bpath(fpath);
+  if(fs::is_directory(bpath)) return FILE_TYPE::PATH_TO_DIR;
 
-  if( stat(path,&s) == 0 ) {
-    if( s.st_mode & S_IFDIR ) {
-      //it's a directory
-      // TODO later we can search the directory
-      return FILE_TYPE::PATH_TO_DIR;
-    } else if( s.st_mode & S_IFREG ) {
-      //it's a file
-      return FILE_TYPE::PATH_TO_FILE;
-    } else {
-      return FILE_TYPE::OTHER;
-    }
-  } else {
-    //error
-    return FILE_TYPE::NOT_EXIST;
-  }
+  if(fs::is_regular_file(bpath)) return FILE_TYPE::PATH_TO_FILE;
+
+  if(fs::is_other(bpath)) return FILE_TYPE::OTHER;
 
   return FILE_TYPE::NOT_EXIST;
 }
@@ -208,31 +199,6 @@ int copy_data(struct archive *ar, struct archive *aw) {
 }
 
 int delete_files(const char* file_path) {
-  if(is_file(file_path) == FILE_TYPE::PATH_TO_FILE) {
-    int ul = remove(file_path);
-    return ul != 0 ? 0 : 1;
-  }
-
-  if(is_file(file_path) == FILE_TYPE::PATH_TO_DIR && string(file_path) != "." && string(file_path) != "..") {
-    DIR *dir;
-    struct dirent *ent;
-    if ((dir = opendir (file_path)) != NULL) {
-      /* print all the files and directories within directory */
-      while ((ent = readdir (dir)) != NULL) {
-        string temp = string(file_path) + "/" + string(ent->d_name);
-        DBOUT ( "The temp path: " << temp );
-        if(string(ent->d_name) != "." && string(ent->d_name) != "..")
-          delete_files(temp.c_str());
-      }
-
-      closedir (dir);
-      int ul = remove(file_path);
-      return ul != 0 ? 0 : 1;
-    } else {
-      return 0;
-    }
-
-  }
-
-  return 0;
+  fs::path bpath(file_path);
+  return fs::remove_all(bpath);
 }

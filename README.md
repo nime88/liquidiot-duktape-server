@@ -2,7 +2,7 @@
 
 ## Requirements
 
-- gcc 5.4.0 or complier able to complile -std=c++11
+- gcc 5.4.0 or a compiler able to compile -std=c++11
 
 - cmake 3.0.2
 
@@ -12,17 +12,15 @@
 
 - libarchive release (3.2.2) https://github.com/libarchive/libarchive
 
-- dirent.h is also required (should already be on _*nix_ systems)
+- boost (only boost::filesystem is required, 1.55.0 version should be enough)
 
-- boost (only boost::filesystem is required, so about 1.55.0 version should be enough)
-
-- unistd.h unfortunately currently locking the platform to linux systems
+- unistd.h unfortunately currently locking the platform to Linux systems
 
 *Some of these requirements are not absolute lower boundaries but rather tested versions*
 
 ## Duktape Configure
 
-**Duktape doesn't need to be complied separately** (it is compled with the program), thus only the files are required.
+**Duktape doesn't need to be complied separately** (it is compiled with the program), thus only the files are required.
 
 Inside duktape folder configure duktape.
 ```

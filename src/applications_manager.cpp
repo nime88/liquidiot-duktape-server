@@ -1,7 +1,5 @@
 #include "applications_manager.h"
 
-#include <dirent.h>
-
 #include "prints.h"
 #include "constant.h"
 
