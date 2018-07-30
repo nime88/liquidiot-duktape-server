@@ -39,9 +39,9 @@ target_link_libraries(DukTapeExtra DukTape)
 target_include_directories(DukTapeExtra PUBLIC ${DUKTAPE_MODULE_NODE} ${DUKTAPE_PRINT_ALERT} ${DUKTAPE_CONSOLE})
 
 # Adding external libraries
-set(Boost_USE_STATIC_LIBS OFF)
-set(Boost_USE_MULTITHREADED OFF)
-set(Boost_USE_STATIC_RUNTIME OFF)
+set(Boost_USE_STATIC_LIBS ON)
+set(Boost_USE_MULTITHREADED ON)
+set(Boost_USE_STATIC_RUNTIME ON)
 find_package(Boost COMPONENTS filesystem)
 
 if(Boost_FOUND)
@@ -51,7 +51,7 @@ endif()
 # Setting up some compiler stuff
 
 add_executable (liquid-server src/main.cpp)
-target_link_libraries (liquid-server LINK_PUBLIC HttpServer JSApp Device ${Boost_LIBRARIES})
+target_link_libraries (liquid-server LINK_PUBLIC HttpServer JSApp Device ${Boost_LIBRARIES} dl)
 
 # Some post build file moving stuff to help debugging and stuff
 add_custom_command(TARGET liquid-server POST_BUILD

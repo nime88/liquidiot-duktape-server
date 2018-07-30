@@ -12,9 +12,9 @@
 
 - libarchive release (3.2.2) https://github.com/libarchive/libarchive
 
-- boost (only boost::filesystem is required, 1.55.0 version should be enough)
+- boost 1.61.0 boost::filesystem and boost::dll (header)
 
-- unistd.h unfortunately currently locking the platform to Linux systems
+- libdl on systems other than Windows
 
 *Some of these requirements are not absolute lower boundaries but rather tested versions*
 
