@@ -39,7 +39,7 @@ cmake ..
 make
 ```
 
-*Currently 'make install' doesn't do anything extra*
+`sudo make install` will try to install the package globally if that's needed
 
 ## Configure
 
