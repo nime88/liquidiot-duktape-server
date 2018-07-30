@@ -20,11 +20,18 @@ set ( CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3" )
 add_subdirectory (src)
 
 # Adding duktape
+
+if( NOT DUKTAPE_PATH )
 set( DUKTAPE_PATH "../duktape-2.2.1/src" )
+endif( NOT DUKTAPE_PATH )
+
 add_library(DukTape ${DUKTAPE_PATH}/duktape.c)
 target_include_directories(DukTape PUBLIC ${LIQUID_IOT_SERVER_SOURCE_DIR}/${DUKTAPE_PATH})
 
+if( NOT DUKTAPE_EXTRAS_DIR )
 set( DUKTAPE_EXTRAS_DIR "../duktape-2.2.1/extras/")
+endif( NOT DUKTAPE_EXTRAS_DIR )
+
 set( DUKTAPE_MODULE_NODE "${LIQUID_IOT_SERVER_SOURCE_DIR}/${DUKTAPE_EXTRAS_DIR}/module-node")
 set( DUKTAPE_PRINT_ALERT "${LIQUID_IOT_SERVER_SOURCE_DIR}/${DUKTAPE_EXTRAS_DIR}/print-alert")
 add_library(DukTapeExtra ${DUKTAPE_MODULE_NODE}/duk_module_node.c ${DUKTAPE_PRINT_ALERT}/duk_print_alert.c)

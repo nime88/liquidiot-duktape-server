@@ -28,6 +28,7 @@ Inside duktape folder configure duktape.
 ```
 python2 tools/configure.py --output-directory src -UDUK_USE_FATAL_HANDLER -UDUK_USE_VERBOSE_ERRORS -UDUK_USE_CPP_EXCEPTIONS
 ```
+Duktape default path can be configured with env DUKTAPE_PATH and extras path can be controlled with evn DUKTAPE_EXTRAS_DIR. Paths to both duktape env variables are treated as relative paths.
 *Default configure should work but it is not tested properly*
 
 ## Install

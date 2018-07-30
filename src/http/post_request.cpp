@@ -78,7 +78,7 @@ int PostRequest::generateFailResponse(struct lws *wsi, void* buffer_data, uint8_
 
   /* prepare and write http headers */
   if (lws_add_http_common_headers(wsi, HTTP_STATUS_NOT_FOUND,
-          Constant::String::REQ_TYPE_TEXT_HTML, dest_buffer->len, &p, end)) {
+          Constant::String::REQ_TYPE_APP_JSON, dest_buffer->len, &p, end)) {
     return 1;
   }
   if (lws_finalize_write_http_header(wsi, start, &p, end)) {
@@ -222,13 +222,27 @@ int PostRequest::calculateHttpRequest(void* buffer_data, void* in) {
   // creating new one if not found on previous
   if(!app && id == -1) {
     string temp_path = string(Constant::Paths::APPLICATIONS_ROOT) + "/" + string(dest_buffer->ext_filename);
-    app = new JSApplication(temp_path.c_str());
+    try {
+      app = new JSApplication(temp_path.c_str());
+    } catch (const char * e) {
+      if(app) delete app;
+      ERROUT(e);
+      dest_buffer->error_msg = "Failed to start the application";
+      return -1;
+    }
   } else if(app) {
     // we have to reload the app if it's already running
     DBOUT("Reloading app");
     string temp_path = app->getAppPath().c_str();
     JSApplication::shutdownApplication(app);
-    app = new JSApplication(temp_path.c_str());
+    try {
+      app = new JSApplication(temp_path.c_str());
+    } catch (const char * e) {
+      if(app) delete app;
+      ERROUT(e);
+      dest_buffer->error_msg = "Failed to start the application";
+      return -1;
+    }
   }
 
   if(!app) {

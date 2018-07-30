@@ -14,7 +14,16 @@ void AppManager::loadApplications() {
     INFOOUT("Loading app " << app_names.at(i));
     std::string path = string(Constant::Paths::APPLICATIONS_ROOT) + "/" + app_names.at(i);
     // simply creating an app, its internal structure will handle rest
-    apps_.push_back(new JSApplication(path.c_str()));
+    JSApplication *app = 0;
+    try {
+      app = new JSApplication(path.c_str());
+    } catch (const char * e) {
+      if(app) delete app;
+      ERROUT(e);
+      continue;
+    }
+
+    apps_.push_back(app);
   }
 
 }

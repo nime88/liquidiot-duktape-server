@@ -50,16 +50,16 @@ JSApplication::JSApplication(const char* path):duk_context_(0) {
 
     DBOUT("JSApplication(): app path: " << getAppPath());
     if(is_file((exec_path + getAppPath()).c_str()) != FILE_TYPE::PATH_TO_DIR) {
-      DBOUT("JSApplication(): File " << getAppPath() << " not a directory.");
+      ERROUT("JSApplication(): File " << getAppPath() << " not a directory.");
       JSApplication::shutdownApplication(this);
-      return;
+      throw "Not directory";
     }
 
     DBOUT("JSApplication(): init()");
     if(!init()) {
       ERROUT("JSApplication(): Failed to initialize");
       JSApplication::shutdownApplication(this);
-      return;
+      throw "JSApplication(): Failed to initialize";
     }
 
     DBOUT("JSApplication(): registerAppApi()");
@@ -189,6 +189,10 @@ bool JSApplication::init() {
     int evlLen;
     string temp_path = Device::getInstance().getExecPath() + "/" + string(Constant::Paths::EVENT_LOOP_JS);
     char* evlSource = load_js_file(temp_path.c_str(),evlLen);
+    if(evlLen <= 1) {
+      ERROUT("init(): file read error");
+      return false;
+    }
 
     {
       std::lock_guard<recursive_mutex> duktape_lock(getDuktapeMutex());
@@ -205,6 +209,10 @@ bool JSApplication::init() {
     int tmpLen;
     temp_path = Device::getInstance().getExecPath() + "/" + string(Constant::Paths::APPLICATION_HEADER_JS);
     char* headerSource = load_js_file(temp_path.c_str(),tmpLen);
+    if(tmpLen <= 1) {
+      ERROUT("init(): file read error");
+      return false;
+    }
 
     // evaluating ready made headers
     {
@@ -221,14 +229,34 @@ bool JSApplication::init() {
     // evaluating necessary js files that main.js will need
     temp_path = Device::getInstance().getExecPath() + "/" + string(Constant::Paths::AGENT_JS);
     char* agentSource = load_js_file(temp_path.c_str(),tmpLen);
+    if(tmpLen <= 1) {
+      ERROUT("init(): file read error");
+      return false;
+    }
     temp_path = Device::getInstance().getExecPath() + "/" + string(Constant::Paths::API_JS);
     char* apiSource = load_js_file(temp_path.c_str(),tmpLen);
+    if(tmpLen <= 1) {
+      ERROUT("init(): file read error");
+      return false;
+    }
     temp_path = Device::getInstance().getExecPath() + "/" + string(Constant::Paths::APP_JS);
     char* appSource = load_js_file(temp_path.c_str(),tmpLen);
+    if(tmpLen <= 1) {
+      ERROUT("init(): file read error");
+      return false;
+    }
     temp_path = Device::getInstance().getExecPath() + "/" + string(Constant::Paths::REQUEST_JS);
     char* requestSource = load_js_file(temp_path.c_str(),tmpLen);
+    if(tmpLen <= 1) {
+      ERROUT("init(): file read error");
+      return false;
+    }
     temp_path = Device::getInstance().getExecPath() + "/" + string(Constant::Paths::RESPONSE_JS);
     char* responseSource = load_js_file(temp_path.c_str(),tmpLen);
+    if(tmpLen <= 1) {
+      ERROUT("init(): file read error");
+      return false;
+    }
 
     {
       std::lock_guard<recursive_mutex> duktape_lock(getDuktapeMutex());
@@ -292,6 +320,10 @@ bool JSApplication::init() {
     // reading the package.json file to memory
     string liquidiot_file = Device::getInstance().getExecPath() + "/" + getAppPath() + string(Constant::Paths::LIQUID_IOT_JSON);
     string liquidiot_js = load_js_file(liquidiot_file.c_str(),source_len);
+    if(source_len <= 1) {
+      ERROUT("init(): file read error");
+      return false;
+    }
 
     DBOUT ("init(): Reading json to attr");
     {
@@ -677,7 +709,7 @@ bool JSApplication::shutdownApplication(JSApplication *app) {
   }
 
   DBOUT("shutdownApplication(): actual removal from memory");
-  delete app;
+  // delete app;
   app = 0;
 
   DBOUT("shutdownApplication(): Shutting down successful");
@@ -796,7 +828,6 @@ void JSApplication::updateAppState(APP_STATES state, bool update_client) {
   setAppState(state);
 
   if(update_client) {
-    // TODO
     DBOUT("updateAppState(): updating RR manager");
     Device::getInstance().updateApp(to_string(getAppId()),getAppAsJSON());
   }

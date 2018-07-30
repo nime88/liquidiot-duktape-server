@@ -15,5 +15,6 @@ void custom_fatal_handler(void *udata, const char *msg) {
   AppLog(app->getAppPath().c_str()) << AppLog::getTimeStamp() << " [" << Constant::String::LOG_FATAL_ERROR << "] " << fmsg << "\n";
 
   JSApplication::shutdownApplication(app);
+  if(app) delete app;
   // abort();
 }

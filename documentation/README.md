@@ -1,7 +1,7 @@
 # Overview
 ## REST API
 
-By default you can see the most up to date API from the root of the program URL (eg. http://localhost:7681/) 
+By default you can see the most up to date API from the root of the program URL (eg. http://localhost:7681/)
 or just open http-files/index.html.
 
 ## Javascript Application
@@ -23,11 +23,11 @@ Has all the logic of the deployed application and user can fill 3 functions (*ap
 testi.external.testApi = function(request,response) {
   response.setHeader("Content-type", "text/html");
   response.statusCode = 200;
-      
-  response.write("Event counter: " + event_counter + "<br>" + 
+
+  response.write("Event counter: " + event_counter + "<br>" +
     "Mr gdfg: " + request.params.gdfg + "<br>" + "What?: " + request.params.wut
   );
-  response.end(); 
+  response.end();
 };
 ```
 
@@ -53,7 +53,7 @@ Is a node style package file and it mostly works as expected by node standards w
 ### Logging
 
 Logs are stored in the applications own root folder and basically every print from javascript console,print,alert are logged inside the file. Next example print comes from JSON prints that the REST API will produce.
-``` 
+```
 [
     {
         "timestamp": "Sat Jun 30 11:06:24 2018",
@@ -80,5 +80,4 @@ Almost nothing from node will work. That said, there is **require** system in pl
 
 ## General Javascript
 
-Javscript engine come with duktape which implements ECMASCRIPT 2015 for the most part and some random properties of ECMASCRIPT 2016 but currently the support seems to be very minimal.
-
+Javscript engine come with duktape which implements ECMAScript 5/5.1 for the most part and some random properties of ECMAScript 2015 and ECMAScript 2016 but currently the support seems to be very minimal.
