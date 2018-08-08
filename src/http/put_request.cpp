@@ -6,6 +6,9 @@
 #include <string>
 using std::to_string;
 
+#include <boost/filesystem.hpp>
+namespace fs = boost::filesystem;
+
 const char * const PutRequest::put_param_names[] = {
   "status",
 };

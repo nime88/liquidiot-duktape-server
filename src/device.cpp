@@ -25,7 +25,7 @@ void Device::init() {
 
   // Next few checks prevent some undefined behaviour thus throwing out of here
   // if they fail
-  if (!duk_context_) {
+  if (!getContext()) {
     ERROUT ("Device(): duk_context creation failed");
     throw "Duk context could not be created.";
   }
@@ -34,7 +34,7 @@ void Device::init() {
   // loading configs
   map<string,map<string,string> > config;
   try {
-    config = get_config(duk_context_, getExecPath());
+    config = get_config(getContext(), getExecPath());
   } catch (char const * e) {
     ERROUT("Device failed to read config: " << e);
     throw "Device failed to start.";
@@ -303,8 +303,9 @@ bool Device::deviceExists() {
   // cleaning the response out of spaces because for some reason response value
   // from the RR manager has some extra spaces
   string resp = getCRConfig()->getResponse();
-  resp.erase(std::remove(resp.begin(),
-    resp.end(), ' '), resp.end());
+  DBOUT( "deviceExists(): response\n" << resp );
+  DBOUT( "deviceExists(): status " << getCRConfig()->getResponseStatus() );
+  resp.erase(std::remove(resp.begin(), resp.end(), ' '), resp.end());
 
   return resp != "null" && getCRConfig()->getResponseStatus() == 200;
 }

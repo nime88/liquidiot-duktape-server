@@ -45,6 +45,7 @@ using std::condition_variable;
 class JSApplication {
   public:
     JSApplication(const char* path);
+    JSApplication(const char* path, int id);
 
     ~JSApplication() {
       INFOOUT("Application " << getAppName() << " closed.");
@@ -212,7 +213,7 @@ class JSApplication {
     string author_;
     string licence_;
     string main_;
-    int id_;
+    int id_ = -1;
     APP_STATES app_state_;
     vector<string> application_interfaces_;
 
@@ -239,6 +240,8 @@ class JSApplication {
 
 
     duk_idx_t set_task_interval_idx_;
+
+    void defaultConstruct(const char* path);
 
     // gets the info from package.json
     void parsePackageJS();

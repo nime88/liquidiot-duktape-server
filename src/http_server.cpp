@@ -1,6 +1,7 @@
 #include "http_server.h"
 
 #include "globals.h"
+#include "prints.h"
 
 #include <regex>
 #include <string>
@@ -38,7 +39,8 @@ int HttpServer::run() {
   signal(SIGINT, sigint_handler);
 
   lws_set_log_level(logs, NULL);
-  lwsl_user("Starting http server at http://localhost:7681\n");
+
+  DBOUT("Starting http server");
 
   memset(&info_, 0, sizeof info_); /* otherwise uninitialized garbage */
 
@@ -46,6 +48,7 @@ int HttpServer::run() {
   duk_context *ctx = duk_create_heap_default();
 
   if (!ctx) {
+    ERROUT("HttpServer: Duk context could not be created.");
     throw "Duk context could not be created.";
   }
 
@@ -57,11 +60,17 @@ int HttpServer::run() {
 
   if(config.find(Constant::Attributes::DEVICE) != config.end()) {
     dev_config = config.at(Constant::Attributes::DEVICE);
-  } else throw "No device defined in config";
+  } else {
+    ERROUT("HttpServer: No device defined in config");
+    throw "No device defined in config";
+  }
 
   if(dev_config.find(Constant::Attributes::DEVICE_PORT) != dev_config.end()) {
     info_.port = stoi(dev_config.at(Constant::Attributes::DEVICE_PORT));
-  } else throw "No port defined at device config";
+  } else {
+    ERROUT("HttpServer: No port defined at device config");
+    throw "No port defined at device config";
+  }
 
   info_.mounts = &mount_;
   info_.protocols = protocols;
@@ -72,6 +81,8 @@ int HttpServer::run() {
     lwsl_err("lws init failed\n");
     return 1;
   }
+
+  DBOUT("HttpServer started at port " << info_.port);
 
   while (n >= 0 && !interrupted)
 		n = lws_service(context_, 1000);

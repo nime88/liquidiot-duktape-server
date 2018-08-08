@@ -94,7 +94,7 @@ string extract(const char *in_filename, int do_extract, int flags, const char* e
 	struct archive *ext;
 	struct archive_entry *entry;
 	int r;
-  string final_filename;
+  string final_filename = "";
 
 	a = archive_read_new();
 	ext = archive_write_disk_new();
@@ -129,7 +129,9 @@ string extract(const char *in_filename, int do_extract, int flags, const char* e
 
       // storing the extract path for later use
       if(final_filename.length() == 0) {
-        final_filename = currentFile;
+        fs::path fs_path(currentFile);
+        DBOUT(__func__ << ": " << fs_path);
+        final_filename = fs_path.parent_path().string();
       }
 
       string fullOutputPath;

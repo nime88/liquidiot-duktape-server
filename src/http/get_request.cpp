@@ -94,10 +94,16 @@ int GetRequest::generateFailResponse(struct lws *wsi, void* buffer_data, uint8_t
 int GetRequest::calculateHttpRequest(void* buffer_data, void* in) {
   struct user_buffer_data *dest_buffer = (struct user_buffer_data*)buffer_data;
 
+  if(!dest_buffer) return -1;
+
   map<duk_context*, JSApplication*> apps = JSApplication::getApplications();
   JSApplication *app = 0;
 
-  dest_buffer->request_url = (char*)in;
+  if( strlen((char*)in) != 0 ) {
+    dest_buffer->request_url = (char*)in;
+  } else {
+    dest_buffer->request_url = "/";
+  }
 
   int id =  parseIdFromURL(dest_buffer->request_url);
 

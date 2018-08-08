@@ -7,6 +7,8 @@
 
 #include <sys/fcntl.h>
 #include <cstdio>
+#include <boost/filesystem.hpp>
+namespace fs = boost::filesystem;
 
 const char * const PostRequest::post_param_names[] = {
   "filekey",
@@ -19,7 +21,9 @@ int PostRequest::handleHttpRequest(struct lws *wsi, void* buffer_data, void* in,
     // initial http request (headers)
     case LWS_CALLBACK_HTTP: {
       // storing the request url from the mountpoint
-      dest_buffer->request_url = (char*)in;
+      if(strlen((char*)in) != 0)
+        dest_buffer->request_url = (char*)in;
+      else dest_buffer->request_url = "/";
 
       return 0;
     }
@@ -181,8 +185,10 @@ int PostRequest::calculateHttpRequest(void* buffer_data, void* in) {
   if(id == -1) {
     string temp_file = Device::getInstance().getExecPath() + "/" + string(string(Constant::Paths::TEMP_FOLDER) + "/" + string(dest_buffer->filename));
     string temp_path = Device::getInstance().getExecPath() + "/" + Constant::Paths::APPLICATIONS_ROOT;
+
     // we have the file in file system now so we can just extract it
     string ext_filename = extract_file(temp_file.c_str(), temp_path.c_str(), 0);
+    DBOUT(__func__ << ": ext_filename: " << ext_filename);
     strcpy(dest_buffer->ext_filename,ext_filename.c_str());
     DBOUT(__func__ << ": extracted, written to " << Constant::Paths::APPLICATIONS_ROOT << "/" << dest_buffer->ext_filename);
 
@@ -211,9 +217,13 @@ int PostRequest::calculateHttpRequest(void* buffer_data, void* in) {
       }
     }
   } else if(id == -1) {
+    fs::path desired_path(string(Constant::Paths::APPLICATIONS_ROOT) + "/" + string(dest_buffer->ext_filename));
+    DBOUT(__func__ << ": desired_path: " << desired_path);
     for (  map<duk_context*, JSApplication*>::const_iterator it=apps.begin(); it!=apps.end(); ++it) {
+      fs::path owned_path(it->second->getAppPath());
+      DBOUT(__func__ << ": desired_path: " << owned_path);
       // if the application already exists, simply assign it
-      if(it->second->getAppPath() == string(Constant::Paths::APPLICATIONS_ROOT) + "/" + string(dest_buffer->ext_filename)) {
+      if(equivalent(owned_path,desired_path)) {
         app = it->second;
         break;
       }
@@ -237,7 +247,9 @@ int PostRequest::calculateHttpRequest(void* buffer_data, void* in) {
     string temp_path = app->getAppPath().c_str();
     JSApplication::shutdownApplication(app);
     try {
-      app = new JSApplication(temp_path.c_str());
+      DBOUT("Creating new app with id: " << id << " and path: " << temp_path);
+      if(id >= 0) app = new JSApplication(temp_path.c_str(), id);
+      else app = new JSApplication(temp_path.c_str());
     } catch (const char * e) {
       if(app) delete app;
       ERROUT(e);

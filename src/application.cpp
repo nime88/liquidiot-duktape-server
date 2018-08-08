@@ -31,6 +31,15 @@ vector<string> JSApplication::app_names_;
 recursive_mutex JSApplication::static_mutex_;
 
 JSApplication::JSApplication(const char* path):duk_context_(0) {
+  defaultConstruct(path);
+}
+
+JSApplication::JSApplication(const char* path, int id) {
+  setAppId(to_string(id));
+  defaultConstruct(path);
+}
+
+void JSApplication::defaultConstruct(const char* path) {
   {
     DBOUT("JSApplication()");
     std::lock_guard<recursive_mutex> static_lock(getStaticMutex());
@@ -339,11 +348,12 @@ bool JSApplication::init() {
     DBOUT ("init(): Creating full source code");
     string temp_source =  string(load_js_file(main_file.c_str(),source_len)) +
       "\napp = {};\n"
-      "IoTApp(app);\n"
-      "module.exports(app);\n"
-      "if(typeof app != \"undefined\")\n\t"
-      "LoadSwaggerFragment(JSON.stringify(app.external.swagger));"
-      "app.internal.start();\n";
+      "Agent(app);\n"
+      "module.exports(app,0,0,console);\n"
+      "app.start();\n";
+      //"if(typeof app != \"undefined\")\n\t"
+      //"LoadSwaggerFragment(JSON.stringify(app.external.swagger));"
+      //"app.internal.start();\n";
 
     // executing initialize code
     setJSSource(temp_source.c_str(), temp_source.length());
@@ -662,8 +672,8 @@ bool JSApplication::shutdownApplication(JSApplication *app) {
   std::lock_guard<recursive_mutex> static_lock(getStaticMutex());
   DBOUT("shutdownApplication()");
 
-  // DBOUT("shutdownApplication(): deleting from RR manager");
-  // Device::getInstance().deleteApp(std::to_string(app->getAppId()));
+  DBOUT("shutdownApplication(): deleting from RR manager");
+  Device::getInstance().deleteApp(std::to_string(app->getAppId()));
 
   DBOUT ( "shutdownApplication(): joining app thread" );
   try {
@@ -797,8 +807,17 @@ void JSApplication::run() {
       ERROUT("eventloop_run() failed: " << duk_to_string(getContext(), -1));
       AppLog(getAppPath().c_str()) << AppLog::getTimeStamp() << " [" << Constant::String::LOG_ERROR << "] " << duk_to_string(getContext(), -1) << endl;
     }
-    if(getContext())
+    if(getContext()) {
       duk_pop(getContext());
+      DBOUT("JSApplication::run(): Executing the terminate function");
+      duk_push_string(getContext(), "app.$terminate(function(){});\n");
+      int res = duk_peval(getContext());
+      if(res != 0) {
+        ERROUT("failed to evaluate terminate: " << duk_to_string(getContext(), -1));
+        AppLog(getAppPath().c_str()) << AppLog::getTimeStamp() << " [" << Constant::String::LOG_ERROR << "] " << duk_to_string(getContext(), -1) << endl;
+      }
+      duk_pop(getContext());
+    }
   }
 
   DBOUT("run(): exited eventloop");
@@ -1296,8 +1315,10 @@ void JSApplication::parsePackageJS() {
     setAppId(package_json_attr.at(Constant::Attributes::APP_ID));
   } else {
     // setting id for the application
-    setAppId(to_string(getNextId(false)));
-    getNextId(true);
+    if(getAppId() < 0) {
+      setAppId(to_string(getNextId(false)));
+      getNextId(true);
+    }
   }
 
   DBOUT ("parsePackageJS(): OK");

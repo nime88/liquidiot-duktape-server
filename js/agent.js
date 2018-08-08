@@ -4,15 +4,15 @@
 Agent = function (iotApp){
 
     // public functions that will be overriden by applications
-    iotApp.task = function(){
+    iotApp.$task = function(){
         throw new Error("task function should be defined.");
     };
 
-    iotApp.initialize = function (initCompleted){
+    iotApp.$initialize = function (initCompleted){
         initCompleted();
     };
 
-    iotApp.terminate = function(terminateCompleted){
+    iotApp.$terminate = function(terminateCompleted){
         terminateCompleted();
     };
 
@@ -22,7 +22,7 @@ Agent = function (iotApp){
     var interval = 1000;
 
     // public functions that will be called by applications
-    iotApp.configureInterval = function(_repeat, _interval) {
+    iotApp.$configureInterval = function(_repeat, _interval) {
         repeat = _repeat;
         interval = _interval;
     };
@@ -52,8 +52,8 @@ Agent = function (iotApp){
 
     // public functions that will be called by runtime environemnt
     iotApp.start = function() {
-      iotApp.initialize(function(){});
-      var wrapped = function(){iotApp.task(function(){});};
+      iotApp.$initialize(function(){});
+      var wrapped = function(){iotApp.$task(function(){});};
       setTaskInterval(wrapped,repeat,interval);
     };
 };

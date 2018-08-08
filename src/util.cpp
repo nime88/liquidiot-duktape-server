@@ -64,12 +64,14 @@ map<string, map<string,string> >get_config(duk_context *ctx, const string& exec_
       duk_pop(ctx);
       config.insert(pair<string,map<string,string> >(main_key,local_config));
     }
+
     duk_pop_2(ctx);  /* pop main_key value_obj_enum  */
   }
+
   duk_pop_2(ctx); // popping enum object and json object
 
   /* [...] */
-
+  DBOUT("get_config(): ok");
   return config;
 }
 
