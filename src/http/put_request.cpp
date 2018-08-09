@@ -2,15 +2,18 @@
 
 #include "application.h"
 #include "constant.h"
+#include "util.h"
 
 #include <string>
 using std::to_string;
+
+#include <regex>
 
 #include <boost/filesystem.hpp>
 namespace fs = boost::filesystem;
 
 const char * const PutRequest::put_param_names[] = {
-  "status",
+  Constant::Attributes::APP_STATE,
 };
 
 int PutRequest::handleHttpRequest(struct lws *wsi, void* buffer_data, void* in, uint8_t *start, uint8_t *p, uint8_t *end, size_t len, enum lws_callback_reasons reason) {
@@ -25,6 +28,8 @@ int PutRequest::handleHttpRequest(struct lws *wsi, void* buffer_data, void* in, 
 
     case LWS_CALLBACK_HTTP_BODY: {
       if (!dest_buffer->spa) {
+        // saving the input in case of JSON
+        dest_buffer->large_str = (char*)in;
         dest_buffer->spa = lws_spa_create(wsi, put_param_names, ARRAY_SIZE(put_param_names), 1024, NULL, NULL); /* no file upload */
 
         if (!dest_buffer->spa)
@@ -141,12 +146,40 @@ int PutRequest::calculateHttpRequest(void* buffer_data, void* in) {
 
   for (int n = 0; n < (int)ARRAY_SIZE(put_param_names); n++) {
     if (!lws_spa_get_string(dest_buffer->spa, n)) {
-      dest_buffer->error_msg = "Attribute couldn't be read";
-      optimizeResponseString(dest_buffer->error_msg, buffer_data);
-      return -1;
-    }
+      DBOUT(__func__ << ": Falling back to JSON");
+      duk_context *ctx = app->getContext();
+      std::lock_guard<recursive_mutex> duktape_lock(app->getDuktapeMutex());
+      std::smatch json_match;
+      std::regex json_regex(R"(\{.*\})");
+      string temp_str;
+      std::regex_search (dest_buffer->large_str, json_match, json_regex);
+      for (size_t i = 0; i < json_match.size(); ++i) {
+        DBOUT(__func__ << ": " << i << ": " << json_match[i]);
+        temp_str = json_match[i];
+      }
 
-    parsed_str = lws_spa_get_string(dest_buffer->spa, n);
+      DBOUT(__func__ << ": Filtered: " << temp_str);
+
+      duk_int_t ret = safe_json_decode(app->getContext(), temp_str.c_str());
+      if(ret == 0) {
+        duk_enum(ctx, -1, DUK_ENUM_OWN_PROPERTIES_ONLY);
+        duk_next(ctx, -1 /*enum_idx*/, 1);
+        if(duk_check_type(ctx, -1, DUK_TYPE_STRING)) {
+          string key = duk_to_string(ctx, -2);
+          string value = duk_to_string(ctx, -1);
+          DBOUT(__func__ << ": " << key << " : " << value);
+          parsed_str = value;
+        }
+        DBOUT(__func__ << ": Popping");
+        duk_pop_2(ctx);
+        duk_pop_2(ctx);
+        DBOUT(__func__ << ": Out of ");
+      } else {
+        dest_buffer->error_msg = "Attribute couldn't be read";
+        optimizeResponseString(dest_buffer->error_msg, buffer_data);
+        return -1;
+      }
+    } else parsed_str = lws_spa_get_string(dest_buffer->spa, n);
   }
 
   unsigned int i = 0;

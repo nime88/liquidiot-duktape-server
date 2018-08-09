@@ -754,7 +754,7 @@ string JSApplication::getLogsAsJSON() {
   string logs = ReadAppLog(getAppPath().c_str()).getLogsString();
 
   std::smatch m;
-  std::regex e( R"(\[(\w{3}\s+\w{3}\s+\d{2}\s+\d{2}:\d{2}:\d{2}\s+\d{4})\]\s\[(\w+)\]\s([A-Za-z\d\s._:\/]*)(\n|\n$)+?)" );
+  std::regex e( R"(\[(\w{3}\s+\w{3}\s+\d{2}\s+\d{2}:\d{2}:\d{2}\s+\d{4})\]\s\[(\w+)\]\s([A-Za-z\d\s._:\/!]*)(\n|\n$)+)" );
 
   json_logs += "[\n";
   while (std::regex_search (logs,m,e, std::regex_constants::match_any)) {
