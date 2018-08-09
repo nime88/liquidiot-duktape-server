@@ -100,6 +100,7 @@ public:
       static const char * APP_JS;
       static const char * REQUEST_JS;
       static const char * RESPONSE_JS;
+      static const char * ROUTER_JS;
 
       // local app path files
       static const char * LIQUID_IOT_JSON;

@@ -58,6 +58,7 @@ const char * Constant::Paths::API_JS = "js/api.js";
 const char * Constant::Paths::APP_JS = "js/app.js";
 const char * Constant::Paths::REQUEST_JS = "js/request.js";
 const char * Constant::Paths::RESPONSE_JS = "js/response.js";
+const char * Constant::Paths::ROUTER_JS = "js/router.js";
 const char * Constant::Paths::LIQUID_IOT_JSON = "/liquidiot.json";
 const char * Constant::Paths::PACKAGE_JSON = "/package.json";
 const char * Constant::Paths::HTTP_FILE_ROOT = "http-files";

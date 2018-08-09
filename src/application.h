@@ -111,6 +111,9 @@ class JSApplication {
     inline const vector<string>& getAppInterfaces() { return application_interfaces_; }
     inline void setAppInterfaces(const vector<string> &ais) { application_interfaces_ = ais; }
 
+    inline void addAppAPI(const string& rest_api) { rest_api_paths_.push_back(rest_api); }
+    inline const vector<string>& getAppAPIs() { return rest_api_paths_; }
+
     inline const map<string,string>& getRawPackageJSONData() { return raw_package_json_data_; }
     void setRawPackageJSONDataField(const string& key, const string& value);
     inline void setRawPackageJSONData(const map<string,string>& data) { raw_package_json_data_ = data; }
@@ -161,7 +164,7 @@ class JSApplication {
     string getAppAsJSON();
 
     bool hasAI(const string &ai) {
-      for (const string &s : getAppInterfaces()) {
+      for (const string &s : getAppAPIs()) {
         if (s == ai) return true;
       }
 
@@ -175,6 +178,7 @@ class JSApplication {
 
     static duk_ret_t cb_resolve_app_response(duk_context *ctx);
     static duk_ret_t cb_load_swagger_fragment(duk_context *ctx);
+    static duk_ret_t cb_register_app_api(duk_context *ctx);
 
     static bool applicationExists(const char* path);
     static const vector<string>& listApplicationNames();
@@ -216,6 +220,8 @@ class JSApplication {
     int id_ = -1;
     APP_STATES app_state_;
     vector<string> application_interfaces_;
+
+    vector<string> rest_api_paths_;
 
     map<string,string> raw_package_json_data_;
 

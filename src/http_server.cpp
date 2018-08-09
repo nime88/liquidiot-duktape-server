@@ -166,20 +166,31 @@ int HttpServer::app_rest_api(struct lws *wsi, enum lws_callback_reasons reason, 
     *end = &buf[sizeof(buf) - 1];
   struct HttpRequest::user_buffer_data *dest_buffer = (struct HttpRequest::user_buffer_data *)user;
   if(reason == LWS_CALLBACK_HTTP) {
+    DBOUT(__func__ << ": LWS_CALLBACK_HTTP");
     string url = (char*)in;
-    int id = HttpRequest::parseIdFromURL(url);
-    string ai = HttpRequest::parseApiFromURL(url);
 
+    DBOUT(__func__ << ": parseId");
+    int id = HttpRequest::parseIdFromURL(url);
+    DBOUT(__func__ << ": parseAPI");
+    string ai = "/" + HttpRequest::parseApiFromURL(url);
+
+    DBOUT(__func__ << ": getApp, ai: " << ai);
     JSApplication *app = JSApplication::getApplicationById(id);
 
+    DBOUT(__func__ << ": hasAI");
     if(app && app->hasAI(ai)) {
       if(!dest_buffer->request) {
+        DBOUT(__func__ << ": creating new AppRequest");
         dest_buffer->request = new AppRequest();
       }
     }
 
-    ((AppRequest*)dest_buffer->request)->setApp(app);
+    DBOUT(__func__ << ": setting App");
+    if(app)
+      ((AppRequest*)dest_buffer->request)->setApp(app);
+    DBOUT(__func__ << ": setting AI");
     ((AppRequest*)dest_buffer->request)->setAI(ai);
+    DBOUT(__func__ << ": LWS_CALLBACK_HTTP Ok");
   }
 
   int cont = dest_buffer->request->handleHttpRequest(wsi, dest_buffer, in, start, p, end, len, reason);

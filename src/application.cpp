@@ -66,10 +66,10 @@ void JSApplication::defaultConstruct(const char* path) {
     }
 
     DBOUT("JSApplication(): registerAppApi()");
-    unsigned int ai_len = getAppInterfaces().size();
-    for(unsigned int i = 0; i < ai_len; ++i) {
-        Device::getInstance().registerAppApi(getAppInterfaces().at(i), getSwaggerFragment());
-    }
+    // unsigned int ai_len = getAppInterfaces().size();
+    // for(unsigned int i = 0; i < ai_len; ++i) {
+    //     Device::getInstance().registerAppApi(getAppInterfaces().at(i), getSwaggerFragment());
+    // }
 
     DBOUT("JSApplication(): getAppAsJSON()");
     string app_payload = getAppAsJSON();
@@ -183,6 +183,14 @@ bool JSApplication::init() {
       duk_pop(getContext());
     }
 
+    {
+      std::lock_guard<recursive_mutex> duktape_lock(getDuktapeMutex());
+      duk_push_global_object(getContext());
+      duk_push_c_function(getContext(), cb_register_app_api, 1);
+      duk_put_prop_string(getContext(), -2, "RegisterAIPath");
+      duk_pop(getContext());
+    }
+
     DBOUT ("init(): Creating new eventloop");
     // registering/creating the eventloop
     createEventLoop();
@@ -236,18 +244,6 @@ bool JSApplication::init() {
       ERROUT("init(): file read error");
       return false;
     }
-    temp_path = Device::getInstance().getExecPath() + "/" + string(Constant::Paths::API_JS);
-    char* apiSource = load_js_file(temp_path.c_str(),tmpLen);
-    if(tmpLen <= 1) {
-      ERROUT("init(): file read error");
-      return false;
-    }
-    temp_path = Device::getInstance().getExecPath() + "/" + string(Constant::Paths::APP_JS);
-    char* appSource = load_js_file(temp_path.c_str(),tmpLen);
-    if(tmpLen <= 1) {
-      ERROUT("init(): file read error");
-      return false;
-    }
     temp_path = Device::getInstance().getExecPath() + "/" + string(Constant::Paths::REQUEST_JS);
     char* requestSource = load_js_file(temp_path.c_str(),tmpLen);
     if(tmpLen <= 1) {
@@ -261,31 +257,18 @@ bool JSApplication::init() {
       return false;
     }
 
+    temp_path = Device::getInstance().getExecPath() + "/" + string(Constant::Paths::ROUTER_JS);
+    char* routerSource = load_js_file(temp_path.c_str(),tmpLen);
+    if(tmpLen <= 1) {
+      ERROUT("init(): file read error");
+      return false;
+    }
+
     {
       std::lock_guard<recursive_mutex> duktape_lock(getDuktapeMutex());
       duk_push_string(getContext(), agentSource);
       if (duk_peval(getContext()) != 0) {
         ERROUT("Failed to evaluate agent.js: " << duk_safe_to_string(getContext(), -1));
-        return false;
-      }
-      duk_pop(getContext());
-    }
-
-    {
-      std::lock_guard<recursive_mutex> duktape_lock(getDuktapeMutex());
-      duk_push_string(getContext(), apiSource);
-      if (duk_peval(getContext()) != 0) {
-        ERROUT("Failed to evaluate api.js: " << duk_safe_to_string(getContext(), -1));
-        return false;
-      }
-      duk_pop(getContext());
-    }
-
-    {
-      std::lock_guard<recursive_mutex> duktape_lock(getDuktapeMutex());
-      duk_push_string(getContext(), appSource);
-      if (duk_peval(getContext()) != 0) {
-        ERROUT("Failed to evaluate app.js: " << duk_safe_to_string(getContext(), -1));
         return false;
       }
       duk_pop(getContext());
@@ -306,6 +289,16 @@ bool JSApplication::init() {
       duk_push_string(getContext(), responseSource);
       if (duk_peval(getContext()) != 0) {
         ERROUT("Failed to evaluate response.js: " << duk_safe_to_string(getContext(), -1));
+        return false;
+      }
+      duk_pop(getContext());
+    }
+
+    {
+      std::lock_guard<recursive_mutex> duktape_lock(getDuktapeMutex());
+      duk_push_string(getContext(), routerSource);
+      if (duk_peval(getContext()) != 0) {
+        ERROUT("Failed to evaluate router.js: " << duk_safe_to_string(getContext(), -1));
         return false;
       }
       duk_pop(getContext());
@@ -349,7 +342,9 @@ bool JSApplication::init() {
     string temp_source =  string(load_js_file(main_file.c_str(),source_len)) +
       "\napp = {};\n"
       "Agent(app);\n"
-      "module.exports(app,0,0,console);\n"
+      "router = {};\n"
+      "Router(router);\n"
+      "module.exports(app,router,0,console);\n"
       "app.start();\n";
       //"if(typeof app != \"undefined\")\n\t"
       //"LoadSwaggerFragment(JSON.stringify(app.external.swagger));"
@@ -557,6 +552,7 @@ void JSApplication::setRawPackageJSONDataField(const string& key, const string& 
 }
 
 AppResponse *JSApplication::getResponse(AppRequest *request) {
+  DBOUT(__func__);
   map<string,string> headers = request->getHeaders();
   map<string,string> body_args = request->getBodyArguments();
 
@@ -581,8 +577,8 @@ AppResponse *JSApplication::getResponse(AppRequest *request) {
     "request.protocol = \"" + request->getProtocol() + "\";\n" +
     "var response = {};\n"
     "Response(response);\n"
-    "app.external." + request->getAI() + "(request,response);\n";
-
+    "router.call_api(\"" + request->getAI() + "\");\n";
+    
   {
     std::lock_guard<recursive_mutex> duktape_lock(getDuktapeMutex());
     duk_push_string(getContext(), sourceCode.c_str());
@@ -591,6 +587,8 @@ AppResponse *JSApplication::getResponse(AppRequest *request) {
     }
     duk_pop(getContext());
   }
+
+  DBOUT(__func__ << ": OK");
 
   return app_response_;
 }
@@ -1221,6 +1219,22 @@ duk_ret_t JSApplication::cb_load_swagger_fragment(duk_context *ctx) {
     std::lock_guard<recursive_mutex> duktape_lock(app->getDuktapeMutex());
     const char * sw_frag = duk_require_string(ctx,0);
     app->setSwaggerFragment(sw_frag);
+
+    duk_pop(ctx);
+    /* [ ... ] */
+  }
+
+  return 0;
+}
+
+duk_ret_t JSApplication::cb_register_app_api(duk_context *ctx) {
+  /* Entry [ ... api_as_string ] */
+
+  JSApplication *app = JSApplication::getApplications().at(ctx);
+  {
+    std::lock_guard<recursive_mutex> duktape_lock(app->getDuktapeMutex());
+    const char * rest_api = duk_require_string(ctx,0);
+    app->addAppAPI(rest_api);
 
     duk_pop(ctx);
     /* [ ... ] */
