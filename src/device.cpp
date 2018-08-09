@@ -75,6 +75,24 @@ void Device::init() {
     setDevPort(getRawData().at(Constant::Attributes::DEVICE_PORT));
   }
 
+  if(getRawData().find(Constant::Attributes::DEVICE_CAPABILITY) != getRawData().end()) {
+    string temp_dev_cap = getRawData().at(Constant::Attributes::DEVICE_CAPABILITY);
+    string delimiter = ",";
+
+    size_t pos = 0;
+    string token;
+
+    while ((pos = temp_dev_cap.find(delimiter)) != string::npos) {
+      token = temp_dev_cap.substr(0, pos);
+      addDevCapability(token);
+      temp_dev_cap.erase(0, pos + delimiter.length());
+    }
+
+    if(temp_dev_cap.length() > 0) {
+      addDevCapability(temp_dev_cap);
+    }
+  }
+
   DBOUT ("Device(): checking if device already exists");
   bool dexists = deviceExists();
 
@@ -593,11 +611,23 @@ string Device::getDeviceInfoAsJSON() {
   duk_push_object(ctx);
 
   for ( map<string,string>::const_iterator it = getRawData().begin(); it != getRawData().end(); ++it) {
-    duk_push_string(ctx,it->second.c_str());
-    duk_put_prop_string(ctx, -2, it->first.c_str());
+    if(it->first == Constant::Attributes::DEVICE_CAPABILITY) {
+      duk_idx_t arr_idx;
+      arr_idx = duk_push_array(ctx);
+      for(unsigned int i = 0; i < getDevCapabilities().size(); ++i) {
+        duk_push_string(ctx, getDevCapabilities().at(i).c_str());
+        duk_put_prop_index(ctx, arr_idx, i);
+      }
+      duk_put_prop_string(ctx, -2, it->first.c_str());
+    } else {
+      duk_push_string(ctx,it->second.c_str());
+      duk_put_prop_string(ctx, -2, it->first.c_str());
+    }
   }
 
   string full_info = duk_json_encode(ctx, -1);
+  ERROUT(getDevCapabilities().size());
+  ERROUT(full_info);
 
   duk_pop(ctx);
 

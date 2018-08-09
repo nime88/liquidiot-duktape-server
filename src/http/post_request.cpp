@@ -266,5 +266,11 @@ int PostRequest::calculateHttpRequest(void* buffer_data, void* in) {
   dest_buffer->large_str = app->getDescriptionAsJSON();
   dest_buffer->len = dest_buffer->large_str.length();
 
+  // moving/renaming the folder to application name
+  fs::path old_path = Device::getInstance().getExecPath() + "/" + app->getAppPath();
+  fs::path new_path = Device::getInstance().getExecPath() + "/" + Constant::Paths::APPLICATIONS_ROOT + "/" + app->getAppName();
+  fs::rename(old_path, new_path);
+  app->setAppPath(string(Constant::Paths::APPLICATIONS_ROOT) + "/" + app->getAppName());
+
   return 0;
 }

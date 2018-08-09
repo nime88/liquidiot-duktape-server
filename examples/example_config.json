@@ -4,7 +4,7 @@
    },
    "device":{
      "_id":"5b33475f345e565d2497e673",
-     "classes":"",
+     "classes":["lwRuntime_v_0_2_0","lwRuntime_v_0_2_1"],
      "host":"localhost",
      "libraries":"",
      "location":"SomeLocation",

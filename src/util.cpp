@@ -58,6 +58,22 @@ map<string, map<string,string> >get_config(duk_context *ctx, const string& exec_
           string key = duk_to_string(ctx, -2);
           string value = duk_to_string(ctx, -1);
           local_config.insert(pair<string,string>(key,value));
+        } else if(duk_check_type(ctx, -1, DUK_TYPE_OBJECT)) {
+          // this is for classes array
+          string key = duk_to_string(ctx, -2);
+          string comb_value = "";
+          duk_size_t i, n;
+          n = duk_get_length(ctx, -1);
+          for (i = 0; i < n; i++) {
+            duk_get_prop_index(ctx, -1, i);
+            comb_value += duk_to_string(ctx, -1);
+            if(i+1 < n)
+              comb_value += ",";
+             /* ... */
+            duk_pop(ctx);
+          }
+
+          local_config.insert(pair<string,string>(key,comb_value));
         }
         duk_pop_2(ctx); /* pop key value  */
       }
@@ -85,8 +101,29 @@ void save_config(duk_context *ctx, map<string, map<string,string> > new_config, 
       int in_idx = duk_push_object(ctx);
       for(map<string,string>::iterator inner_it = out_it->second.begin(); inner_it != out_it->second.end(); ++inner_it) {
         /* [... conf_obj ] */
-        duk_push_string(ctx, inner_it->second.c_str());
-        duk_put_prop_string(ctx, in_idx, inner_it->first.c_str());
+        if(inner_it->first == Constant::Attributes::DEVICE_CAPABILITY) {
+          string temp_dev_cap = inner_it->second;
+          string delimiter = ",";
+
+          size_t pos = 0;
+          string token;
+          duk_idx_t arr_idx;
+          arr_idx = duk_push_array(ctx);
+          int current_idx = 0;
+
+          while ((pos = temp_dev_cap.find(delimiter)) != string::npos) {
+            token = temp_dev_cap.substr(0, pos);
+            duk_push_string(ctx, token.c_str());
+            duk_put_prop_index(ctx, arr_idx, current_idx);
+            ++current_idx;
+            temp_dev_cap.erase(0, pos + delimiter.length());
+          }
+
+          duk_put_prop_string(ctx, -2, inner_it->first.c_str());
+        } else {
+          duk_push_string(ctx, inner_it->second.c_str());
+          duk_put_prop_string(ctx, in_idx, inner_it->first.c_str());
+        }
       }
       duk_put_prop_string(ctx, -2, out_it->first.c_str());
   }

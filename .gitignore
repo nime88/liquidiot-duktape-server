@@ -1,7 +1,11 @@
 build/
+Release/
+Debug/
 test/
 liquid-server
 *.o
 applications/*.js
 *.gch
 *.swp
+compile_commands.json
+create_deb.sh

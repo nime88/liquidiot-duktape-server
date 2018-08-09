@@ -116,6 +116,9 @@ class Device {
       port_ = port;
     }
 
+    inline const vector<string>& getDevCapabilities() { return classes_; }
+    inline void addDevCapability(const string& capability) { classes_.push_back(capability); }
+
     ClientRequestConfig* getCRConfig();
     inline const map<thread::id, ClientRequestConfig*>& getCRConfigs() { return crconfigs_; }
 

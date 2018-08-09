@@ -56,6 +56,7 @@ public:
       static const char * DEVICE_URL;
       static const char * DEVICE_HOST;
       static const char * DEVICE_PORT;
+      static const char * DEVICE_CAPABILITY;
 
       // application attributes
       static const char * APP_INTERFACES;

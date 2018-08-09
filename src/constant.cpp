@@ -31,6 +31,8 @@ const char * Constant::Attributes::DEVICE_LOCATION = "location";
 const char * Constant::Attributes::DEVICE_URL = "url";
 const char * Constant::Attributes::DEVICE_HOST = "host";
 const char * Constant::Attributes::DEVICE_PORT = "port";
+const char * Constant::Attributes::DEVICE_CAPABILITY = "classes";
+
 const char * Constant::Attributes::APP_INTERFACES = "applicationInterfaces";
 const char * Constant::Attributes::APP_NAME = "name";
 const char * Constant::Attributes::APP_VERSION = "version";
