@@ -183,13 +183,15 @@ int HttpServer::app_rest_api(struct lws *wsi, enum lws_callback_reasons reason, 
         DBOUT(__func__ << ": creating new AppRequest");
         dest_buffer->request = new AppRequest();
       }
+
+      if(dest_buffer->request) {
+        DBOUT(__func__ << ": setting App");
+        ((AppRequest*)dest_buffer->request)->setApp(app);
+        DBOUT(__func__ << ": setting AI");
+        ((AppRequest*)dest_buffer->request)->setAI(ai);
+      }
     }
 
-    DBOUT(__func__ << ": setting App");
-    if(app)
-      ((AppRequest*)dest_buffer->request)->setApp(app);
-    DBOUT(__func__ << ": setting AI");
-    ((AppRequest*)dest_buffer->request)->setAI(ai);
     DBOUT(__func__ << ": LWS_CALLBACK_HTTP Ok");
   }
 

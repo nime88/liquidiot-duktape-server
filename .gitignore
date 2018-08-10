@@ -9,3 +9,4 @@ applications/*.js
 *.swp
 compile_commands.json
 create_deb.sh
+*.tgz

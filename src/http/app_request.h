@@ -48,7 +48,7 @@ class AppRequest : public HttpRequest {
       return request_types_char[type];
     }
 
-    map<string,string> getHeaders() { return headers_; }
+    const map<string,string>& getHeaders() { return headers_; }
     string getProtocol() { return protocol_; }
     map<string,string> getBodyArguments() { return body_args_; }
 

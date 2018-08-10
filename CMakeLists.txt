@@ -69,9 +69,12 @@ add_custom_command(TARGET liquid-server POST_BUILD
 add_custom_command(TARGET liquid-server POST_BUILD
                    COMMAND ${CMAKE_COMMAND} -E copy_directory
                        ${LIQUID_IOT_SERVER_SOURCE_DIR}/js $<TARGET_FILE_DIR:liquid-server>/js)
-add_custom_command(TARGET liquid-server POST_BUILD
-                   COMMAND ${CMAKE_COMMAND} -E copy
-                       ${LIQUID_IOT_SERVER_SOURCE_DIR}/examples/example_config.json $<TARGET_FILE_DIR:liquid-server>/config.json)
+
+# if(NOT EXISTS "${CMAKE_CURRENT_BINARY_DIR}/config.json")
+#   add_custom_command(TARGET liquid-server POST_BUILD
+#     COMMAND ${CMAKE_COMMAND} -E copy
+#     ${LIQUID_IOT_SERVER_SOURCE_DIR}/examples/example_config.json $<TARGET_FILE_DIR:liquid-server>/config.json)
+# endif(NOT EXISTS "${CMAKE_CURRENT_BINARY_DIR}/config.json")
 
 ## INSTALL ##
 

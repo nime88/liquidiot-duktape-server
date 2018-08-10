@@ -156,8 +156,12 @@ int AppRequest::generateResponse(struct lws *wsi, void* buffer_data, uint8_t *st
   struct user_buffer_data *dest_buffer = (struct user_buffer_data*)buffer_data;
 
   /* prepare and write http headers */
-  if(lws_add_http_common_headers(wsi, HTTP_STATUS_OK, Constant::String::REQ_TYPE_TEXT_HTML, dest_buffer->len, &p, end)) {
-    return 1;
+  if(getHeaders().find(Constant::Attributes::AR_HEAD_CONTENT_TYPE) == getHeaders().end()) {
+    if(lws_add_http_common_headers(wsi, HTTP_STATUS_OK, Constant::String::REQ_TYPE_TEXT_HTML, dest_buffer->len, &p, end))
+      return 1;
+  } else {
+    if(lws_add_http_common_headers(wsi, HTTP_STATUS_OK, getHeaders().at(Constant::Attributes::AR_HEAD_CONTENT_TYPE).c_str(), dest_buffer->len, &p, end))
+      return 1;
   }
 
   if (lws_finalize_write_http_header(wsi, start, &p, end)) {

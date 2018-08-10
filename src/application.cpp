@@ -578,8 +578,9 @@ AppResponse *JSApplication::getResponse(AppRequest *request) {
     "var response = {};\n"
     "Response(response);\n"
     "router.call_api(\"" + request->getAI() + "\");\n";
-    
+
   {
+
     std::lock_guard<recursive_mutex> duktape_lock(getDuktapeMutex());
     duk_push_string(getContext(), sourceCode.c_str());
     if (duk_peval(getContext()) != 0) {
@@ -1155,7 +1156,9 @@ duk_ret_t JSApplication::cb_resolve_app_response(duk_context *ctx) {
 
       while (duk_next(ctx, -1 /*enum_idx*/, 1)) {
         /* [ ... response enum key value ] */
-        headers.insert(pair<string,string>(duk_to_string(ctx, -2), duk_to_string(ctx, -1)));
+        string key = duk_to_string(ctx, -2);
+        std::transform(key.begin(), key.end(), key.begin(), ::tolower);
+        headers.insert(pair<string,string>(key, duk_to_string(ctx, -1)));
         duk_pop_2(ctx);  /* pop key value  */
       }
 

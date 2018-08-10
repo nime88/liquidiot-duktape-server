@@ -23,8 +23,6 @@ class AppResponse {
 
     int generateResponseHeaders(struct lws *wsi, void* buffer_data, uint8_t *start, uint8_t *p, uint8_t *end);
 
-
-
   private:
     map<string,string> headers_;
     int status_code_;

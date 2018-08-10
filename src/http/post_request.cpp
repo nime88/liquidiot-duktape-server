@@ -269,7 +269,10 @@ int PostRequest::calculateHttpRequest(void* buffer_data, void* in) {
   // moving/renaming the folder to application name
   fs::path old_path = Device::getInstance().getExecPath() + "/" + app->getAppPath();
   fs::path new_path = Device::getInstance().getExecPath() + "/" + Constant::Paths::APPLICATIONS_ROOT + "/" + app->getAppName();
-  fs::rename(old_path, new_path);
+  if(!equivalent(old_path,new_path)) {
+    fs::remove_all(new_path);
+    fs::rename(old_path, new_path);
+  }
   app->setAppPath(string(Constant::Paths::APPLICATIONS_ROOT) + "/" + app->getAppName());
 
   return 0;

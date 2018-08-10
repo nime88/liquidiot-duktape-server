@@ -1,0 +1,5 @@
+[Fri Aug 10 10:16:26 2018] [Log] Counter initialized at 0
+[Fri Aug 10 10:16:32 2018] [Log] Counter is at 1
+[Fri Aug 10 10:16:35 2018] [Log] Counter is at 2
+[Fri Aug 10 10:16:38 2018] [Log] Counter is at 3
+[Fri Aug 10 10:16:41 2018] [Log] Counter is at 4

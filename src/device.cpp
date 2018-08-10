@@ -626,8 +626,6 @@ string Device::getDeviceInfoAsJSON() {
   }
 
   string full_info = duk_json_encode(ctx, -1);
-  ERROUT(getDevCapabilities().size());
-  ERROUT(full_info);
 
   duk_pop(ctx);
 

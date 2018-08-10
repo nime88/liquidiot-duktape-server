@@ -1,0 +1,7 @@
+[Fri Aug 10 11:37:37 2018] [Error] TypeError: 6
+[Fri Aug 10 11:38:52 2018] [Error] Error: Setting the interval failed. DoubleError: error in error handling
+    at [anon] (/media/tasogare/data/Opiskelu/TTY/Dippatyo/liquidiot-duktape-server/src/duktape/mod_duk_console.cpp:54) internal
+    at error () native strict preventsyield
+    at [anon] (eval:46)
+    at [anon] (eval:57)
+    at main (main.js:29) preventsyield
