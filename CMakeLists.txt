@@ -4,8 +4,8 @@ project (LIQUID_IOT_SERVER)
 set(CMAKE_PROJECT_NAME "liquidiot-duktape-server")
 
 SET(MAJOR_VERSION "0")
-SET(MINOR_VERSION "1")
-SET(PATCH_VERSION "2")
+SET(MINOR_VERSION "2")
+SET(PATCH_VERSION "0")
 
 ## BUILD ##
 # cpp flags
