@@ -60,7 +60,7 @@ class Device {
     inline void setExecPath(const string& path) { exec_path_ = path; }
 
     inline const map<string,string>& getRawData() { return raw_data_; }
-    void setRawData(const map<string,string>& data) {
+    inline void setRawData(const map<string,string>& data) {
       std::lock_guard<recursive_mutex> device_lock(getMutex());
       raw_data_ = data;
     }
@@ -68,50 +68,50 @@ class Device {
     void deleteDataField(const string& key);
 
     inline const map<string,string>& getManagerServerConfig() { return manager_server_config_; }
-    void setManagerServerConfig(const map<string,string>& data) {
+    inline void setManagerServerConfig(const map<string,string>& data) {
       std::lock_guard<recursive_mutex> device_lock(getMutex());
       manager_server_config_ = data;
     }
 
     inline const string& getDevId() { return id_; }
-    void setDevId(const string& id) {
+    inline void setDevId(const string& id) {
       std::lock_guard<recursive_mutex> device_lock(getMutex());
       id_ = id;
     }
     void cleanDeviceId(const string& id);
 
     inline const string& getDevName() { return name_; }
-    void setDevName(const string& name) {
+    inline void setDevName(const string& name) {
       std::lock_guard<recursive_mutex> device_lock(getMutex());
       name_ = name;
     }
 
     inline const string& getDevManufacturer() { return manufacturer_; }
-    void setDevManufacturer(const string& manufacturer) {
+    inline void setDevManufacturer(const string& manufacturer) {
       std::lock_guard<recursive_mutex> device_lock(getMutex());
       manufacturer_ = manufacturer;
     }
 
-    inline const string& getDevLocation() { return location_; }
-    void setDevLocation(const string& location) {
+    inline const map<string,string>& getDevLocation() { return location_; }
+    inline void setDevLocation(const map<string,string>& location) {
       std::lock_guard<recursive_mutex> device_lock(getMutex());
       location_ = location;
     }
 
     inline const string& getDevUrl() { return url_; }
-    void setDevUrl(const string& url) {
+    inline void setDevUrl(const string& url) {
       std::lock_guard<recursive_mutex> device_lock(getMutex());
       url_ = url;
     }
 
     inline const string& getDevHost() { return host_; }
-    void setDevHost(const string& host) {
+    inline void setDevHost(const string& host) {
       std::lock_guard<recursive_mutex> device_lock(getMutex());
       host_ = host;
     }
 
     inline const string& getDevPort() { return port_; }
-    void setDevPort(const string& port) {
+    inline void setDevPort(const string& port) {
       std::lock_guard<recursive_mutex> device_lock(getMutex());
       port_ = port;
     }
@@ -170,7 +170,7 @@ class Device {
     // adding this for future support
     map<string,string> libraries_;
     // physical location
-    string location_;
+    map<string,string> location_;
     // url (most likely this device)
     string url_;
     string host_;

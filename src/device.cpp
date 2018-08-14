@@ -60,7 +60,19 @@ void Device::init() {
   }
 
   if(getRawData().find(Constant::Attributes::DEVICE_LOCATION) != getRawData().end()) {
-    setDevLocation(getRawData().at(Constant::Attributes::DEVICE_LOCATION));
+    string temp_str = getRawData().at(Constant::Attributes::DEVICE_LOCATION);
+    std::regex item_regex( R"(([^%%]*):([^%%]*)%%)");
+    auto items_begin = std::sregex_iterator(temp_str.begin(), temp_str.end(), item_regex);
+    auto items_end = std::sregex_iterator();
+
+    map<string,string> location;
+
+    for (std::sregex_iterator i = items_begin; i != items_end; ++i) {
+      std::smatch match = *i;
+      location.insert(pair<string,string>(match[1].str(),match[2].str()));
+    }
+
+    setDevLocation(location);
   }
 
   if(getRawData().find(Constant::Attributes::DEVICE_URL) != getRawData().end()) {
@@ -617,6 +629,14 @@ string Device::getDeviceInfoAsJSON() {
       for(unsigned int i = 0; i < getDevCapabilities().size(); ++i) {
         duk_push_string(ctx, getDevCapabilities().at(i).c_str());
         duk_put_prop_index(ctx, arr_idx, i);
+      }
+      duk_put_prop_string(ctx, -2, it->first.c_str());
+    } else if(it->first == Constant::Attributes::DEVICE_LOCATION) {
+      duk_idx_t obj_idx;
+      obj_idx = duk_push_object(ctx);
+      for( const auto &iter : getDevLocation()) {
+        duk_push_string(ctx, iter.second.c_str());
+        duk_put_prop_string(ctx, obj_idx, iter.first.c_str());
       }
       duk_put_prop_string(ctx, -2, it->first.c_str());
     } else {

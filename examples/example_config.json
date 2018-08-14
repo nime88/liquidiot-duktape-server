@@ -4,10 +4,21 @@
    },
    "device":{
      "_id":"5b33475f345e565d2497e673",
-     "classes":["lwRuntime_v_0_2_0","lwRuntime_v_0_2_1"],
+     "classes":["lwRuntime_v_0_2_0"],
      "host":"localhost",
      "libraries":"",
-     "location":"SomeLocation",
+     "location":{
+       "latitude": 61.45009891,
+       "longitude": 23.8561061,
+       "streetAddress": "korkeakoulunkatu 1",
+       "postalCode": 33720,
+       "addressLocality": "Tampere",
+       "addressRegion": "Pirkanmaa",
+       "addressCountry": "Finland",
+       "tag": "TE114",
+       "x": "400",
+       "y": "400"
+     },
      "manufacturer":"",
      "name":"DeviceName",
      "port":"7681",

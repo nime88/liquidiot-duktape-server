@@ -5,6 +5,7 @@
 using std::pair;
 
 #include <fstream>
+#include <regex>
 
 duk_ret_t json_decode_raw(duk_context *ctx, void *udata) {
   (void) udata;
@@ -73,6 +74,24 @@ map<string, map<string,string> >get_config(duk_context *ctx, const string& exec_
             duk_pop(ctx);
           }
 
+          // probability is that this is location
+          if(n == 0) {
+            duk_enum(ctx, -1, DUK_ENUM_OWN_PROPERTIES_ONLY);
+            while (duk_next(ctx, -1 /*enum_idx*/, 1)) {
+              if(duk_check_type(ctx, -1, DUK_TYPE_STRING)) {
+                string location_key = duk_to_string(ctx, -2);
+                string location_value = duk_to_string(ctx, -1);
+                comb_value += location_key + ":" + location_value + "\%\%";
+              } else if(duk_check_type(ctx, -1, DUK_TYPE_NUMBER)) {
+                string location_key = duk_to_string(ctx, -2);
+                string location_value = std::to_string(duk_to_number(ctx, -1));
+                comb_value += location_key + ":" + location_value + "\%\%";
+              }
+              duk_pop_2(ctx);
+            }
+            duk_pop(ctx);
+          }
+
           local_config.insert(pair<string,string>(key,comb_value));
         }
         duk_pop_2(ctx); /* pop key value  */
@@ -120,6 +139,29 @@ void save_config(duk_context *ctx, map<string, map<string,string> > new_config, 
           }
 
           duk_put_prop_string(ctx, -2, inner_it->first.c_str());
+        } else if (inner_it->first == Constant::Attributes::DEVICE_LOCATION) {
+          string temp_str = inner_it->second;
+
+          std::regex item_regex( R"(([^%%]*):([^%%]*)%%)");
+          auto items_begin = std::sregex_iterator(temp_str.begin(), temp_str.end(), item_regex);
+          auto items_end = std::sregex_iterator();
+
+          map<string,string> location;
+
+          for (std::sregex_iterator i = items_begin; i != items_end; ++i) {
+            std::smatch match = *i;
+            location.insert(pair<string,string>(match[1].str(),match[2].str()));
+          }
+
+          duk_idx_t obj_idx;
+          obj_idx = duk_push_object(ctx);
+
+          for( const auto &iter : location) {
+            duk_push_string(ctx, iter.second.c_str());
+            duk_put_prop_string(ctx, obj_idx,  iter.first.c_str());
+          }
+
+          duk_put_prop_string(ctx, in_idx, inner_it->first.c_str());
         } else {
           duk_push_string(ctx, inner_it->second.c_str());
           duk_put_prop_string(ctx, in_idx, inner_it->first.c_str());

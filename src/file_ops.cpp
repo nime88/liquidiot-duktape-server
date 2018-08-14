@@ -201,6 +201,7 @@ int copy_data(struct archive *ar, struct archive *aw) {
 }
 
 int delete_files(const char* file_path) {
+  DBOUT(__func__ << "(): Deleting path -> " << file_path);
   fs::path bpath(file_path);
   return fs::remove_all(bpath);
 }

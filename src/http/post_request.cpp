@@ -270,10 +270,14 @@ int PostRequest::calculateHttpRequest(void* buffer_data, void* in) {
   fs::path old_path = Device::getInstance().getExecPath() + "/" + app->getAppPath();
   fs::path new_path = Device::getInstance().getExecPath() + "/" + Constant::Paths::APPLICATIONS_ROOT + "/" + app->getAppName();
   if(!equivalent(old_path,new_path)) {
-    fs::remove_all(new_path);
+    if(exists(new_path)) {
+      string new_filename = new_path.leaf().string() + "-" + std::to_string(app->getAppId());
+      new_path.remove_leaf() /= new_filename;
+    }
+    //fs::remove_all(new_path);
     fs::rename(old_path, new_path);
   }
-  app->setAppPath(string(Constant::Paths::APPLICATIONS_ROOT) + "/" + app->getAppName());
+  app->setAppPath(string(Constant::Paths::APPLICATIONS_ROOT) + "/" + new_path.leaf().string());
 
   return 0;
 }
