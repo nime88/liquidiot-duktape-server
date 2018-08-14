@@ -23,7 +23,7 @@ using std::map;
 
 struct lws_protocols HttpServer::protocols[] = {
   /* name, callback, per_session_data_size, rx_buffer_size, id, user, tx_packet_size */
-  { Constant::String::PROTOCOL_HTTP, rest_api_callback, sizeof(struct HttpRequest::user_buffer_data), HttpRequest::BUFFER_SIZE, 1, new struct HttpRequest::user_buffer_data, 0},
+  { Constant::String::PROTOCOL_HTTP, rest_api_callback, sizeof(struct HttpRequest::user_buffer_data), HttpRequest::BUFFER_SIZE, 1, 0, 0},
   { NULL, NULL, 0, 0, 0, NULL, 0 } /* terminator */
 };
 
@@ -96,6 +96,45 @@ int HttpServer::run() {
 int HttpServer::rest_api_callback(struct lws *wsi, enum lws_callback_reasons reason, void *user, void *in, size_t len){
   struct HttpRequest::user_buffer_data *dest_buffer = (struct HttpRequest::user_buffer_data *)user;
 
+  if(dest_buffer && dest_buffer->large_str == 0) {
+    dest_buffer->large_str = new std::string;
+  }
+  if(dest_buffer && dest_buffer->request_url == 0) {
+    dest_buffer->request_url = new std::string;
+  }
+  if(dest_buffer && dest_buffer->error_msg == 0) {
+    dest_buffer->error_msg = new std::string;
+  }
+
+  if(reason == LWS_CALLBACK_CLOSED_HTTP ) {
+    if(dest_buffer && dest_buffer->large_str != 0) {
+      delete dest_buffer->large_str;
+      dest_buffer->large_str = 0;
+    }
+    if(dest_buffer && dest_buffer->request_url != 0) {
+      delete dest_buffer->request_url;
+      dest_buffer->request_url = 0;
+    }
+    if(dest_buffer && dest_buffer->error_msg != 0) {
+      delete dest_buffer->error_msg;
+       dest_buffer->error_msg = 0;
+    }
+    if(dest_buffer && dest_buffer->request != 0) {
+      if(dest_buffer->type == HttpRequest::REQUEST_TYPE::GET) {
+        delete (GetRequest*)dest_buffer->request;
+      } else if(dest_buffer->type == HttpRequest::REQUEST_TYPE::POST) {
+        delete (PostRequest*)dest_buffer->request;
+      } else if(dest_buffer->type == HttpRequest::REQUEST_TYPE::DELETE) {
+        delete (DeleteRequest*)dest_buffer->request;
+      } else if(dest_buffer->type == HttpRequest::REQUEST_TYPE::PUT) {
+        delete (PutRequest*)dest_buffer->request;
+      } else {
+        delete dest_buffer->request;
+      }
+      dest_buffer->request = 0;
+    }
+  }
+
   // filtering out some stuff that isn't handled
   if(reason ==  LWS_CALLBACK_HTTP_BIND_PROTOCOL ||
     reason == LWS_CALLBACK_FILTER_HTTP_CONNECTION ||
@@ -126,34 +165,46 @@ int HttpServer::server_rest_api(struct lws *wsi, enum lws_callback_reasons reaso
     *end = &buf[sizeof(buf) - 1];
   struct HttpRequest::user_buffer_data *dest_buffer = (struct HttpRequest::user_buffer_data *)user;
 
+  if(dest_buffer->large_str == 0) dest_buffer->large_str = new std::string;
+  if(dest_buffer->request_url == 0) dest_buffer->request_url = new std::string;
+  if(dest_buffer->error_msg == 0) dest_buffer->error_msg = new std::string;
+
   // Get request
   if (lws_hdr_total_length(wsi, WSI_TOKEN_GET_URI)) {
-    if(!dest_buffer->request)
+    if(dest_buffer->request == 0) {
       dest_buffer->request = new GetRequest();
+      dest_buffer->type = HttpRequest::REQUEST_TYPE::GET;
+    }
 
     return ((GetRequest*)dest_buffer->request)->handleHttpRequest(wsi, dest_buffer, in, start, p, end, len, reason);
   }
 
   // Post request
   if (lws_hdr_total_length(wsi, WSI_TOKEN_POST_URI)) {
-    if(!dest_buffer->request)
+    if(dest_buffer->request == 0) {
       dest_buffer->request = new PostRequest();
+      dest_buffer->type = HttpRequest::REQUEST_TYPE::POST;
+    }
 
     return ((PostRequest*)dest_buffer->request)->handleHttpRequest(wsi, dest_buffer, in, start, p, end, len, reason);
   }
 
   // Delete request
   if(lws_hdr_total_length(wsi, WSI_TOKEN_DELETE_URI)) {
-    if(!dest_buffer->request)
+    if(dest_buffer->request == 0) {
       dest_buffer->request = new DeleteRequest();
+      dest_buffer->type = HttpRequest::REQUEST_TYPE::DELETE;
+    }
 
     return ((DeleteRequest*)dest_buffer->request)->handleHttpRequest(wsi, dest_buffer, in, start, p, end, len, reason);
   }
 
   // Put request
   if(lws_hdr_total_length(wsi, WSI_TOKEN_PUT_URI)) {
-    if(!dest_buffer->request)
+    if(!dest_buffer->request == 0) {
       dest_buffer->request = new PutRequest();
+      dest_buffer->type = HttpRequest::REQUEST_TYPE::PUT;
+    }
 
     return ((PutRequest*)dest_buffer->request)->handleHttpRequest(wsi, dest_buffer, in, start, p, end, len, reason);
   }

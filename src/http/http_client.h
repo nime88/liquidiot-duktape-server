@@ -21,20 +21,9 @@ class HttpClient {
     inline bool isReady() { return ready_; }
     inline void setReady(bool ready) { ready_ = ready; }
 
-    HttpClient(){
-      data_ = new user_buffer_data;
-    }
+    HttpClient();
+    ~HttpClient();
 
-    ~HttpClient() {
-      if(data_) {
-        delete data_;
-        data_ = 0;
-      }
-      if(client_wsi) {
-        client_wsi = NULL;
-      }
-      crconfig_ = 0;
-    }
     void run(ClientRequestConfig *config);
 
   private:
@@ -44,7 +33,7 @@ class HttpClient {
         int len;
   	   char boundary[32];
        char body_part;
-       string raw_data;
+       string *raw_data = 0;
        unsigned int buffer_idx = 0;
        ClientRequestConfig *config;
        HttpClient *client;

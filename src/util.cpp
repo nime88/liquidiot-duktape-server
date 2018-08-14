@@ -189,6 +189,7 @@ map<string,string> read_package_json(duk_context *ctx, const char* js_src) {
   duk_int_t ret = safe_json_decode(ctx, js_src);
   if(ret != 0) {
     ERROUT("read_package_json(): Error decoding json");
+    ERROUT(js_src);
     throw "read_package_json(): Error decoding json";
   }
   /* [... dec_obj ] */

@@ -53,9 +53,13 @@ int main(int argc, char *argv[]) {
   thread *servert = new thread(&HttpServer::run, server);
 
   servert->join();
+  delete servert;
+  servert = 0;
+
   JSApplication::getJoinThreads();
 
-  // AppManager::getInstance().stopApps();
+  delete server;
+  server = 0;
 
   return 0;
 }

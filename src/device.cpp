@@ -17,7 +17,36 @@ using std::regex;
 mutex Device::cv_mtx_;
 condition_variable Device::condvar_;
 
-Device::Device() {}
+Device::Device():duk_context_(0) {}
+
+Device::~Device() {
+  duk_destroy_heap(duk_context_);
+  duk_context_ = 0;
+
+  raw_data_.clear();
+  manager_server_config_.clear();
+  libraries_.clear();
+  location_.clear();
+  connected_devices_.clear();
+
+  for( auto &iter : crconfigs_ ) {
+    if(iter.second != 0) delete iter.second;
+    iter.second = 0;
+  }
+  crconfigs_.clear();
+
+  for( auto &iter : http_clients_ ) {
+    if(iter.second != 0) delete iter.second;
+    iter.second = 0;
+  }
+  http_clients_.clear();
+
+  for( auto &iter : http_client_threads_) {
+    if(iter.second.joinable())
+        iter.second.join();
+  }
+  http_client_threads_.clear();
+}
 
 void Device::init() {
   // As device_config is read only once we don't store or retain the duktape context

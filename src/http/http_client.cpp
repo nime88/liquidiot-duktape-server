@@ -19,9 +19,27 @@ extern "C" {
 const size_t HttpClient::BUFFER_SIZE = 256;
 
 const struct lws_protocols HttpClient::protocols[] = {
-  { Constant::String::PROTOCOL_HTTP, http_client_callback, sizeof(struct HttpClient::user_buffer_data), HttpClient::BUFFER_SIZE, 1, new struct HttpClient::user_buffer_data, 0},
+  { Constant::String::PROTOCOL_HTTP, http_client_callback, sizeof(struct HttpClient::user_buffer_data), HttpClient::BUFFER_SIZE, 1, 0, 0},
   { NULL, NULL, 0, 0, 0, NULL, 0 } /* terminator */
 };
+
+HttpClient::HttpClient():data_(new user_buffer_data), client_wsi(0) {}
+
+HttpClient::~HttpClient() {
+  if(data_ != 0) {
+    delete data_;
+    data_ = 0;
+  }
+
+  if(client_wsi != 0) {
+    client_wsi = 0;
+  }
+
+  if(crconfig_ != 0) {
+    // don't delete, client is only temporary holder
+    crconfig_ = 0;
+  }
+}
 
 void HttpClient::run(ClientRequestConfig *config) {
   setReady(false);
@@ -142,11 +160,23 @@ int HttpClient::http_client_callback(struct lws *wsi, enum lws_callback_reasons 
     }
 
     case LWS_CALLBACK_RECEIVE_CLIENT_HTTP_READ: {
-      dest_buffer->raw_data = (char *)in;
-      dest_buffer->raw_data.erase(std::remove(dest_buffer->raw_data.begin(),
-        dest_buffer->raw_data.end(), '\"'), dest_buffer->raw_data.end());
-      dest_buffer->client->getCRConfig()->setResponse(dest_buffer->raw_data);
+      if(dest_buffer && dest_buffer->raw_data == 0)
+        dest_buffer->raw_data = new std::string;
+
+      if(strlen((char *)in) > 0) {
+        *dest_buffer->raw_data = (char *)in;
+        dest_buffer->raw_data->erase(std::remove(dest_buffer->raw_data->begin(),
+        dest_buffer->raw_data->end(), '\"'), dest_buffer->raw_data->end());
+      } else {
+        *dest_buffer->raw_data = "";
+      }
+
+      dest_buffer->client->getCRConfig()->setResponse(*dest_buffer->raw_data);
       dest_buffer->client->getCRConfig()->setResponseStatus(dest_buffer->client->status_);
+
+      delete dest_buffer->raw_data;
+      dest_buffer->raw_data = 0;
+      
       return 0; /* don't passthru */
     }
 

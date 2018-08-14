@@ -22,14 +22,14 @@ int PutRequest::handleHttpRequest(struct lws *wsi, void* buffer_data, void* in, 
   switch (reason) {
     // initial http request (headers)
     case LWS_CALLBACK_HTTP: {
-      dest_buffer->request_url = (char*)in;
+      *dest_buffer->request_url = (char*)in;
       return 0;
     }
 
     case LWS_CALLBACK_HTTP_BODY: {
       if (!dest_buffer->spa) {
         // saving the input in case of JSON
-        dest_buffer->large_str = (char*)in;
+        *dest_buffer->large_str = (char*)in;
         dest_buffer->spa = lws_spa_create(wsi, put_param_names, ARRAY_SIZE(put_param_names), 1024, NULL, NULL); /* no file upload */
 
         if (!dest_buffer->spa)
@@ -109,17 +109,17 @@ int PutRequest::generateFailResponse(struct lws *wsi, void* buffer_data, uint8_t
 int PutRequest::calculateHttpRequest(void* buffer_data, void* in) {
   struct user_buffer_data *dest_buffer = (struct user_buffer_data*)buffer_data;
 
-  int id =  parseIdFromURL(dest_buffer->request_url);
+  int id =  parseIdFromURL(*dest_buffer->request_url);
 
   (void)in;
 
   // can instantly fail the request if not valid id
   if(id == -1) {
-    dest_buffer->error_msg = "No application with given id.";
+    *dest_buffer->error_msg = "No application with given id.";
     optimizeResponseString(dest_buffer->error_msg, buffer_data);
     return -1;
   } else if( id == -2 ) {
-    dest_buffer->error_msg = "No application with id '" + dest_buffer->request_url + "'.";
+    *dest_buffer->error_msg = "No application with id '" + *dest_buffer->request_url + "'.";
     optimizeResponseString(dest_buffer->error_msg, buffer_data);
     return -1;
   }
@@ -136,7 +136,7 @@ int PutRequest::calculateHttpRequest(void* buffer_data, void* in) {
   }
 
   if(!app) {
-    dest_buffer->error_msg = "No application with id '" + to_string(id) + "'.";
+    *dest_buffer->error_msg = "No application with id '" + to_string(id) + "'.";
     optimizeResponseString(dest_buffer->error_msg, buffer_data);
     return -1;
   }
@@ -152,7 +152,7 @@ int PutRequest::calculateHttpRequest(void* buffer_data, void* in) {
       std::smatch json_match;
       std::regex json_regex(R"(\{.*\})");
       string temp_str;
-      std::regex_search (dest_buffer->large_str, json_match, json_regex);
+      std::regex_search (*dest_buffer->large_str, json_match, json_regex);
       for (size_t i = 0; i < json_match.size(); ++i) {
         DBOUT(__func__ << ": " << i << ": " << json_match[i]);
         temp_str = json_match[i];
@@ -175,7 +175,7 @@ int PutRequest::calculateHttpRequest(void* buffer_data, void* in) {
         duk_pop_2(ctx);
         DBOUT(__func__ << ": Out of ");
       } else {
-        dest_buffer->error_msg = "Attribute couldn't be read";
+        *dest_buffer->error_msg = "Attribute couldn't be read";
         optimizeResponseString(dest_buffer->error_msg, buffer_data);
         return -1;
       }
@@ -198,13 +198,13 @@ int PutRequest::calculateHttpRequest(void* buffer_data, void* in) {
   }
 
   if(app_state_ok) {
-    dest_buffer->large_str = "Application went to target status successfully.";
+    *dest_buffer->large_str = "Application went to target status successfully.";
     optimizeResponseString(dest_buffer->large_str, buffer_data);
 
     return 0;
   }
 
-  dest_buffer->error_msg = "Something went wrong";
+  *dest_buffer->error_msg = "Something went wrong";
   optimizeResponseString(dest_buffer->error_msg, buffer_data);
 
   return -1;

@@ -22,8 +22,8 @@ int PostRequest::handleHttpRequest(struct lws *wsi, void* buffer_data, void* in,
     case LWS_CALLBACK_HTTP: {
       // storing the request url from the mountpoint
       if(strlen((char*)in) != 0)
-        dest_buffer->request_url = (char*)in;
-      else dest_buffer->request_url = "/";
+        *dest_buffer->request_url = (char*)in;
+      else *dest_buffer->request_url = "/";
 
       return 0;
     }
@@ -41,7 +41,7 @@ int PostRequest::handleHttpRequest(struct lws *wsi, void* buffer_data, void* in,
       /* inform the spa no more payload data coming */
       lws_spa_finalize(dest_buffer->spa);
 
-      if(dest_buffer->error_msg.length() > 0) {
+      if(dest_buffer->error_msg->length() > 0) {
         return generateFailResponse(wsi, buffer_data, start, p, end);
       }
 
@@ -78,8 +78,8 @@ int PostRequest::generateResponse(struct lws *wsi, void* buffer_data, uint8_t *s
 int PostRequest::generateFailResponse(struct lws *wsi, void* buffer_data, uint8_t *start, uint8_t *p, uint8_t *end) {
   struct user_buffer_data *dest_buffer = (struct user_buffer_data*)buffer_data;
 
-  dest_buffer->large_str = "{\"error\":\"" + dest_buffer->error_msg + "\"}";
-  dest_buffer->len = dest_buffer->large_str.length();
+  *dest_buffer->large_str = "{\"error\":\"" + *dest_buffer->error_msg + "\"}";
+  dest_buffer->len = dest_buffer->large_str->length();
 
   /* prepare and write http headers */
   if (lws_add_http_common_headers(wsi, HTTP_STATUS_NOT_FOUND,
@@ -103,14 +103,14 @@ int PostRequest::parsePostForm(struct lws *wsi, void* buffer_data, void* in, siz
     dest_buffer->spa = lws_spa_create(wsi, post_param_names,
         ARRAY_SIZE(post_param_names), 2048, PostRequest::parsePostFormCB, dest_buffer);
     if (!dest_buffer->spa) {
-      dest_buffer->error_msg = "Failed to create request (probably server side problem)";
+      *dest_buffer->error_msg = "Failed to create request (probably server side problem)";
       return 0;
     }
   }
 
   /* let it parse the POST data */
   if (lws_spa_process(dest_buffer->spa, (const char*)in, (int)len)) {
-    if(dest_buffer->error_msg.length() > 0) {
+    if(dest_buffer->error_msg->length() > 0) {
       return 0;
     }
     return 1;
@@ -125,7 +125,7 @@ int PostRequest::parsePostFormCB(void *data, const char *name, const char *filen
 
   if(string(name) != string(post_param_names[post_enum_param_names::EPN_FILEKEY])) {
     ERROUT("Unexpected key " << name);
-    dest_buffer->error_msg = "Unidentified '" + string(name) + "' parameter";
+    *dest_buffer->error_msg = "Unidentified '" + string(name) + "' parameter";
     return -1;
   }
 
@@ -141,7 +141,7 @@ int PostRequest::parsePostFormCB(void *data, const char *name, const char *filen
       dest_buffer->fd = open(path.c_str(), O_CREAT | O_TRUNC | O_RDWR, 0666);
       if (dest_buffer->fd == LWS_INVALID_FILE) {
         ERROUT("Failed to open output file " << dest_buffer->filename);
-        dest_buffer->error_msg = "Failed to open output file '" + string(dest_buffer->filename) + "'";
+        *dest_buffer->error_msg = "Failed to open output file '" + string(dest_buffer->filename) + "'";
         return -1;
       }
       break;
@@ -180,7 +180,7 @@ int PostRequest::calculateHttpRequest(void* buffer_data, void* in) {
 
   (void)in;
 
-  int id = parseIdFromURL(dest_buffer->request_url);
+  int id = parseIdFromURL(*dest_buffer->request_url);
 
   if(id == -1) {
     string temp_file = Device::getInstance().getExecPath() + "/" + string(string(Constant::Paths::TEMP_FOLDER) + "/" + string(dest_buffer->filename));
@@ -238,7 +238,7 @@ int PostRequest::calculateHttpRequest(void* buffer_data, void* in) {
     } catch (const char * e) {
       if(app) delete app;
       ERROUT(e);
-      dest_buffer->error_msg = "Failed to start the application";
+      *dest_buffer->error_msg = "Failed to start the application";
       return -1;
     }
   } else if(app) {
@@ -253,18 +253,18 @@ int PostRequest::calculateHttpRequest(void* buffer_data, void* in) {
     } catch (const char * e) {
       if(app) delete app;
       ERROUT(e);
-      dest_buffer->error_msg = "Failed to start the application";
+      *dest_buffer->error_msg = "Failed to start the application";
       return -1;
     }
   }
 
   if(!app) {
-    dest_buffer->error_msg = "Id '" + dest_buffer->request_url + "' not found.";
+    *dest_buffer->error_msg = "Id '" + *dest_buffer->request_url + "' not found.";
     return -1;
   }
 
-  dest_buffer->large_str = app->getDescriptionAsJSON();
-  dest_buffer->len = dest_buffer->large_str.length();
+  *dest_buffer->large_str = app->getDescriptionAsJSON();
+  dest_buffer->len = dest_buffer->large_str->length();
 
   // moving/renaming the folder to application name
   fs::path old_path = Device::getInstance().getExecPath() + "/" + app->getAppPath();

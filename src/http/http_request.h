@@ -24,6 +24,7 @@ class HttpRequest {
 
     virtual ~HttpRequest() {}
 
+    enum REQUEST_TYPE {GET=0, POST, DELETE, PUT};
     // http request defines the user Data
     struct user_buffer_data {
       char str[256];
@@ -33,11 +34,13 @@ class HttpRequest {
       unsigned long long file_length; /* the amount of bytes uploaded */
       int fd;				/* fd on file being saved */
       char ext_filename[128];
-      string large_str;
+      string *large_str = 0;
       int buffer_idx;
-      string request_url;
-      string error_msg;
-      HttpRequest *request;
+      string *request_url = 0;
+      string *error_msg = 0;
+      HttpRequest *request = 0;
+      REQUEST_TYPE type;
+
       int request_callback_index = -1;
     };
 
@@ -49,7 +52,7 @@ class HttpRequest {
 
     virtual int generateFailResponse(struct lws *wsi, void* buffer_data, uint8_t *start, uint8_t *p, uint8_t *end) = 0;
 
-    static void optimizeResponseString(string response, void* buffer_data);
+    static void optimizeResponseString(string *response, void* buffer_data);
 
     // return: -1 empty
     // return: -2 parse error

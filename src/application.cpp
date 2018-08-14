@@ -30,13 +30,44 @@ map<duk_context*, JSApplication*> JSApplication::applications_;
 vector<string> JSApplication::app_names_;
 recursive_mutex JSApplication::static_mutex_;
 
-JSApplication::JSApplication(const char* path):duk_context_(0) {
+JSApplication::JSApplication(const char* path):
+  eventloop_(0), duk_context_(0), package_json_(0), source_code_(0), app_path_(""),
+  name_(""), version_(""), description_(""), author_(""), licence_(""), main_(""),
+  id_(-1), app_state_(APP_STATES::INITIALIZING), application_interfaces_(), rest_api_paths_(),
+  raw_package_json_data_(), app_response_(0), swagger_fragment_(""), is_ready_(false) {
   defaultConstruct(path);
 }
 
-JSApplication::JSApplication(const char* path, int id) {
-  setAppId(to_string(id));
+JSApplication::JSApplication(const char* path, int id):
+  eventloop_(0), duk_context_(0), package_json_(0), source_code_(0), app_path_(""),
+  name_(""), version_(""), description_(""), author_(""), licence_(""), main_(""),
+  id_(id), app_state_(APP_STATES::INITIALIZING), application_interfaces_(), rest_api_paths_(),
+  raw_package_json_data_(), app_response_(0), swagger_fragment_(""), is_ready_(false) {
+  setAppId(std::to_string(id_));
   defaultConstruct(path);
+}
+
+JSApplication::~JSApplication() {
+  if( eventloop_ != 0) {
+    delete eventloop_;
+    eventloop_ = 0;
+  }
+
+  if( duk_context_ != 0) {
+    duk_destroy_heap(duk_context_);
+    duk_context_ = 0;
+  }
+
+  application_interfaces_.clear();
+  rest_api_paths_.clear();
+  raw_package_json_data_.clear();
+
+  if( app_response_ != 0) {
+    delete app_response_;
+    app_response_ = 0;
+  }
+
+  INFOOUT("Application " << getAppName() << " closed.");
 }
 
 void JSApplication::defaultConstruct(const char* path) {
@@ -202,6 +233,8 @@ bool JSApplication::init() {
     char* evlSource = load_js_file(temp_path.c_str(),evlLen);
     if(evlLen <= 1) {
       ERROUT("init(): file read error");
+      delete evlSource;
+      evlSource = 0;
       return false;
     }
 
@@ -222,6 +255,8 @@ bool JSApplication::init() {
     char* headerSource = load_js_file(temp_path.c_str(),tmpLen);
     if(tmpLen <= 1) {
       ERROUT("init(): file read error");
+      delete headerSource;
+      headerSource = 0;
       return false;
     }
 
@@ -242,18 +277,24 @@ bool JSApplication::init() {
     char* agentSource = load_js_file(temp_path.c_str(),tmpLen);
     if(tmpLen <= 1) {
       ERROUT("init(): file read error");
+      delete agentSource;
+      agentSource = 0;
       return false;
     }
     temp_path = Device::getInstance().getExecPath() + "/" + string(Constant::Paths::REQUEST_JS);
     char* requestSource = load_js_file(temp_path.c_str(),tmpLen);
     if(tmpLen <= 1) {
       ERROUT("init(): file read error");
+      delete requestSource;
+      requestSource = 0;
       return false;
     }
     temp_path = Device::getInstance().getExecPath() + "/" + string(Constant::Paths::RESPONSE_JS);
     char* responseSource = load_js_file(temp_path.c_str(),tmpLen);
     if(tmpLen <= 1) {
       ERROUT("init(): file read error");
+      delete responseSource;
+      responseSource = 0;
       return false;
     }
 
@@ -261,6 +302,8 @@ bool JSApplication::init() {
     char* routerSource = load_js_file(temp_path.c_str(),tmpLen);
     if(tmpLen <= 1) {
       ERROUT("init(): file read error");
+      delete routerSource;
+      routerSource = 0;
       return false;
     }
 
@@ -315,7 +358,8 @@ bool JSApplication::init() {
     DBOUT ("init(): Loading liquidiot file");
     // reading the package.json file to memory
     string liquidiot_file = Device::getInstance().getExecPath() + "/" + getAppPath() + string(Constant::Paths::LIQUID_IOT_JSON);
-    string liquidiot_js = load_js_file(liquidiot_file.c_str(),source_len);
+    char * tmp_liquidiot_js = load_js_file(liquidiot_file.c_str(),source_len);
+    string liquidiot_js(tmp_liquidiot_js);
     if(source_len <= 1) {
       ERROUT("init(): file read error");
       return false;
@@ -339,16 +383,14 @@ bool JSApplication::init() {
     }
 
     DBOUT ("init(): Creating full source code");
-    string temp_source =  string(load_js_file(main_file.c_str(),source_len)) +
+    char * tmp = load_js_file(main_file.c_str(),source_len);
+    string temp_source =  string(tmp) +
       "\napp = {};\n"
       "Agent(app);\n"
       "router = {};\n"
       "Router(router);\n"
       "module.exports(app,router,0,console);\n"
       "app.start();\n";
-      //"if(typeof app != \"undefined\")\n\t"
-      //"LoadSwaggerFragment(JSON.stringify(app.external.swagger));"
-      //"app.internal.start();\n";
 
     // executing initialize code
     setJSSource(temp_source.c_str(), temp_source.length());
@@ -426,7 +468,7 @@ bool JSApplication::deleteEventLoop() {
 void JSApplication::setJSSource(const char * source, int source_len) {
   {
     std::lock_guard<recursive_mutex> app_lock(getAppMutex());
-    if(source_code_) {
+    if(source_code_ != 0) {
       delete source_code_;
       source_code_ = 0;
     }
@@ -1070,6 +1112,8 @@ duk_ret_t JSApplication::cb_load_module(duk_context *ctx) {
         char* package_js = load_js_file(path.c_str(),sourceLen);
 
         map<string,string> json_attr = read_package_json(ctx, package_js);
+        delete package_js;
+        package_js = 0;
 
         // loading main file to source
         path = string(resolved_id) + json_attr.at(Constant::Attributes::APP_MAIN);
@@ -1302,7 +1346,8 @@ void JSApplication::parsePackageJS() {
   DBOUT ("parsePackageJS(): Loading package file");
   // reading the package.json file to memory
   string package_file = Device::getInstance().getExecPath() + "/" + getAppPath() + string(Constant::Paths::PACKAGE_JSON);
-  setPackageJSON(load_js_file(package_file.c_str(),sourceLen));
+  char * tmp = load_js_file(package_file.c_str(),sourceLen);
+  setPackageJSON(tmp);
 
   DBOUT ("parsePackageJS(): Reading package to attr");
 

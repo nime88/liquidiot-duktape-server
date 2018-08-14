@@ -85,7 +85,7 @@ int AppRequest::handleHttpRequest(struct lws *wsi, void* buffer_data, void* in, 
         AppResponse *response = app_->getResponse(this);
 
         if(response) {
-          dest_buffer->large_str = response->getContent();
+          *dest_buffer->large_str = response->getContent();
           optimizeResponseString(dest_buffer->large_str, buffer_data);
 
           return response->generateResponseHeaders(wsi, buffer_data, start, p, end);
@@ -100,14 +100,14 @@ int AppRequest::handleHttpRequest(struct lws *wsi, void* buffer_data, void* in, 
         const char * const buf[] = {};
         dest_buffer->spa = lws_spa_create(wsi,buf,0, 2048, NULL, NULL);
         if (!dest_buffer->spa) {
-          dest_buffer->error_msg = "Failed to create request (probably server side problem)";
+          *dest_buffer->error_msg = "Failed to create request (probably server side problem)";
           // return 0;
         }
       }
 
       /* let it parse the POST data */
       if (dest_buffer->spa && lws_spa_process(dest_buffer->spa, (const char*)in, (int)len)) {
-        if(dest_buffer->error_msg.length() > 0) {
+        if(dest_buffer->error_msg->length() > 0) {
           return 0;
         }
         return 1;
@@ -126,7 +126,7 @@ int AppRequest::handleHttpRequest(struct lws *wsi, void* buffer_data, void* in, 
       AppResponse *response = app_->getResponse(this);
 
       if(response) {
-        dest_buffer->large_str = response->getContent();
+        *dest_buffer->large_str = response->getContent();
         optimizeResponseString(dest_buffer->large_str, buffer_data);
 
         return response->generateResponseHeaders(wsi, buffer_data, start, p, end);

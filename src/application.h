@@ -46,11 +46,7 @@ class JSApplication {
   public:
     JSApplication(const char* path);
     JSApplication(const char* path, int id);
-
-    ~JSApplication() {
-      INFOOUT("Application " << getAppName() << " closed.");
-      // clean();
-    }
+    ~JSApplication();
 
     // simply initializes the app(doesn't take path)
     bool init();
@@ -204,10 +200,10 @@ class JSApplication {
 
   private:
     thread ev_thread_;
-    EventLoop *eventloop_ = 0;
-    duk_context *duk_context_ = 0;
-    char* package_json_ = 0;
-    char* source_code_ = 0;
+    EventLoop *eventloop_;
+    duk_context *duk_context_;
+    char* package_json_;
+    char* source_code_;
     string app_path_;
 
     // outside app references
@@ -226,9 +222,9 @@ class JSApplication {
     map<string,string> raw_package_json_data_;
 
     // other
-    AppResponse *app_response_ = 0;
+    AppResponse *app_response_;
     string swagger_fragment_;
-    bool is_ready_ = false;
+    bool is_ready_;
 
 
     // static
@@ -243,7 +239,6 @@ class JSApplication {
     recursive_mutex duktape_mutex_;
     mutex cv_mutex_;
     condition_variable evcv_;
-
 
     duk_idx_t set_task_interval_idx_;
 

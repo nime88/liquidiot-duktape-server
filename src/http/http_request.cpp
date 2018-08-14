@@ -24,9 +24,9 @@ int HttpRequest::writeHttpRequest(struct lws *wsi, void* buffer_data, void* in, 
    * lws uses this to understand to end the stream with this
    * frame
    */
-  if(dest_buffer->large_str.length() > 0) {
+  if(dest_buffer->large_str->length() > 0) {
     // handling larger string by splitting it apart and writing it in chunks
-    string write_buffer = dest_buffer->large_str.substr( dest_buffer->buffer_idx, HttpRequest::BUFFER_SIZE);
+    string write_buffer = dest_buffer->large_str->substr( dest_buffer->buffer_idx, HttpRequest::BUFFER_SIZE);
     dest_buffer->buffer_idx += HttpRequest::BUFFER_SIZE;
 
     if(dest_buffer->buffer_idx < dest_buffer->len && write_buffer.length() == HttpRequest::BUFFER_SIZE) {
@@ -44,7 +44,7 @@ int HttpRequest::writeHttpRequest(struct lws *wsi, void* buffer_data, void* in, 
       // if string
       if (lws_write(wsi, (uint8_t *)write_buffer.c_str(), write_buffer.length(), LWS_WRITE_HTTP_FINAL) < 0) return 1;
     }
-  } else if (dest_buffer->large_str.length() == 0 && lws_write(wsi, (uint8_t *)dest_buffer->str, dest_buffer->len, LWS_WRITE_HTTP_FINAL) != dest_buffer->len) {
+  } else if (dest_buffer->large_str->length() == 0 && lws_write(wsi, (uint8_t *)dest_buffer->str, dest_buffer->len, LWS_WRITE_HTTP_FINAL) != dest_buffer->len) {
     return 1;
   }
 
@@ -70,16 +70,16 @@ int HttpRequest::handleDropProtocol(void* buffer_data) {
   return 0;
 }
 
-void HttpRequest::optimizeResponseString(string response, void* buffer_data) {
+void HttpRequest::optimizeResponseString(string *response, void* buffer_data) {
   struct user_buffer_data *dest_buffer = (struct user_buffer_data *)buffer_data;
 
-  dest_buffer->len = response.length();
+  dest_buffer->len = response->length();
   if(dest_buffer->len < (int)ARRAY_SIZE(dest_buffer->str)) {
-    strcpy(dest_buffer->str,response.c_str());
-    if(dest_buffer->large_str.length() > 0)
-      dest_buffer->large_str = "";
+    strcpy(dest_buffer->str,response->c_str());
+    if(dest_buffer->large_str->length() > 0)
+      *dest_buffer->large_str = "";
   } else {
-    dest_buffer->large_str = response;
+    *dest_buffer->large_str = *response;
   }
 }
 

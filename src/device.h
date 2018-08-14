@@ -28,22 +28,7 @@ class Device {
       return instance;
     }
 
-    ~Device() {
-      //dont need duktape anymore
-      duk_destroy_heap(duk_context_);
-      duk_context_ = 0;
-
-      for(map<thread::id,HttpClient*>::iterator it = http_clients_.begin(); it != http_clients_.end(); ++it) {
-        if(it->second) delete it->second;
-        it->second = 0;
-      }
-
-      for(map<thread::id,thread>::iterator it = http_client_threads_.begin(); it != http_client_threads_.end(); ++it) {
-        if(it->second.joinable())
-            it->second.join();
-      }
-
-    }
+    ~Device();
 
     Device(Device const&) = delete;
     void operator=(Device const&) = delete;
