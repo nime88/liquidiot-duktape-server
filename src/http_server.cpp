@@ -6,11 +6,13 @@
 #include <regex>
 #include <string>
 #include <map>
+#include <memory>
 
 using std::regex;
 using std::string;
 using std::smatch;
 using std::map;
+using std::shared_ptr;
 
 #include "application.h"
 #include "urls.h"
@@ -20,10 +22,11 @@ using std::map;
 #include "put_request.h"
 #include "app_request.h"
 #include "util.h"
+#include "http_request_structs.h"
 
 struct lws_protocols HttpServer::protocols[] = {
   /* name, callback, per_session_data_size, rx_buffer_size, id, user, tx_packet_size */
-  { Constant::String::PROTOCOL_HTTP, rest_api_callback, sizeof(struct HttpRequest::user_buffer_data), HttpRequest::BUFFER_SIZE, 1, 0, 0},
+  { Constant::String::PROTOCOL_HTTP, rest_api_callback, sizeof(struct user_buffer_data), HttpRequest::BUFFER_SIZE, 1, 0, 0},
   { NULL, NULL, 0, 0, 0, NULL, 0 } /* terminator */
 };
 
@@ -94,46 +97,52 @@ int HttpServer::run() {
 
 // look reasons from https://libwebsockets.org/lws-api-doc-master/html/group__usercb.html
 int HttpServer::rest_api_callback(struct lws *wsi, enum lws_callback_reasons reason, void *user, void *in, size_t len){
-  struct HttpRequest::user_buffer_data *dest_buffer = (struct HttpRequest::user_buffer_data *)user;
+  struct user_buffer_data *dest_buffer = (struct user_buffer_data *)user;
 
   if(dest_buffer && dest_buffer->large_str == 0) {
-    dest_buffer->large_str = new std::string;
+    dest_buffer->large_str = shared_ptr<string>(new std::string);
   }
   if(dest_buffer && dest_buffer->request_url == 0) {
-    dest_buffer->request_url = new std::string;
+    dest_buffer->request_url = shared_ptr<string>(new std::string);
   }
   if(dest_buffer && dest_buffer->error_msg == 0) {
-    dest_buffer->error_msg = new std::string;
+    dest_buffer->error_msg = shared_ptr<string>(new std::string);
   }
 
-  if(reason == LWS_CALLBACK_CLOSED_HTTP ) {
-    if(dest_buffer && dest_buffer->large_str != 0) {
-      delete dest_buffer->large_str;
-      dest_buffer->large_str = 0;
-    }
-    if(dest_buffer && dest_buffer->request_url != 0) {
-      delete dest_buffer->request_url;
-      dest_buffer->request_url = 0;
-    }
-    if(dest_buffer && dest_buffer->error_msg != 0) {
-      delete dest_buffer->error_msg;
-       dest_buffer->error_msg = 0;
-    }
-    if(dest_buffer && dest_buffer->request != 0) {
-      if(dest_buffer->type == HttpRequest::REQUEST_TYPE::GET) {
-        delete (GetRequest*)dest_buffer->request;
-      } else if(dest_buffer->type == HttpRequest::REQUEST_TYPE::POST) {
-        delete (PostRequest*)dest_buffer->request;
-      } else if(dest_buffer->type == HttpRequest::REQUEST_TYPE::DELETE) {
-        delete (DeleteRequest*)dest_buffer->request;
-      } else if(dest_buffer->type == HttpRequest::REQUEST_TYPE::PUT) {
-        delete (PutRequest*)dest_buffer->request;
-      } else {
-        delete dest_buffer->request;
-      }
-      dest_buffer->request = 0;
-    }
-  }
+  // if(reason == LWS_CALLBACK_CLOSED_HTTP) {
+  //   if(dest_buffer && dest_buffer->large_str != 0) {
+  //     delete dest_buffer->large_str;
+  //     dest_buffer->large_str = 0;
+  //   }
+  //   if(dest_buffer && dest_buffer->request_url != 0) {
+  //     delete dest_buffer->request_url;
+  //     dest_buffer->request_url = 0;
+  //   }
+  //   if(dest_buffer && dest_buffer->error_msg != 0) {
+  //     delete dest_buffer->error_msg;
+  //      dest_buffer->error_msg = 0;
+  //   }
+  //
+  //   if(dest_buffer->get_request != 0) {
+  //     delete dest_buffer->get_request;
+  //     dest_buffer->get_request = 0;
+  //   }
+  //
+  //   if(dest_buffer->post_request != 0) {
+  //     delete dest_buffer->post_request;
+  //     dest_buffer->post_request = 0;
+  //   }
+  //
+  //   if(dest_buffer->delete_request != 0) {
+  //       delete dest_buffer->delete_request;
+  //       dest_buffer->delete_request = 0;
+  //   }
+  //
+  //   if(dest_buffer->put_request != 0) {
+  //       delete dest_buffer->put_request;
+  //       dest_buffer->put_request = 0;
+  //   }
+  // }
 
   // filtering out some stuff that isn't handled
   if(reason ==  LWS_CALLBACK_HTTP_BIND_PROTOCOL ||
@@ -163,50 +172,38 @@ int HttpServer::rest_api_callback(struct lws *wsi, enum lws_callback_reasons rea
 int HttpServer::server_rest_api(struct lws *wsi, enum lws_callback_reasons reason, void *user, void *in, size_t len) {
   uint8_t buf[LWS_PRE + 256], *start = &buf[LWS_PRE], *p = start,
     *end = &buf[sizeof(buf) - 1];
-  struct HttpRequest::user_buffer_data *dest_buffer = (struct HttpRequest::user_buffer_data *)user;
+  struct user_buffer_data *dest_buffer = (struct user_buffer_data *)user;
 
-  if(dest_buffer->large_str == 0) dest_buffer->large_str = new std::string;
-  if(dest_buffer->request_url == 0) dest_buffer->request_url = new std::string;
-  if(dest_buffer->error_msg == 0) dest_buffer->error_msg = new std::string;
+  if(dest_buffer->large_str == 0) dest_buffer->large_str = shared_ptr<string>(new std::string);
+  if(dest_buffer->request_url == 0) dest_buffer->request_url = shared_ptr<string>(new std::string);
+  if(dest_buffer->error_msg == 0) dest_buffer->error_msg = shared_ptr<string>(new std::string);
 
   // Get request
   if (lws_hdr_total_length(wsi, WSI_TOKEN_GET_URI)) {
-    if(dest_buffer->request == 0) {
-      dest_buffer->request = new GetRequest();
-      dest_buffer->type = HttpRequest::REQUEST_TYPE::GET;
-    }
+    if(dest_buffer->get_request == 0) dest_buffer->get_request = shared_ptr<GetRequest>(new GetRequest());
 
-    return ((GetRequest*)dest_buffer->request)->handleHttpRequest(wsi, dest_buffer, in, start, p, end, len, reason);
+    return dest_buffer->get_request->handleHttpRequest(wsi, dest_buffer, in, start, p, end, len, reason);
   }
 
   // Post request
   if (lws_hdr_total_length(wsi, WSI_TOKEN_POST_URI)) {
-    if(dest_buffer->request == 0) {
-      dest_buffer->request = new PostRequest();
-      dest_buffer->type = HttpRequest::REQUEST_TYPE::POST;
-    }
+    if(dest_buffer->post_request == 0) dest_buffer->post_request = shared_ptr<PostRequest>(new PostRequest());
 
-    return ((PostRequest*)dest_buffer->request)->handleHttpRequest(wsi, dest_buffer, in, start, p, end, len, reason);
+    return dest_buffer->post_request->handleHttpRequest(wsi, dest_buffer, in, start, p, end, len, reason);
   }
 
   // Delete request
   if(lws_hdr_total_length(wsi, WSI_TOKEN_DELETE_URI)) {
-    if(dest_buffer->request == 0) {
-      dest_buffer->request = new DeleteRequest();
-      dest_buffer->type = HttpRequest::REQUEST_TYPE::DELETE;
-    }
+    if(dest_buffer->delete_request == 0) dest_buffer->delete_request = shared_ptr<DeleteRequest>(new DeleteRequest());
 
-    return ((DeleteRequest*)dest_buffer->request)->handleHttpRequest(wsi, dest_buffer, in, start, p, end, len, reason);
+    return dest_buffer->delete_request->handleHttpRequest(wsi, dest_buffer, in, start, p, end, len, reason);
   }
 
   // Put request
   if(lws_hdr_total_length(wsi, WSI_TOKEN_PUT_URI)) {
-    if(!dest_buffer->request == 0) {
-      dest_buffer->request = new PutRequest();
-      dest_buffer->type = HttpRequest::REQUEST_TYPE::PUT;
-    }
+    if(!dest_buffer->put_request == 0) dest_buffer->put_request = shared_ptr<PutRequest>(new PutRequest());
 
-    return ((PutRequest*)dest_buffer->request)->handleHttpRequest(wsi, dest_buffer, in, start, p, end, len, reason);
+    return dest_buffer->put_request->handleHttpRequest(wsi, dest_buffer, in, start, p, end, len, reason);
   }
 
   return lws_callback_http_dummy(wsi, reason, user, in, len);
@@ -215,7 +212,7 @@ int HttpServer::server_rest_api(struct lws *wsi, enum lws_callback_reasons reaso
 int HttpServer::app_rest_api(struct lws *wsi, enum lws_callback_reasons reason, void *user, void *in, size_t len) {
   uint8_t buf[LWS_PRE + 256], *start = &buf[LWS_PRE], *p = start,
     *end = &buf[sizeof(buf) - 1];
-  struct HttpRequest::user_buffer_data *dest_buffer = (struct HttpRequest::user_buffer_data *)user;
+  struct user_buffer_data *dest_buffer = (struct user_buffer_data *)user;
   if(reason == LWS_CALLBACK_HTTP) {
     DBOUT(__func__ << ": LWS_CALLBACK_HTTP");
     string url = (char*)in;
@@ -230,23 +227,23 @@ int HttpServer::app_rest_api(struct lws *wsi, enum lws_callback_reasons reason, 
 
     DBOUT(__func__ << ": hasAI");
     if(app && app->hasAI(ai)) {
-      if(!dest_buffer->request) {
+      if(dest_buffer->app_request == 0) {
         DBOUT(__func__ << ": creating new AppRequest");
-        dest_buffer->request = new AppRequest();
+        // dest_buffer->app_request = shared_ptr<AppRequest>(new AppRequest());
       }
 
-      if(dest_buffer->request) {
+      if(dest_buffer->app_request != 0) {
         DBOUT(__func__ << ": setting App");
-        ((AppRequest*)dest_buffer->request)->setApp(app);
+        dest_buffer->app_request->setApp(app);
         DBOUT(__func__ << ": setting AI");
-        ((AppRequest*)dest_buffer->request)->setAI(ai);
+        dest_buffer->app_request->setAI(ai);
       }
     }
 
     DBOUT(__func__ << ": LWS_CALLBACK_HTTP Ok");
   }
 
-  int cont = dest_buffer->request->handleHttpRequest(wsi, dest_buffer, in, start, p, end, len, reason);
+  int cont = dest_buffer->app_request->handleHttpRequest(wsi, dest_buffer, in, start, p, end, len, reason);
 
   if(cont >= 0)
     return cont;

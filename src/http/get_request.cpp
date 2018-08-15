@@ -2,6 +2,7 @@
 
 #include "application.h"
 #include "constant.h"
+#include "http_request_structs.h"
 
 #include <regex>
 #include <string>
@@ -118,7 +119,7 @@ int GetRequest::calculateHttpRequest(void* buffer_data, void* in) {
       dest_buffer->large_str->erase(dest_buffer->large_str->length()-2,2);
     *dest_buffer->large_str += "]";
 
-    optimizeResponseString(dest_buffer->large_str, buffer_data);
+    optimizeResponseString(*dest_buffer->large_str, buffer_data);
 
     // sending JSON
     return 1;
@@ -128,7 +129,7 @@ int GetRequest::calculateHttpRequest(void* buffer_data, void* in) {
   if(id == -2) {
     *dest_buffer->error_msg = "No application with id '" + *dest_buffer->request_url + "'.";
 
-    optimizeResponseString(dest_buffer->error_msg, buffer_data);
+    optimizeResponseString(*dest_buffer->error_msg, buffer_data);
 
     // error
     return -1;
@@ -145,7 +146,7 @@ int GetRequest::calculateHttpRequest(void* buffer_data, void* in) {
     if(!hasLogs(*dest_buffer->request_url)) {
       *dest_buffer->large_str = app->getDescriptionAsJSON();
 
-      optimizeResponseString(dest_buffer->large_str, buffer_data);
+      optimizeResponseString(*dest_buffer->large_str, buffer_data);
 
       // sending JSON
       return 1;
@@ -153,7 +154,7 @@ int GetRequest::calculateHttpRequest(void* buffer_data, void* in) {
       string logs = app->getLogsAsJSON();
       *dest_buffer->large_str = logs;
 
-      optimizeResponseString(dest_buffer->large_str, buffer_data);
+      optimizeResponseString(*dest_buffer->large_str, buffer_data);
 
       // sending JSON
       return 1;
@@ -162,7 +163,7 @@ int GetRequest::calculateHttpRequest(void* buffer_data, void* in) {
 
   *dest_buffer->error_msg = "No application with id '" + to_string(id) + "'.";
 
-  optimizeResponseString(dest_buffer->error_msg, buffer_data);
+  optimizeResponseString(*dest_buffer->error_msg, buffer_data);
 
   // error
   return -1;

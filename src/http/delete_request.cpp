@@ -1,6 +1,7 @@
 #include "delete_request.h"
 
 #include "application.h"
+#include "http_request_structs.h"
 
 #include <boost/filesystem.hpp>
 namespace fs = boost::filesystem;
@@ -108,19 +109,19 @@ int DeleteRequest::calculateHttpRequest(void* buffer_data, void* in) {
 
     if(!deleted_apps) {
       *dest_buffer->error_msg = "No application with id '" + to_string(id) + "'.";
-      optimizeResponseString(dest_buffer->error_msg, buffer_data);
+      optimizeResponseString(*dest_buffer->error_msg, buffer_data);
       return -1;
     }
   }
 
   if(id == -2) {
     *dest_buffer->error_msg = "No application with id '" + *dest_buffer->request_url + "'.";
-    optimizeResponseString(dest_buffer->error_msg, buffer_data);
+    optimizeResponseString(*dest_buffer->error_msg, buffer_data);
     return -1;
   }
 
   dest_buffer->len = dest_buffer->large_str->length();
-  optimizeResponseString(dest_buffer->large_str, buffer_data);
+  optimizeResponseString(*dest_buffer->large_str, buffer_data);
 
   return 0;
 }

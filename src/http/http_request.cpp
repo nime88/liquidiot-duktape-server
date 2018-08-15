@@ -1,11 +1,11 @@
 #include "http_request.h"
+#include "http_request_structs.h"
 
 #include <stdexcept>
 #include <algorithm>
 #include <regex>
 
 #include <iostream>
-using namespace std;
 
 using std::invalid_argument;
 using std::remove;
@@ -70,16 +70,16 @@ int HttpRequest::handleDropProtocol(void* buffer_data) {
   return 0;
 }
 
-void HttpRequest::optimizeResponseString(string *response, void* buffer_data) {
+void HttpRequest::optimizeResponseString(const string &response, void* buffer_data) {
   struct user_buffer_data *dest_buffer = (struct user_buffer_data *)buffer_data;
 
-  dest_buffer->len = response->length();
+  dest_buffer->len = response.length();
   if(dest_buffer->len < (int)ARRAY_SIZE(dest_buffer->str)) {
-    strcpy(dest_buffer->str,response->c_str());
+    strcpy(dest_buffer->str,response.c_str());
     if(dest_buffer->large_str->length() > 0)
       *dest_buffer->large_str = "";
   } else {
-    *dest_buffer->large_str = *response;
+    *dest_buffer->large_str = response;
   }
 }
 

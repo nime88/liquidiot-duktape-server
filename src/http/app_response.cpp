@@ -1,10 +1,11 @@
 #include "app_response.h"
 
 #include "constant.h"
+#include "http_request_structs.h"
 #include "prints.h"
 
 int AppResponse::generateResponseHeaders(struct lws *wsi, void* buffer_data, uint8_t *start, uint8_t *p, uint8_t *end) {
-  struct HttpRequest::user_buffer_data *dest_buffer = (struct HttpRequest::user_buffer_data*)buffer_data;
+  struct user_buffer_data *dest_buffer = (struct user_buffer_data*)buffer_data;
 
   string content_type = Constant::String::REQ_TYPE_TEXT_HTML;
   if(headers_.find(Constant::Attributes::AR_HEAD_CONTENT_TYPE) != headers_.end()) {

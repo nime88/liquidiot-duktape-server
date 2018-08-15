@@ -2,6 +2,7 @@
 
 #include "application.h"
 #include "constant.h"
+#include "http_request_structs.h"
 #include "util.h"
 
 #include <string>
@@ -116,11 +117,11 @@ int PutRequest::calculateHttpRequest(void* buffer_data, void* in) {
   // can instantly fail the request if not valid id
   if(id == -1) {
     *dest_buffer->error_msg = "No application with given id.";
-    optimizeResponseString(dest_buffer->error_msg, buffer_data);
+    optimizeResponseString(*dest_buffer->error_msg, buffer_data);
     return -1;
   } else if( id == -2 ) {
     *dest_buffer->error_msg = "No application with id '" + *dest_buffer->request_url + "'.";
-    optimizeResponseString(dest_buffer->error_msg, buffer_data);
+    optimizeResponseString(*dest_buffer->error_msg, buffer_data);
     return -1;
   }
 
@@ -137,7 +138,7 @@ int PutRequest::calculateHttpRequest(void* buffer_data, void* in) {
 
   if(!app) {
     *dest_buffer->error_msg = "No application with id '" + to_string(id) + "'.";
-    optimizeResponseString(dest_buffer->error_msg, buffer_data);
+    optimizeResponseString(*dest_buffer->error_msg, buffer_data);
     return -1;
   }
 
@@ -176,7 +177,7 @@ int PutRequest::calculateHttpRequest(void* buffer_data, void* in) {
         DBOUT(__func__ << ": Out of ");
       } else {
         *dest_buffer->error_msg = "Attribute couldn't be read";
-        optimizeResponseString(dest_buffer->error_msg, buffer_data);
+        optimizeResponseString(*dest_buffer->error_msg, buffer_data);
         return -1;
       }
     } else parsed_str = lws_spa_get_string(dest_buffer->spa, n);
@@ -199,13 +200,13 @@ int PutRequest::calculateHttpRequest(void* buffer_data, void* in) {
 
   if(app_state_ok) {
     *dest_buffer->large_str = "Application went to target status successfully.";
-    optimizeResponseString(dest_buffer->large_str, buffer_data);
+    optimizeResponseString(*dest_buffer->large_str, buffer_data);
 
     return 0;
   }
 
   *dest_buffer->error_msg = "Something went wrong";
-  optimizeResponseString(dest_buffer->error_msg, buffer_data);
+  optimizeResponseString(*dest_buffer->error_msg, buffer_data);
 
   return -1;
 }

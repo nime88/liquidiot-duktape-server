@@ -3,6 +3,7 @@
 #include "application.h"
 #include "file_ops.h"
 #include "constant.h"
+#include "http_request_structs.h"
 #include "device.h"
 
 #include <sys/fcntl.h>

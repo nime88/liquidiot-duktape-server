@@ -7,6 +7,7 @@ using std::regex;
 
 #include "app_response.h"
 #include "constant.h"
+#include "http_request_structs.h"
 
 int AppRequest::handleHttpRequest(struct lws *wsi, void* buffer_data, void* in, uint8_t *start, uint8_t *p, uint8_t *end, size_t len, enum lws_callback_reasons reason) {
   struct user_buffer_data *dest_buffer = (struct user_buffer_data*)buffer_data;
@@ -86,7 +87,7 @@ int AppRequest::handleHttpRequest(struct lws *wsi, void* buffer_data, void* in, 
 
         if(response) {
           *dest_buffer->large_str = response->getContent();
-          optimizeResponseString(dest_buffer->large_str, buffer_data);
+          optimizeResponseString(*dest_buffer->large_str, buffer_data);
 
           return response->generateResponseHeaders(wsi, buffer_data, start, p, end);
         }
@@ -127,7 +128,7 @@ int AppRequest::handleHttpRequest(struct lws *wsi, void* buffer_data, void* in, 
 
       if(response) {
         *dest_buffer->large_str = response->getContent();
-        optimizeResponseString(dest_buffer->large_str, buffer_data);
+        optimizeResponseString(*dest_buffer->large_str, buffer_data);
 
         return response->generateResponseHeaders(wsi, buffer_data, start, p, end);
       }
