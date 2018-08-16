@@ -76,9 +76,9 @@ int DeleteRequest::generateFailResponse(struct lws *wsi, void* buffer_data, uint
 int DeleteRequest::calculateHttpRequest(void* buffer_data, void* in) {
   struct user_buffer_data *dest_buffer = (struct user_buffer_data*)buffer_data;
 
-  *dest_buffer->request_url = (char*)in;
+  dest_buffer->request_url = (char*)in;
 
-  int id =  parseIdFromURL(*dest_buffer->request_url);
+  int id =  parseIdFromURL(dest_buffer->request_url);
   int deleted_apps = 0;
   map<duk_context*, JSApplication*> apps = JSApplication::getApplications();
 
@@ -91,9 +91,9 @@ int DeleteRequest::calculateHttpRequest(void* buffer_data, void* in) {
     }
 
     if(deleted_apps == app_amount) {
-      *dest_buffer->large_str = "All apps were deleted successfully";
+      dest_buffer->large_str = "All apps were deleted successfully";
     } else {
-      *dest_buffer->large_str = to_string(deleted_apps) + " of " + to_string(app_amount) + " app were deleted successfully.";
+      dest_buffer->large_str = to_string(deleted_apps) + " of " + to_string(app_amount) + " app were deleted successfully.";
     }
   } else if(id >= 0) {
     for (  map<duk_context*, JSApplication*>::const_iterator it=apps.begin(); it!=apps.end(); ++it) {
@@ -101,27 +101,27 @@ int DeleteRequest::calculateHttpRequest(void* buffer_data, void* in) {
         DBOUT("Delete application " + it->second->getAppId());
         deleted_apps += JSApplication::deleteApplication(it->second);
         if(deleted_apps) {
-          *dest_buffer->large_str = "Application " + to_string(id) + " was deleted successfully.";
+          dest_buffer->large_str = "Application " + to_string(id) + " was deleted successfully.";
         }
         break;
       }
     }
 
     if(!deleted_apps) {
-      *dest_buffer->error_msg = "No application with id '" + to_string(id) + "'.";
-      optimizeResponseString(*dest_buffer->error_msg, buffer_data);
+      dest_buffer->error_msg = "No application with id '" + to_string(id) + "'.";
+      optimizeResponseString(dest_buffer->error_msg, buffer_data);
       return -1;
     }
   }
 
   if(id == -2) {
-    *dest_buffer->error_msg = "No application with id '" + *dest_buffer->request_url + "'.";
-    optimizeResponseString(*dest_buffer->error_msg, buffer_data);
+    dest_buffer->error_msg = "No application with id '" + dest_buffer->request_url + "'.";
+    optimizeResponseString(dest_buffer->error_msg, buffer_data);
     return -1;
   }
 
-  dest_buffer->len = dest_buffer->large_str->length();
-  optimizeResponseString(*dest_buffer->large_str, buffer_data);
+  dest_buffer->len = dest_buffer->large_str.length();
+  optimizeResponseString(dest_buffer->large_str, buffer_data);
 
   return 0;
 }

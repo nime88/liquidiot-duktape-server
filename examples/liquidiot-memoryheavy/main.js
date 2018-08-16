@@ -1,7 +1,7 @@
 module.exports = function($app, $router, $request, console){
-var max_reserve = 1e7;
-var arr = [];
+var max_reserve = 1e6;
 var counter = 0;
+var arr = [];
 
 var memory_measurement_values = {
     "max_rss" : 0,
@@ -14,16 +14,18 @@ var memory_measurement_values = {
     "avg_external" : 0
 };
 
-$app.$configureInterval(true, 3000);
+$app.$configureInterval(true, 10000);
 
 $app.$initialize = function(initCompleted){
-    for( var i = 0; i < max_reserve; ++i) {
-        arr.push("Some string");
-    }
     initCompleted();
 };
 
 $app.$task = function(taskCompleted) {
+    if(arr.length === 0) {
+        for(var i = 0; i < max_reserve; ++i) {
+            arr.push(10);
+        }
+    }
     if(typeof process != 'undefined') {
         counter = counter + 1; 
         var current_mem = process.memoryUsage();
@@ -88,5 +90,6 @@ $app.$task = function(taskCompleted) {
 $app.$terminate = function(terminateCompleted){
     terminateCompleted();
 };
+
 
 }

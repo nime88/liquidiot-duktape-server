@@ -101,25 +101,25 @@ int GetRequest::calculateHttpRequest(void* buffer_data, void* in) {
   JSApplication *app = 0;
 
   if( strlen((char*)in) != 0 ) {
-    *dest_buffer->request_url = (char*)in;
+    dest_buffer->request_url = (char*)in;
   } else {
-    *dest_buffer->request_url = "/";
+    dest_buffer->request_url = "/";
   }
 
-  int id =  parseIdFromURL(*dest_buffer->request_url);
+  int id =  parseIdFromURL(dest_buffer->request_url);
 
   // if there  is something to we try parse the id (otherwise list everything else)
   if(id == -1) {
-    *dest_buffer->large_str = "[\n";
+    dest_buffer->large_str = "[\n";
     for (  map<duk_context*, JSApplication*>::const_iterator it=apps.begin(); it!=apps.end(); ++it) {
-      *dest_buffer->large_str += it->second->getDescriptionAsJSON();
-      *dest_buffer->large_str += ",\n";
+      dest_buffer->large_str += it->second->getDescriptionAsJSON();
+      dest_buffer->large_str += ",\n";
     }
     if(apps.size() > 0)
-      dest_buffer->large_str->erase(dest_buffer->large_str->length()-2,2);
-    *dest_buffer->large_str += "]";
+      dest_buffer->large_str.erase(dest_buffer->large_str.length()-2,2);
+    dest_buffer->large_str += "]";
 
-    optimizeResponseString(*dest_buffer->large_str, buffer_data);
+    optimizeResponseString(dest_buffer->large_str, buffer_data);
 
     // sending JSON
     return 1;
@@ -127,9 +127,9 @@ int GetRequest::calculateHttpRequest(void* buffer_data, void* in) {
 
   // handling parse error
   if(id == -2) {
-    *dest_buffer->error_msg = "No application with id '" + *dest_buffer->request_url + "'.";
+    dest_buffer->error_msg = "No application with id '" + dest_buffer->request_url + "'.";
 
-    optimizeResponseString(*dest_buffer->error_msg, buffer_data);
+    optimizeResponseString(dest_buffer->error_msg, buffer_data);
 
     // error
     return -1;
@@ -143,27 +143,27 @@ int GetRequest::calculateHttpRequest(void* buffer_data, void* in) {
   }
 
   if(app) {
-    if(!hasLogs(*dest_buffer->request_url)) {
-      *dest_buffer->large_str = app->getDescriptionAsJSON();
+    if(!hasLogs(dest_buffer->request_url)) {
+      dest_buffer->large_str = app->getDescriptionAsJSON();
 
-      optimizeResponseString(*dest_buffer->large_str, buffer_data);
+      optimizeResponseString(dest_buffer->large_str, buffer_data);
 
       // sending JSON
       return 1;
     } else {
       string logs = app->getLogsAsJSON();
-      *dest_buffer->large_str = logs;
+      dest_buffer->large_str = logs;
 
-      optimizeResponseString(*dest_buffer->large_str, buffer_data);
+      optimizeResponseString(dest_buffer->large_str, buffer_data);
 
       // sending JSON
       return 1;
     }
   }
 
-  *dest_buffer->error_msg = "No application with id '" + to_string(id) + "'.";
+  dest_buffer->error_msg = "No application with id '" + to_string(id) + "'.";
 
-  optimizeResponseString(*dest_buffer->error_msg, buffer_data);
+  optimizeResponseString(dest_buffer->error_msg, buffer_data);
 
   // error
   return -1;

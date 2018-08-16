@@ -18,15 +18,11 @@ struct user_buffer_data {
     unsigned long long file_length; /* the amount of bytes uploaded */
     int fd;				/* fd on file being saved */
     char ext_filename[128];
-    shared_ptr<string> large_str = shared_ptr<string>(new string);
+    string large_str;
     int buffer_idx;
-    shared_ptr<string> request_url = shared_ptr<string>(new string);
-    shared_ptr<string> error_msg = shared_ptr<string>(new string);
-    shared_ptr<GetRequest> get_request = shared_ptr<GetRequest>(new GetRequest);
-    shared_ptr<PostRequest> post_request = shared_ptr<PostRequest>(new PostRequest);
-    shared_ptr<DeleteRequest> delete_request = shared_ptr<DeleteRequest>(new DeleteRequest);
-    shared_ptr<PutRequest> put_request = shared_ptr<PutRequest>(new PutRequest);
-    shared_ptr<AppRequest> app_request = shared_ptr<AppRequest>(new AppRequest);
+    string request_url;
+    string error_msg;
+    AppRequest app_request;
 
     int request_callback_index = -1;
 };
