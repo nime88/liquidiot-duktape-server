@@ -17,15 +17,13 @@ var memory_measurement_values = {
 $app.$configureInterval(true, 10000);
 
 $app.$initialize = function(initCompleted){
+    for(var i = 0; i < max_reserve; ++i) {
+        arr.push("Some random text");
+    }
     initCompleted();
 };
 
 $app.$task = function(taskCompleted) {
-    if(arr.length === 0) {
-        for(var i = 0; i < max_reserve; ++i) {
-            arr.push(10);
-        }
-    }
     if(typeof process != 'undefined') {
         counter = counter + 1; 
         var current_mem = process.memoryUsage();

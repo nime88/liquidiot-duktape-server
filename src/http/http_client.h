@@ -29,14 +29,14 @@ class HttpClient {
   private:
 
     struct user_buffer_data {
-        char str[256];
-        int len;
-  	   char boundary[32];
-       char body_part;
-       string *raw_data = 0;
-       unsigned int buffer_idx = 0;
-       ClientRequestConfig *config;
-       HttpClient *client;
+      char str[256];
+      int len;
+  	  char boundary[32];
+      char body_part;
+      string raw_data;
+      unsigned int buffer_idx = 0;
+      ClientRequestConfig *config;
+      HttpClient *client;
     };
 
     user_buffer_data *data_;

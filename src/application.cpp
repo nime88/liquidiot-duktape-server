@@ -662,14 +662,18 @@ void JSApplication::addApplication( JSApplication *app ) {
 bool JSApplication::deleteApplication(JSApplication *app) {
   std::lock_guard<recursive_mutex> static_lock(getStaticMutex());
   DBOUT("deleteApplication()");
-  app->pause();
-  Device::getInstance().deleteApp(std::to_string(app->getAppId()));
+  {
+    std::lock_guard<recursive_mutex> app_lock(app->getAppMutex());
+    app->pause();
+    Device::getInstance().deleteApp(std::to_string(app->getAppId()));
 
-  DBOUT("deleteApplication(): Deleting files");
-  delete_files(app->getAppPath().c_str()); /* There is a possibility of failure but we ignore it */
+    DBOUT("deleteApplication(): Deleting files");
+    delete_files(app->getAppPath().c_str()); /* There is a possibility of failure but we ignore it */
+  }
 
   DBOUT ( "deleteApplication(): joining app thread" );
   try {
+    std::lock_guard<recursive_mutex> app_lock(app->getAppMutex());
     {
       std::lock_guard<mutex> req_lock(app->getCVMutex());
       app->getEventLoop()->setRequestExit(true);
@@ -698,8 +702,11 @@ bool JSApplication::deleteApplication(JSApplication *app) {
   applications_.erase(app->getContext());
 
   DBOUT ( "deleteApplication(): destoying duk heap" );
-  duk_destroy_heap(app->getContext());
-  app->duk_context_ = 0;
+  if(app->getContext()) {
+    std::lock_guard<recursive_mutex> duk_lock(app->getDuktapeMutex());
+    duk_destroy_heap(app->getContext());
+    app->duk_context_ = 0;
+  }
 
   DBOUT("deleteApplication(): actual removal from memory");
   delete app;
@@ -718,6 +725,7 @@ bool JSApplication::shutdownApplication(JSApplication *app) {
 
   DBOUT ( "shutdownApplication(): joining app thread" );
   try {
+    std::lock_guard<recursive_mutex> app_lock(app->getAppMutex());
     if(app->getEventLoop()){
       std::lock_guard<mutex> req_lock(app->getCVMutex());
       app->getEventLoop()->setRequestExit(true);
@@ -749,12 +757,13 @@ bool JSApplication::shutdownApplication(JSApplication *app) {
 
   DBOUT ( "shutdownApplication(): destoying duk heap" );
   if(app->getContext()) {
+    std::lock_guard<recursive_mutex> duk_lock(app->getDuktapeMutex());
     duk_destroy_heap(app->getContext());
     app->duk_context_ = 0;
   }
 
   DBOUT("shutdownApplication(): actual removal from memory");
-  // delete app;
+  delete app;
   app = 0;
 
   DBOUT("shutdownApplication(): Shutting down successful");

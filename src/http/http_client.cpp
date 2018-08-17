@@ -160,23 +160,17 @@ int HttpClient::http_client_callback(struct lws *wsi, enum lws_callback_reasons 
     }
 
     case LWS_CALLBACK_RECEIVE_CLIENT_HTTP_READ: {
-      if(dest_buffer && dest_buffer->raw_data == 0)
-        dest_buffer->raw_data = new std::string;
-
       if(strlen((char *)in) > 0) {
-        *dest_buffer->raw_data = (char *)in;
-        dest_buffer->raw_data->erase(std::remove(dest_buffer->raw_data->begin(),
-        dest_buffer->raw_data->end(), '\"'), dest_buffer->raw_data->end());
+        dest_buffer->raw_data = (char *)in;
+        dest_buffer->raw_data.erase(std::remove(dest_buffer->raw_data.begin(),
+        dest_buffer->raw_data.end(), '\"'), dest_buffer->raw_data.end());
       } else {
-        *dest_buffer->raw_data = "";
+        dest_buffer->raw_data = "";
       }
 
-      dest_buffer->client->getCRConfig()->setResponse(*dest_buffer->raw_data);
+      dest_buffer->client->getCRConfig()->setResponse(dest_buffer->raw_data);
       dest_buffer->client->getCRConfig()->setResponseStatus(dest_buffer->client->status_);
 
-      delete dest_buffer->raw_data;
-      dest_buffer->raw_data = 0;
-      
       return 0; /* don't passthru */
     }
 
