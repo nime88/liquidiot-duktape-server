@@ -48,11 +48,6 @@ JSApplication::JSApplication(const char* path, int id):
 }
 
 JSApplication::~JSApplication() {
-  if( eventloop_ != 0) {
-    delete eventloop_;
-    eventloop_ = 0;
-  }
-
   if( duk_context_ != 0) {
     duk_destroy_heap(duk_context_);
     duk_context_ = 0;
@@ -72,8 +67,12 @@ JSApplication::~JSApplication() {
 
 void JSApplication::defaultConstruct(const char* path) {
   {
+    INFOOUT("Creating new application to " << path);
     DBOUT("JSApplication()");
+    // making sure we are not disturbed during the execution of construction
     std::lock_guard<recursive_mutex> static_lock(getStaticMutex());
+    std::lock_guard<recursive_mutex> app_lock(getAppMutex());
+    std::lock_guard<recursive_mutex> duktape_lock(getDuktapeMutex());
 
     // adding app_path to global app paths
     string exec_path = Device::getInstance().getExecPath() + "/";
@@ -95,34 +94,15 @@ void JSApplication::defaultConstruct(const char* path) {
       JSApplication::shutdownApplication(this);
       throw "JSApplication(): Failed to initialize";
     }
-
-    DBOUT("JSApplication(): registerAppApi()");
-    // unsigned int ai_len = getAppInterfaces().size();
-    // for(unsigned int i = 0; i < ai_len; ++i) {
-    //     Device::getInstance().registerAppApi(getAppInterfaces().at(i), getSwaggerFragment());
-    // }
-
-    DBOUT("JSApplication(): getAppAsJSON()");
-    string app_payload = getAppAsJSON();
-    bool app_is = Device::getInstance().appExists(to_string(getAppId()));
-
-    DBOUT("JSApplication(): registerApp()");
-    if(!app_is) {
-      Device::getInstance().registerApp(app_payload);
-    }
   }
-
-  DBOUT("JSApplication(): pauseApp()");
-  pause();
-  DBOUT("JSApplication(): startApp()");
-  start();
-  DBOUT("JSApplication(): OK");
-  INFOOUT("Application " << getAppName() << " started.");
 }
 
 bool JSApplication::init() {
   {
     std::lock_guard<recursive_mutex> static_lock(getStaticMutex());
+    std::lock_guard<recursive_mutex> app_lock(getAppMutex());
+    std::lock_guard<recursive_mutex> duktape_lock(getDuktapeMutex());
+
     setIsReady(false);
     DBOUT("init()");
 
@@ -395,30 +375,66 @@ bool JSApplication::init() {
     // executing initialize code
     setJSSource(temp_source.c_str(), temp_source.length());
 
-    DBOUT ("init(): Making it main node module");
-    // pushing this as main module
-    {
-      std::lock_guard<recursive_mutex> duktape_lock(getDuktapeMutex());
-      duk_push_string(getContext(), getJSSource());
-
-      if(duk_module_node_peval_main(getContext(), getAppMain().c_str()) != 0) {
-        ERROUT("Failed to evaluate main module: " << duk_safe_to_string(getContext(), -1));
-        AppLog(getAppPath().c_str()) << AppLog::getTimeStamp() << " [" << Constant::String::LOG_ERROR << "] " << duk_safe_to_string(getContext(), -1) << "\n";
-        return false;
-      }
-    }
-
-    DBOUT ("init(): Inserting application thread");
-    // initializing the thread, this must be the last initialization
-    createEventLoopThread();
+    js_instance_ = std::thread(&JSApplication::instantiate,this);
   }
 
   return true;
 }
 
+void JSApplication::instantiate() {
+  std::lock_guard<recursive_mutex> app_lock(getAppMutex());
+  std::lock_guard<recursive_mutex> duktape_lock(getDuktapeMutex());
+  DBOUT (__func__ << "(): Making it main node module");
+  // pushing this as main module
+  {
+    std::lock_guard<recursive_mutex> duktape_lock(getDuktapeMutex());
+
+    getEventLoop()->evloopRegister(getContext());
+
+    const char * js_source = getJSSource();
+    duk_push_string(getContext(), js_source);
+
+    if(duk_module_node_peval_main(getContext(), getAppMain().c_str()) != 0) {
+      ERROUT("Failed to evaluate main module: " << duk_safe_to_string(getContext(), -1));
+      AppLog(getAppPath().c_str()) << AppLog::getTimeStamp() << " [" << Constant::String::LOG_ERROR << "] " << duk_safe_to_string(getContext(), -1) << "\n";
+      return;
+    }
+    //duk_pop_2(getContext());
+    //ERROUT(duk_safe_to_string(getContext(), -1));
+  }
+
+  DBOUT (__func__ << "(): Inserting application thread");
+  // initializing the thread, this must be the last initialization
+  createEventLoopThread();
+
+
+  DBOUT(__func__ << "(): registerAppApi()");
+  // unsigned int ai_len = getAppInterfaces().size();
+  // for(unsigned int i = 0; i < ai_len; ++i) {
+  //     Device::getInstance().registerAppApi(getAppInterfaces().at(i), getSwaggerFragment());
+  // }
+
+  DBOUT(__func__ << "(): getAppAsJSON()");
+  string app_payload = getAppAsJSON();
+  bool app_is = Device::getInstance().appExists(to_string(getAppId()));
+
+  DBOUT(__func__ << "(): registerApp()");
+  if(!app_is) {
+    Device::getInstance().registerApp(app_payload);
+  }
+
+  DBOUT(__func__ << "(): pauseApp()");
+  pause();
+  DBOUT(__func__ << "(): startApp()");
+  start();
+  DBOUT(__func__ << "(): OK");
+  INFOOUT("Application " << getAppName() << " started.");
+}
+
 bool JSApplication::createEventLoopThread() {
 
   {
+    if(ev_thread_.joinable()) ev_thread_.join();
     std::lock_guard<recursive_mutex> app_lock(getAppMutex());
     ev_thread_ = thread(&JSApplication::run,this);
   }
@@ -456,8 +472,7 @@ bool JSApplication::deleteEventLoop() {
   if(getEventLoop()) {
     {
       std::lock_guard<recursive_mutex> app_lock(getAppMutex());
-      if(!interrupted)
-        delete eventloop_;
+      EventLoop::deleteEventLoop(getContext());
       eventloop_ = 0;
     }
     return true;
@@ -668,7 +683,7 @@ bool JSApplication::deleteApplication(JSApplication *app) {
     Device::getInstance().deleteApp(std::to_string(app->getAppId()));
 
     DBOUT("deleteApplication(): Deleting files");
-    delete_files(app->getAppPath().c_str()); /* There is a possibility of failure but we ignore it */
+    delete_files((Device::getInstance().getExecPath() + "/" + app->getAppPath()).c_str()); /* There is a possibility of failure but we ignore it */
   }
 
   DBOUT ( "deleteApplication(): joining app thread" );
@@ -698,6 +713,9 @@ bool JSApplication::deleteApplication(JSApplication *app) {
     }
   }
 
+  // delting the eventloop
+  app->deleteEventLoop();
+
   DBOUT ( "deleteApplication(): cleaning the app out of ds" );
   applications_.erase(app->getContext());
 
@@ -709,8 +727,8 @@ bool JSApplication::deleteApplication(JSApplication *app) {
   }
 
   DBOUT("deleteApplication(): actual removal from memory");
-  delete app;
-  app = 0;
+  //delete app;
+  //app = 0;
 
   DBOUT("deleteApplication(): Deleting success");
   return 1;
@@ -752,6 +770,8 @@ bool JSApplication::shutdownApplication(JSApplication *app) {
     }
   }
 
+  app->deleteEventLoop();
+
   DBOUT ( "shutdownApplication(): cleaning the app out of ds" );
   applications_.erase(app->getContext());
 
@@ -763,8 +783,8 @@ bool JSApplication::shutdownApplication(JSApplication *app) {
   }
 
   DBOUT("shutdownApplication(): actual removal from memory");
-  delete app;
-  app = 0;
+  //delete app;
+  //app = 0;
 
   DBOUT("shutdownApplication(): Shutting down successful");
   return 1;
@@ -854,10 +874,18 @@ void JSApplication::run() {
     int rc = duk_safe_call(getContext(), EventLoop::eventloop_run, NULL, 0 /*nargs*/, 1 /*nrets*/);
     if (rc != 0) {
       updateAppState(APP_STATES::CRASHED, true);
-      ERROUT("eventloop_run() failed: " << duk_to_string(getContext(), -1));
+      string message = "eventloop_run() failed: " + string(duk_to_string(getContext(), -1));
+      ERROUT(message);
       AppLog(getAppPath().c_str()) << AppLog::getTimeStamp() << " [" << Constant::String::LOG_ERROR << "] " << duk_to_string(getContext(), -1) << endl;
+      duk_destroy_heap(duk_context_);
+      duk_context_ = 0;
+      getStaticMutex().unlock();
+      getAppMutex().unlock();
+      getCVMutex().unlock();
+      getDuktapeMutex().unlock();
+      return;
     }
-    if(getContext()) {
+    if(getContext() && rc == 0) {
       duk_pop(getContext());
       DBOUT("JSApplication::run(): Executing the terminate function");
       duk_push_string(getContext(), "app.$terminate(function(){});\n");
@@ -880,10 +908,14 @@ void JSApplication::run() {
   }
 
   setIsReady(true);
+  getStaticMutex().unlock();
+  getAppMutex().unlock();
   getCVMutex().unlock();
+  getDuktapeMutex().unlock();
   getEventLoopCV().notify_one();
 
   DBOUT("run(): completed");
+  return;
 }
 
 void JSApplication::updateAppState(APP_STATES state, bool update_client) {

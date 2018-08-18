@@ -50,6 +50,7 @@ class JSApplication {
 
     // simply initializes the app(doesn't take path)
     bool init();
+    void instantiate();
 
     // cleans the app from unnecessary stuff
     // void clean();
@@ -200,6 +201,7 @@ class JSApplication {
 
   private:
     thread ev_thread_;
+    thread js_instance_;
     EventLoop *eventloop_;
     duk_context *duk_context_;
     char* package_json_;

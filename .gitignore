@@ -1,4 +1,5 @@
 build/
+debug/
 Release/
 Debug/
 test/
@@ -10,3 +11,4 @@ applications/*.js
 compile_commands.json
 create_deb.sh
 *.tgz
+*.cson

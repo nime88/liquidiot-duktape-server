@@ -42,7 +42,6 @@ function setTimeout(func, delay) {
     }
 
     timer_id = EventLoop.createTimer(cb_func, delay, true /* oneshot */);
-
     return timer_id;
 }
 

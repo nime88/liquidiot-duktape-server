@@ -17,7 +17,7 @@
 
 int EventLoop::next_id_ = 0;
 mutex EventLoop::mtx_;
-map<duk_context*,map<int, EventLoop::TimerStruct>*> EventLoop::all_timers_;
+map<duk_context*,map<int, EventLoop::TimerStruct> > EventLoop::all_timers_;
 map<duk_context*,EventLoop*> EventLoop::all_eventloops_;
 duk_function_list_entry EventLoop::eventloop_funcs[] = {
  { "createTimer", create_timer, 3 },
@@ -26,7 +26,8 @@ duk_function_list_entry EventLoop::eventloop_funcs[] = {
  { NULL, NULL, 0 }
 };
 
-EventLoop::EventLoop(duk_context *ctx) {
+EventLoop::EventLoop(duk_context *ctx):
+  exit_requested_(0),current_timeout_(0) {
   evloopRegister(ctx);
 
   // adding timers to global timers
@@ -56,7 +57,7 @@ void EventLoop::evloopRegister(duk_context *ctx) {
 int EventLoop::eventloop_run(duk_context *ctx, void *udata) {
   DBOUT( "eventloop_run(): Starting");
   EventLoop *eventloop = getAllEventLoops().at(ctx);
-  map<int,TimerStruct> *timers = getAllTimers().at(ctx);
+  map<int,TimerStruct> *timers = getTimers(ctx);
   JSApplication *app = JSApplication::getApplications().at(ctx);
   double now;
   double diff;
@@ -69,10 +70,14 @@ int EventLoop::eventloop_run(duk_context *ctx, void *udata) {
     duk_push_global_object(ctx);
     duk_get_prop_string(ctx, -1, "EventLoop");
   }
-
   DBOUT( "eventloop_run(): Got EventLoop property");
+  DBOUT(__func__ << "(): Timers size " << timers->size());
+
+  eventloop->exit_requested_ = 0;
 
   for(;;) {
+    std::lock_guard<recursive_mutex> duktape_lock(app->getDuktapeMutex());
+
     {
       if(interrupted || eventloop->exitRequested()) {
         DBOUT( "eventloop_run(): Asked for termination");
@@ -80,6 +85,7 @@ int EventLoop::eventloop_run(duk_context *ctx, void *udata) {
       }
 
       if(app->getAppState() == JSApplication::APP_STATES::PAUSED) {
+        app->getDuktapeMutex().unlock();
         std::unique_lock<mutex> cv_lock(app->getCVMutex());
         app->getEventLoopCV().wait_for(cv_lock, std::chrono::milliseconds(int(MAX_WAIT)), [eventloop,app]{
             return interrupted || !eventloop || eventloop->exitRequested() || !app || app->getAppState() == JSApplication::APP_STATES::RUNNING;
@@ -98,8 +104,8 @@ int EventLoop::eventloop_run(duk_context *ctx, void *udata) {
       timeout = (int)MAX_WAIT;
       diff = MAX_WAIT;
 
-      for (map<int, TimerStruct>::iterator it = timers->begin(); it != timers->end(); ++it) {
-        diff = it->second.target - now;
+      for (const auto &timer : *timers) {
+        diff = timer.second.target - now;
         diff = floor(diff);
         if (diff < MIN_WAIT) {
           diff = MIN_WAIT;
@@ -114,7 +120,6 @@ int EventLoop::eventloop_run(duk_context *ctx, void *udata) {
       timeout = diff;
       // updating current timeout
       eventloop->setCurrentTimeout(timeout);
-
     }
     // unlocking app mutexes if for some reason they are not released by lock guard
     app->getDuktapeMutex().unlock();
@@ -135,9 +140,15 @@ int EventLoop::eventloop_run(duk_context *ctx, void *udata) {
       }
     } catch(const std::system_error& e) {
       ERROUT("Some random error: " << e.what());
+      duk_pop(app->getContext());
       return 0;
     }
 
+  }
+
+  {
+    std::lock_guard<recursive_mutex> duktape_lock(app->getDuktapeMutex());
+    duk_pop(app->getContext());
   }
 
   DBOUT( "eventloop_run(): Run was executed successfully");
@@ -154,7 +165,7 @@ int EventLoop::expire_timers(duk_context *ctx) {
   double now = get_now();
   int rc;
   EventLoop *eventloop = getAllEventLoops().at(ctx);
-  map<int,TimerStruct> *timers = getAllTimers().at(ctx);
+  map<int,TimerStruct> *timers = getTimers(ctx);
 
   {
     std::lock_guard<recursive_mutex> duktape_lock(app->getDuktapeMutex());
@@ -174,22 +185,19 @@ int EventLoop::expire_timers(duk_context *ctx) {
         }
 
         // find expired timers and mark them
-        for (map<int, TimerStruct>::iterator it = timers->begin(); it != timers->end(); ++it) {
-          if(it->second.removed) {
-            // duk_push_number(ctx, (double) it->second.id);
-            // duk_del_prop(ctx, -2);
-            // timers->erase(it);
+        for (auto &timer : *timers) {
+          if(timer.second.removed) {
             break;
           }
 
-          if(it->second.target < now) {
-            it->second.expiring = 1;
-            it->second.target = now + it->second.delay;
-          } else if(it->second.target > now && it->second.expiring == 1) {
+          if(timer.second.target < now) {
+            timer.second.expiring = 1;
+            timer.second.target = now + timer.second.delay;
+          } else if(timer.second.target > now && timer.second.expiring == 1) {
             {
               std::lock_guard<recursive_mutex> duktape_lock(app->getDuktapeMutex());
               // executing callback
-              duk_push_number(ctx, (double) it->second.id);
+              duk_push_number(ctx, (double) timer.second.id);
               duk_get_prop(ctx, -2);
               rc = duk_pcall(ctx, 0 /*nargs*/);  /* -> [ ... stash eventTimers retval ] */
               if(rc != 0) {
@@ -197,6 +205,7 @@ int EventLoop::expire_timers(duk_context *ctx) {
                   /* Accessing .stack might cause an error to be thrown, so wrap this
                    * access in a duk_safe_call() if it matters.
                    */
+                   ERROUT(__func__ << "(): Call error");
                    duk_get_prop_string(ctx, -1, "stack");
                    JSApplication *app = JSApplication::getApplications().at(ctx);
                    AppLog(app->getAppPath().c_str()) <<
@@ -212,17 +221,17 @@ int EventLoop::expire_timers(duk_context *ctx) {
                 }
               }
               duk_pop(ctx);
-              it->second.expiring = 0;
+              timer.second.expiring = 0;
 
               // checking oneshot
-              if(it->second.oneshot) {
-                it->second.removed = 1;
+              if(timer.second.oneshot) {
+                timer.second.removed = 1;
               }
             }
             // breaking to avoid too long callback executions on one run
             break;
           } else {
-            it->second.expiring = 0;
+            timer.second.expiring = 0;
           }
         }
 
@@ -238,8 +247,10 @@ int EventLoop::create_timer(duk_context *ctx) {
   double now = get_now();
   double delay;
   bool oneshot;
-  map<int, TimerStruct> *timers = getAllTimers().at(ctx);
+  map<int, TimerStruct> *timers = getTimers(ctx);
   TimerStruct timer;
+  JSApplication *app = JSApplication::getApplications().at(ctx);
+  std::lock_guard<recursive_mutex> duktape_lock(app->getDuktapeMutex());
 
   DBOUT( "Loading data successful" );
 
@@ -254,8 +265,8 @@ int EventLoop::create_timer(duk_context *ctx) {
      delay = MIN_DELAY;
    }
 
-   DBOUT( "Delay " << delay << " loaded");
-   DBOUT( "Oneshot type is: " << duk_get_type(ctx,2));
+   DBOUT(__func__ << "(): Delay " << delay << " loaded");
+   DBOUT(__func__ << "(): Oneshot type is: " << duk_get_type(ctx,2));
 
    if(duk_get_type(ctx,2) == DUK_TYPE_NONE) {
      // didn't find parameter, thus handling it properly
@@ -274,15 +285,16 @@ int EventLoop::create_timer(duk_context *ctx) {
    //setting some values
    timer.delay = delay;
    timer.oneshot = oneshot;
-   timer.id = EventLoop::next_id_++;
+   timer.id = EventLoop::next_id_;
+   ++EventLoop::next_id_;
    timer.target = now + delay;
    timer.removed = 0;
    timer.expiring = 0;
 
-   DBOUT( "Setting up timer successful" );
+   DBOUT(__func__ << "(): Timer id: " << (double)timer.id);
 
    // inserting new timer (or old)
-   timers->insert(pair<int,TimerStruct>(timer.id,timer));
+   addTimer(ctx,timer);
 
    DBOUT(  "Trying to register timer to global stash" );
    /* Finally, register the callback to the global stash 'eventTimers' object. */
@@ -312,7 +324,7 @@ int EventLoop::delete_timer(duk_context *ctx) {
   timer_id = (double) duk_require_number(ctx, 0);
 
   // removing timer from existence
-  found = getTimers(ctx)->erase((int)timer_id);
+  removeTimer(ctx, (int)timer_id);
 
   /* The C++ state is now up-to-date, but we still need to delete
    * the timer callback state from the global 'stash'.
@@ -341,10 +353,27 @@ int EventLoop::request_exit(duk_context *ctx) {
 
 map<int, EventLoop::TimerStruct>* EventLoop::getTimers(duk_context *ctx) {
   if(getAllTimers().find(ctx) != getAllTimers().end()) {
-    return getAllTimers().at(ctx);
+    return &all_timers_.at(ctx);
   }
 
   return 0;
+}
+
+void EventLoop::addTimer(duk_context *ctx, const TimerStruct& timer) {
+  if(getAllTimers().find(ctx) != getAllTimers().end()) {
+    all_timers_.at(ctx).insert(pair<int,TimerStruct>(timer.id,timer));
+  } else {
+    createNewTimers(ctx);
+    all_timers_.at(ctx).insert(pair<int,TimerStruct>(timer.id,timer));
+  }
+  return;
+}
+
+void EventLoop::removeTimer(duk_context *ctx, int id) {
+  if(getAllTimers().find(ctx) != getAllTimers().end()) {
+    all_timers_.at(ctx).erase(id);
+  }
+  return;
 }
 
 void EventLoop::createNewTimers(duk_context *ctx) {
@@ -352,7 +381,7 @@ void EventLoop::createNewTimers(duk_context *ctx) {
     return;
   }
 
-  EventLoop::all_timers_.insert(pair<duk_context*,map<int, TimerStruct>*>(ctx,new map<int,TimerStruct>()));
+  all_timers_.insert(pair<duk_context*,map<int, TimerStruct> >(ctx,map<int,TimerStruct>()));
 }
 
 EventLoop* EventLoop::getEventLoop(duk_context *ctx) {
@@ -372,6 +401,19 @@ void EventLoop::createNewEventLoop(duk_context *ctx, EventLoop *event_loop) {
     EventLoop::all_eventloops_.insert(pair<duk_context*,EventLoop*>(ctx,event_loop));
   else
     EventLoop::all_eventloops_.insert(pair<duk_context*,EventLoop*>(ctx,new EventLoop(ctx)));
+}
+
+void EventLoop::deleteEventLoop(duk_context *ctx) {
+  if(getAllEventLoops().find(ctx) != getAllEventLoops().end()) {
+    delete EventLoop::all_eventloops_.at(ctx);
+    EventLoop::all_eventloops_.erase(ctx);
+  }
+
+  if(getAllTimers().find(ctx) != getAllTimers().end()) {
+    EventLoop::all_timers_.erase(ctx);
+  }
+
+
 }
 
 /* Get Javascript compatible 'now' timestamp (millisecs since 1970). */

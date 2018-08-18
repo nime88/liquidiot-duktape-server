@@ -51,7 +51,9 @@ static duk_ret_t duk__console_log_helper(duk_context *ctx, const char *call_name
 	duk_join(ctx, n);
 
 	if (error) {
-		duk_push_error_object(ctx, DUK_ERR_ERROR, "%s", duk_require_string(ctx, -1));
+		ERROUT(__func__ << "(): Call name " << call_name);
+		ERROUT(__func__ << "(): " << duk_safe_to_string(ctx, -1));
+		duk_push_error_object(ctx, DUK_ERR_ERROR, "%s", duk_safe_to_string(ctx, -1));
 		duk_push_string(ctx, "name");
 		duk_push_string(ctx, call_name);
 		duk_def_prop(ctx, -3, DUK_DEFPROP_FORCE | DUK_DEFPROP_HAVE_VALUE);  /* to get e.g. 'Trace: 1 2 3' */
@@ -61,8 +63,8 @@ static duk_ret_t duk__console_log_helper(duk_context *ctx, const char *call_name
 	// logging the events/prints
 	JSApplication *app = JSApplication::getApplications().at(ctx);
 	// writing to log
-	AppLog(app->getAppPath().c_str()) << AppLog::getTimeStamp() << " [" << call_name << "] " << duk_require_string(ctx, -1) << "\n";
-
+	AppLog(app->getAppPath().c_str()) << AppLog::getTimeStamp() << " [" << call_name << "] " << duk_safe_to_string(ctx, -1) << "\n";
+	
 	return 0;
 }
 

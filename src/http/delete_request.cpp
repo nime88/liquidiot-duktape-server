@@ -86,7 +86,7 @@ int DeleteRequest::calculateHttpRequest(void* buffer_data, void* in) {
     int app_amount = apps.size();
 
     for (  map<duk_context*, JSApplication*>::const_iterator it=apps.begin(); it!=apps.end(); ++it) {
-      lwsl_user("Deleting application first\n");
+      DBOUT("Deleting application first\n");
       deleted_apps += JSApplication::deleteApplication(it->second);
     }
 

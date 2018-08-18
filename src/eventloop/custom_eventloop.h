@@ -44,23 +44,26 @@ class EventLoop {
     /* Setters and Getters */
     /* ******************* */
 
-    static inline const map<duk_context*,map<int, TimerStruct>*>& getAllTimers() { return all_timers_; }
+    static inline const map<duk_context*,map<int, TimerStruct>>& getAllTimers() { return all_timers_; }
     static map<int, TimerStruct>* getTimers(duk_context *ctx);
+    static void addTimer(duk_context *ctx, const TimerStruct& timer);
+    static void removeTimer(duk_context *ctx, int id);
     static void createNewTimers(duk_context *ctx);
 
     static inline const map<duk_context*,EventLoop*>& getAllEventLoops() { return all_eventloops_; }
     static EventLoop* getEventLoop(duk_context *ctx);
     static void createNewEventLoop(duk_context *ctx, EventLoop *event_loop);
+    static void deleteEventLoop(duk_context *ctx);
 
   private:
-    bool exit_requested_ = 0;
-    int current_timeout_ = 0;
+    bool exit_requested_;
+    int current_timeout_;
     static mutex mtx_;
 
     static double get_now(void);
 
     static int next_id_;
-    static map<duk_context*,map<int, TimerStruct>*> all_timers_;
+    static map<duk_context*,map<int, TimerStruct> > all_timers_;
     static map<duk_context*,EventLoop*> all_eventloops_;
 
 
