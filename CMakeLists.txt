@@ -5,7 +5,7 @@ set(CMAKE_PROJECT_NAME "liquidiot-duktape-server")
 
 SET(MAJOR_VERSION "0")
 SET(MINOR_VERSION "2")
-SET(PATCH_VERSION "0")
+SET(PATCH_VERSION "1")
 
 ## BUILD ##
 # cpp flags
