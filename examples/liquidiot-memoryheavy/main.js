@@ -1,5 +1,5 @@
 module.exports = function($app, $router, $request, console){
-var max_reserve = 1e6;
+var max_reserve = 5e6;
 var counter = 0;
 var arr = [];
 

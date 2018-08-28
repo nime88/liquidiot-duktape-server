@@ -18,7 +18,9 @@ class JSApplication;
 class AppRequest : public HttpRequest {
   public:
     enum request_types { UNDEFINED=0,GET, POST, PUT, PATCH, DELETE, COPY, HEAD, OPTIONS, LINK, UNLINK, PURGE, LOCK, UNLOCK, PROPFIND, VIEW};
-    const char* request_types_char[16] = {
+
+    static const unsigned int REQUEST_TYPES_CHAR_SIZE = 16;
+    const char* request_types_char[REQUEST_TYPES_CHAR_SIZE] = {
       "UNDEFINED","GET", "POST", "PUT", "PATCH", "DELETE", "COPY", "HEAD", "OPTIONS", "LINK", "UNLINK", "PURGE", "LOCK", "UNLOCK", "PROPFIND", "VIEW"
     };
 
@@ -59,7 +61,7 @@ class AppRequest : public HttpRequest {
     int generateFailResponse(struct lws *wsi, void* buffer_data, uint8_t *start, uint8_t *p, uint8_t *end);
 
     request_types getRequestTypeByName(const char* name) {
-      for( unsigned int i = 0; i < ARRAY_SIZE(request_types_char);++i) {
+      for( unsigned int i = 0; i < REQUEST_TYPES_CHAR_SIZE;++i) {
         if(string(request_types_char[i]) == string(name)) {
           return request_types(i);
         }

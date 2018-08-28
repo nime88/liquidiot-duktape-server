@@ -19,6 +19,8 @@ struct mount_path {
 
 };
 
+const unsigned int URL_MOUNTS_SIZE = 4;
+
 const struct mount_path URL_MOUNTS[] = {
   { regex(R"(^/?$)"), HttpServer::server_rest_api, "root" },
   { regex(R"(^/(\d)+/?$)"), HttpServer::server_rest_api, "app_root" },

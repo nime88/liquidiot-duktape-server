@@ -106,7 +106,7 @@ int HttpServer::rest_api_callback(struct lws *wsi, enum lws_callback_reasons rea
     return 0;
 
   if(reason == LWS_CALLBACK_HTTP) {
-    for(unsigned int i = 0; i < ARRAY_SIZE(URL_MOUNTS); ++i) {
+    for(unsigned int i = 0; i < URL_MOUNTS_SIZE; ++i) {
       string url = (char*)in;
       smatch m;
       regex_match(url,m,URL_MOUNTS[i].url_rule);

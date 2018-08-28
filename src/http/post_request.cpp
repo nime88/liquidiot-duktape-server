@@ -11,6 +11,7 @@
 #include <boost/filesystem.hpp>
 namespace fs = boost::filesystem;
 
+const unsigned int POST_PARAM_NAMES_SIZE = 1;
 const char * const PostRequest::post_param_names[] = {
   "filekey",
 };
@@ -102,7 +103,7 @@ int PostRequest::parsePostForm(struct lws *wsi, void* buffer_data, void* in, siz
   /* create the POST argument parser if not already existing */
   if (!dest_buffer->spa) {
     dest_buffer->spa = lws_spa_create(wsi, post_param_names,
-        ARRAY_SIZE(post_param_names), 2048, PostRequest::parsePostFormCB, dest_buffer);
+        POST_PARAM_NAMES_SIZE, 2048, PostRequest::parsePostFormCB, dest_buffer);
     if (!dest_buffer->spa) {
       dest_buffer->error_msg = "Failed to create request (probably server side problem)";
       return 0;

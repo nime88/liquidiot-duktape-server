@@ -13,6 +13,8 @@ using std::to_string;
 #include <boost/filesystem.hpp>
 namespace fs = boost::filesystem;
 
+const unsigned int PUT_PARAM_NAMES_SIZE = 1;
+
 const char * const PutRequest::put_param_names[] = {
   Constant::Attributes::APP_STATE,
 };
@@ -31,7 +33,7 @@ int PutRequest::handleHttpRequest(struct lws *wsi, void* buffer_data, void* in, 
       if (!dest_buffer->spa) {
         // saving the input in case of JSON
         dest_buffer->large_str = (char*)in;
-        dest_buffer->spa = lws_spa_create(wsi, put_param_names, ARRAY_SIZE(put_param_names), 1024, NULL, NULL); /* no file upload */
+        dest_buffer->spa = lws_spa_create(wsi, put_param_names, PUT_PARAM_NAMES_SIZE, 1024, NULL, NULL); /* no file upload */
 
         if (!dest_buffer->spa)
           return -1;
@@ -145,7 +147,7 @@ int PutRequest::calculateHttpRequest(void* buffer_data, void* in) {
   JSApplication::APP_STATES state;
   string parsed_str;
 
-  for (int n = 0; n < (int)ARRAY_SIZE(put_param_names); n++) {
+  for (unsigned int n = 0; n < PUT_PARAM_NAMES_SIZE; n++) {
     if (!lws_spa_get_string(dest_buffer->spa, n)) {
       DBOUT(__func__ << ": Falling back to JSON");
       duk_context *ctx = app->getContext();

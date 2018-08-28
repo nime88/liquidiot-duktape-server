@@ -11,8 +11,9 @@ using std::shared_ptr;
 #include "app_request.h"
 
 struct user_buffer_data {
-    char str[256];
-    int len;
+    static const unsigned int STR_BUFFER_SIZE = 256;
+    char str[STR_BUFFER_SIZE];
+    unsigned int len;
     struct lws_spa *spa;		/* lws helper decodes multipart form */
     char filename[128];		/* the filename of the uploaded file */
     unsigned long long file_length; /* the amount of bytes uploaded */

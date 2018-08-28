@@ -29,7 +29,7 @@ int HttpRequest::writeHttpRequest(struct lws *wsi, void* buffer_data, void* in, 
     string write_buffer = dest_buffer->large_str.substr( dest_buffer->buffer_idx, HttpRequest::BUFFER_SIZE);
     dest_buffer->buffer_idx += HttpRequest::BUFFER_SIZE;
 
-    if(dest_buffer->buffer_idx < dest_buffer->len && write_buffer.length() == HttpRequest::BUFFER_SIZE) {
+    if(dest_buffer->buffer_idx < static_cast<int>(dest_buffer->len) && write_buffer.length() == HttpRequest::BUFFER_SIZE) {
       char *out = (char *)malloc(sizeof(char)*(LWS_SEND_BUFFER_PRE_PADDING + write_buffer.length() + LWS_SEND_BUFFER_POST_PADDING));
       memcpy (out + LWS_SEND_BUFFER_PRE_PADDING, write_buffer.c_str(), write_buffer.length() );
       if (lws_write( wsi, (uint8_t *)out + LWS_SEND_BUFFER_PRE_PADDING, write_buffer.length(), LWS_WRITE_HTTP ) < 0) {
@@ -44,7 +44,7 @@ int HttpRequest::writeHttpRequest(struct lws *wsi, void* buffer_data, void* in, 
       // if string
       if (lws_write(wsi, (uint8_t *)write_buffer.c_str(), write_buffer.length(), LWS_WRITE_HTTP_FINAL) < 0) return 1;
     }
-  } else if (dest_buffer->large_str.length() == 0 && lws_write(wsi, (uint8_t *)dest_buffer->str, dest_buffer->len, LWS_WRITE_HTTP_FINAL) != dest_buffer->len) {
+  } else if (dest_buffer->large_str.length() == 0 && lws_write(wsi, (uint8_t *)dest_buffer->str, dest_buffer->len, LWS_WRITE_HTTP_FINAL) != static_cast<int>(dest_buffer->len)) {
     return 1;
   }
 
@@ -74,7 +74,7 @@ void HttpRequest::optimizeResponseString(const string &response, void* buffer_da
   struct user_buffer_data *dest_buffer = (struct user_buffer_data *)buffer_data;
 
   dest_buffer->len = response.length();
-  if(dest_buffer->len < (int)ARRAY_SIZE(dest_buffer->str)) {
+  if(dest_buffer->len < dest_buffer->STR_BUFFER_SIZE) {
     strcpy(dest_buffer->str,response.c_str());
     if(dest_buffer->large_str.length() > 0)
       dest_buffer->large_str = "";
