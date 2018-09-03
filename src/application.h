@@ -1,6 +1,8 @@
 #if !defined(APPLICATION_H_INCLUDED)
 #define APPLICATION_H_INCLUDED
 
+#include "duktape_interface.h"
+
 #include "prints.h"
 #include "custom_eventloop.h"
 class AppRequest;
@@ -31,6 +33,7 @@ extern "C" {
 #include <thread>
 #include <mutex>
 #include <condition_variable>
+#include <memory>
 
 using std::string;
 using std::vector;
@@ -168,11 +171,6 @@ class JSApplication {
       return false;
     }
 
-    static duk_ret_t cb_resolve_module(duk_context *ctx);
-    static duk_ret_t cb_load_module(duk_context *ctx);
-    static duk_ret_t cb_print(duk_context *ctx);
-    static duk_ret_t cb_alert(duk_context *ctx);
-
     static duk_ret_t cb_resolve_app_response(duk_context *ctx);
     static duk_ret_t cb_load_swagger_fragment(duk_context *ctx);
     static duk_ret_t cb_register_app_api(duk_context *ctx);
@@ -243,6 +241,8 @@ class JSApplication {
     condition_variable evcv_;
 
     duk_idx_t set_task_interval_idx_;
+
+    std::shared_ptr<DuktapeInterface> duktape_interface_;
 
     void defaultConstruct(const char* path);
 
