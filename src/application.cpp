@@ -21,6 +21,7 @@ namespace fs = boost::filesystem;
 
 // KAAAPPAA
 #include "duktape_interface.h"
+#include "duktape_js_object.h"
 
 const array<string,4> JSApplication::APP_STATES_CHAR = { {
   Constant::String::INITIALIZING,

@@ -2,7 +2,8 @@
 add_library (ModDukTape mod_duk_console.h mod_duk_console.cpp 
 	duk_util.h duk_util.cpp 
 	duktape_interface.h duktape_interface.cpp 
-	duktape_callbacks.h duktape_callbacks.cpp)
+	duktape_callbacks.h duktape_callbacks.cpp
+	duktape_js_object.h duktape_js_object.cpp)
 
 # linking necessary dependencies
 target_link_libraries (ModDukTape DukTape Constant Utility JSApp Logs NodeJS)

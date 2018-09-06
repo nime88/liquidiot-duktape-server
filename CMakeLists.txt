@@ -126,3 +126,7 @@ SET(CPACK_DEBIAN_ARCHITECTURE ${CMAKE_SYSTEM_PROCESSOR})
 
 SET(CPACK_COMPONENTS_ALL Libraries ApplicationData)
 INCLUDE(CPack)
+
+# Configuring tests
+find_package(Catch2 REQUIRED)
+add_subdirectory (tests)
